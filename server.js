@@ -327,6 +327,7 @@ function createRoom(hostId, hostName, save = null) {
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
+    isMorning: true,
   };
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
@@ -334,7 +335,11 @@ function createRoom(hostId, hostName, save = null) {
     personalScore: 0,
   };
   rooms.set(code, room);
-  if (save) roomLog(room, `💾 Loaded save — Day ${day}, $${money} cash`);
+  if (save) {
+    roomLog(room, `💾 Loaded save — Day ${day}, $${money} cash`);
+  } else {
+    roomLog(room, `🌅 Welcome to FreshMart! Prep your store, then start the day.`);
+  }
   return room;
 }
 
@@ -356,6 +361,7 @@ function emit(room) {
     dayTimer: room.dayTimer,
     rushActive: room.rushActive, saleActive: room.saleActive, theftActive: room.theftActive,
     capacityBonus: room.capacityBonus,
+    isMorning: !!room.isMorning,
     products, upgradeList: UPGRADES,
   });
 }
@@ -537,6 +543,7 @@ function resetRoom(room) {
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
+    isMorning: true,
     players,
   });
   roomLog(room, '🔄 Game reset — back to lobby!');
@@ -606,14 +613,18 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'lobby') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start!' }); return; }
-    roomLog(room, `🎉 ${room.players[socket.id]?.name} opened the store!`);
-    startDay(room);
+    // Enter morning shop phase so players can prep before Day 1 starts
+    room.phase = 'shop';
+    room.isMorning = true;
+    roomLog(room, `🌅 Morning! Restock shelves & buy upgrades, then start Day ${room.day}.`);
+    emit(room);
   });
 
   socket.on('nextDay', () => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start next day!' }); return; }
+    room.isMorning = false;
     startDay(room);
   });
 
