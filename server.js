@@ -231,8 +231,12 @@ const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Assoc
 // ─── Room Storage ─────────────────────────────────────────────────
 const rooms = new Map();
 const socketRoom = new Map(); // socketId → roomCode
+const hostSaves  = new Map(); // socketId → [save0, save1, save2]
 
-// Saves are stored in the client's localStorage — server is stateless for saves.
+function getOrInitSaves(hostId) {
+  if (!hostSaves.has(hostId)) hostSaves.set(hostId, [null, null, null]);
+  return hostSaves.get(hostId);
+}
 
 function snapshotRoom(room) {
   return {
@@ -266,7 +270,6 @@ function freshStore(upgrades = []) {
 }
 
 function createRoom(hostId, hostName, save = null) {
-  // hostId here is the socket.id at room creation time
   const code = generateCode();
   let inv, prices, shelves, upgrades, money, day, totalScore, reputation, capacityBonus;
 
@@ -288,7 +291,7 @@ function createRoom(hostId, hostName, save = null) {
   }
 
   const room = {
-    code, hostId, hostSocketId: hostId,
+    code, hostId,
     phase: 'lobby',
     players: {},
     money, day, totalScore, reputation,
@@ -299,7 +302,7 @@ function createRoom(hostId, hostName, save = null) {
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
-    isMorning: true,
+    isMorning: true, // always start in morning prep before first day
   };
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
@@ -484,14 +487,13 @@ function startDay(room) {
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
-  room.isMorning = true;
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
-  // Tell the host's client to save — client stores in localStorage
+  // Auto-save to host's active slot
   if (room.saveSlot != null) {
-    const snap = snapshotRoom(room);
-    io.to(room.hostSocketId || room.hostId).emit('autoSave', { slotIdx: room.saveSlot, save: snap });
+    const saves = getOrInitSaves(room.hostId);
+    saves[room.saveSlot] = snapshotRoom(room);
     roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
   }
   emit(room);
@@ -524,12 +526,30 @@ function resetRoom(room) {
 // ─── Socket.io ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
-  // createRoom — save data comes from the client's localStorage
-  socket.on('createRoom', ({ name, saveSlot, save }) => {
+  // Send the host's save slots (only to the requesting socket)
+  socket.on('getSaves', () => {
+    const saves = getOrInitSaves(socket.id);
+    socket.emit('savesData', saves);
+  });
+
+  // Host explicitly saves to a slot (can also be called manually later)
+  socket.on('saveToSlot', (slotIdx) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.hostId !== socket.id) return;
+    if (slotIdx < 0 || slotIdx > 2) return;
+    const saves = getOrInitSaves(socket.id);
+    saves[slotIdx] = snapshotRoom(room);
+    room.saveSlot = slotIdx;
+    socket.emit('savesData', saves);
+    socket.emit('msg', { type:'success', text:`💾 Saved to slot ${slotIdx+1}!` });
+  });
+
+  socket.on('createRoom', ({ name, saveSlot }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
-    const loadedSave = (save && typeof save === 'object') ? save : null;
-    const room = createRoom(socket.id, playerName, loadedSave);
-    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0;
+    const saves = getOrInitSaves(socket.id);
+    const save = (saveSlot != null && saves[saveSlot]) ? saves[saveSlot] : null;
+    const room = createRoom(socket.id, playerName, save);
+    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0; // track which slot to auto-save to
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
     socket.emit('roomJoined', { code: room.code, playerId: socket.id });
@@ -563,7 +583,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'lobby') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start!' }); return; }
-    // Enter morning shop phase so players can prep before Day 1 starts
+    // Enter morning shop phase — players prep before starting Day 1
     room.phase = 'shop';
     room.isMorning = true;
     roomLog(room, `🌅 Morning! Restock shelves & buy upgrades, then start Day ${room.day}.`);
@@ -655,6 +675,13 @@ io.on('connection', (socket) => {
       : `⬆️ ${room.players[socket.id]?.name||'?'} bought: ${upg.name}!`;
     roomLog(room, msg);
     emit(room);
+  });
+
+  socket.on('resetGame', () => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can reset!' }); return; }
+    resetRoom(room);
   });
 
   socket.on('leaveRoom', () => handleLeave(socket));
