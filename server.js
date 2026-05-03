@@ -490,10 +490,12 @@ function endDay(room) {
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
-  // Auto-save to host's active slot
+  // Auto-save: push snapshot to client so localStorage gets written
   if (room.saveSlot != null) {
+    const snapshot = snapshotRoom(room);
     const saves = getOrInitSaves(room.hostId);
-    saves[room.saveSlot] = snapshotRoom(room);
+    saves[room.saveSlot] = snapshot;
+    io.to(room.code).emit('autoSave', { slotIdx: room.saveSlot, save: snapshot });
     roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
   }
   emit(room);
@@ -544,12 +546,12 @@ io.on('connection', (socket) => {
     socket.emit('msg', { type:'success', text:`💾 Saved to slot ${slotIdx+1}!` });
   });
 
-  socket.on('createRoom', ({ name, saveSlot }) => {
+  socket.on('createRoom', ({ name, saveSlot, save }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
-    const saves = getOrInitSaves(socket.id);
-    const save = (saveSlot != null && saves[saveSlot]) ? saves[saveSlot] : null;
-    const room = createRoom(socket.id, playerName, save);
-    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0; // track which slot to auto-save to
+    // Use save data sent from client (localStorage) - server memory resets on restart/reconnect
+    const validSave = (save && typeof save === 'object' && save.day) ? save : null;
+    const room = createRoom(socket.id, playerName, validSave);
+    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0;
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
     socket.emit('roomJoined', { code: room.code, playerId: socket.id });
