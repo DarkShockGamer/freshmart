@@ -863,16 +863,31 @@ let pendingCreateName = '';
 let selectedSaveSlot = null;   // null = new game, 0/1/2 = slot index
 let savesData = [null, null, null];
 
-// Stable identity key stored in localStorage — persists across server restarts
-function getSaveKey() {
-  let k = localStorage.getItem('fm_saveKey');
-  if (!k) {
-    k = 'fmk_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('fm_saveKey', k);
-  }
-  return k;
+// ── localStorage save helpers ──────────────────────
+const LS_KEY = 'fm_saves';
+
+function lsLoadSaves() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length === 3) return parsed;
+    }
+  } catch(e) {}
+  return [null, null, null];
 }
-const mySaveKey = getSaveKey();
+
+function lsSaveSave(slotIdx, save) {
+  const saves = lsLoadSaves();
+  saves[slotIdx] = save;
+  localStorage.setItem(LS_KEY, JSON.stringify(saves));
+}
+
+function lsDeleteSave(slotIdx) {
+  const saves = lsLoadSaves();
+  saves[slotIdx] = null;
+  localStorage.setItem(LS_KEY, JSON.stringify(saves));
+}
 
 // ── Screen management ──────────────────────────────
 function show(id) {
@@ -882,11 +897,6 @@ function show(id) {
 
 // ── Socket setup ───────────────────────────────────
 socket.on('connect', () => { myId = socket.id; });
-
-socket.on('savesData', (saves) => {
-  savesData = saves;
-  renderSaveSlots(saves);
-});
 
 socket.on('hostLeft', () => {
   myRoomCode = null; roomState = null;
@@ -918,12 +928,17 @@ socket.on('serveResult', ({ ok, earned, isVip, msg }) => {
 
 socket.on('msg', ({ type, text }) => showToast(text, type));
 
+socket.on('autoSave', ({ slotIdx, save }) => {
+  lsSaveSave(slotIdx, save);
+  showToast('💾 Game saved!', 'success');
+});
+
 // ── Title Screen Actions ───────────────────────────
 function handleCreate() {
   pendingCreateName = document.getElementById('create-name').value.trim() || 'Player 1';
   selectedSaveSlot = null;
-  // Request saves then show save selection screen
-  socket.emit('getSaves', { saveKey: mySaveKey });
+  savesData = lsLoadSaves();
+  renderSaveSlots(savesData);
   show('saves');
 }
 
@@ -979,16 +994,17 @@ function selectSaveSlot(slotIdx, hasSave) {
 }
 
 function deleteSave(e, slotIdx) {
-  e.stopPropagation(); // don't select the slot
+  e.stopPropagation();
   if (!confirm(`Delete save slot ${slotIdx + 1}? This cannot be undone.`)) return;
-  socket.emit('deleteSave', { saveKey: mySaveKey, slotIdx });
+  lsDeleteSave(slotIdx);
+  savesData = lsLoadSaves();
+  renderSaveSlots(savesData);
 }
 
 function confirmSaveSelection() {
   if (selectedSaveSlot === null) return;
-  const save = savesData[selectedSaveSlot];
-  // saveSlot is the slot index; if slot is empty, pass null for save (fresh game in that slot)
-  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, saveKey: mySaveKey });
+  const save = savesData[selectedSaveSlot] || null;
+  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save });
 }
 
 function handleJoin() {
