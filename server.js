@@ -526,19 +526,37 @@ function endDay(room) {
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
-  // Auto-save: push snapshot to client so localStorage gets written
-  if (room.saveSlot != null) {
-    const snapshot = snapshotRoom(room);
-    const saves = getOrInitSaves(room.hostId);
-    saves[room.saveSlot] = snapshot;
-    io.to(room.code).emit('autoSave', { slotIdx: room.saveSlot, save: snapshot });
-    roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
-  }
+  // Start periodic auto-save for the shop phase (saves immediately + every 30s)
+  startShopAutosave(room);
   emit(room);
 }
 
 function stopRoom(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
+  stopShopAutosave(room);
+}
+
+function doShopSave(room) {
+  if (room.saveSlot == null || room.phase !== 'shop') return;
+  const snapshot = snapshotRoom(room);
+  const saves = getOrInitSaves(room.hostId);
+  saves[room.saveSlot] = snapshot;
+  io.to(room.code).emit('autoSave', { slotIdx: room.saveSlot, save: snapshot });
+}
+
+function startShopAutosave(room) {
+  stopShopAutosave(room);
+  if (room.saveSlot == null) return;
+  // Save immediately when shop phase starts, then every 30s
+  doShopSave(room);
+  room._shopSaveInt = setInterval(() => {
+    if (room.phase !== 'shop') { stopShopAutosave(room); return; }
+    doShopSave(room);
+  }, 30000);
+}
+
+function stopShopAutosave(room) {
+  if (room._shopSaveInt) { clearInterval(room._shopSaveInt); room._shopSaveInt = null; }
 }
 
 function resetRoom(room) {
@@ -625,6 +643,7 @@ io.on('connection', (socket) => {
     room.phase = 'shop';
     room.isMorning = true;
     roomLog(room, `🌅 Morning! Restock shelves & buy upgrades, then start Day ${room.day}.`);
+    startShopAutosave(room);
     emit(room);
   });
 
@@ -632,8 +651,17 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start next day!' }); return; }
+    stopShopAutosave(room);
     room.isMorning = false;
     startDay(room);
+  });
+
+  socket.on('manualSave', () => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Can only save during shop phase!' }); return; }
+    if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can save!' }); return; }
+    doShopSave(room);
+    socket.emit('msg', { type:'success', text:'💾 Game saved!' });
   });
 
   socket.on('serveCustomer', (cid) => {
