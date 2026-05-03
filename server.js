@@ -231,11 +231,36 @@ const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Assoc
 // ─── Room Storage ─────────────────────────────────────────────────
 const rooms = new Map();
 const socketRoom = new Map(); // socketId → roomCode
-const hostSaves  = new Map(); // socketId → [save0, save1, save2]
 
-function getOrInitSaves(hostId) {
-  if (!hostSaves.has(hostId)) hostSaves.set(hostId, [null, null, null]);
-  return hostSaves.get(hostId);
+// ─── Persistent Save File ─────────────────────────────────────────
+const fs = require("fs");
+const SAVE_FILE = path.join(__dirname, "saves.json");
+
+function loadSaveFile() {
+  try {
+    if (fs.existsSync(SAVE_FILE)) {
+      const raw = fs.readFileSync(SAVE_FILE, "utf8");
+      return JSON.parse(raw);
+    }
+  } catch (e) { console.error("Failed to read saves.json:", e); }
+  return {};
+}
+
+function writeSaveFile(data) {
+  try { fs.writeFileSync(SAVE_FILE, JSON.stringify(data, null, 2), "utf8"); }
+  catch (e) { console.error("Failed to write saves.json:", e); }
+}
+
+// In-memory cache: { [saveKey]: [save0, save1, save2] }
+let saveStore = loadSaveFile();
+
+function getOrInitSaves(saveKey) {
+  if (!saveStore[saveKey]) saveStore[saveKey] = [null, null, null];
+  return saveStore[saveKey];
+}
+
+function persistSaves() {
+  writeSaveFile(saveStore);
 }
 
 function snapshotRoom(room) {
@@ -302,7 +327,6 @@ function createRoom(hostId, hostName, save = null) {
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
-    isMorning: true, // always start in morning prep before first day
   };
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
@@ -310,11 +334,7 @@ function createRoom(hostId, hostName, save = null) {
     personalScore: 0,
   };
   rooms.set(code, room);
-  if (save) {
-    roomLog(room, `💾 Loaded save — Day ${day}, $${money} cash`);
-  } else {
-    roomLog(room, `🌅 Welcome to FreshMart! Prep your store, then start the day.`);
-  }
+  if (save) roomLog(room, `💾 Loaded save — Day ${day}, $${money} cash`);
   return room;
 }
 
@@ -336,7 +356,6 @@ function emit(room) {
     dayTimer: room.dayTimer,
     rushActive: room.rushActive, saleActive: room.saleActive, theftActive: room.theftActive,
     capacityBonus: room.capacityBonus,
-    isMorning: !!room.isMorning,
     products, upgradeList: UPGRADES,
   });
 }
@@ -487,13 +506,15 @@ function startDay(room) {
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
+  room.isMorning = true;
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
-  // Auto-save to host's active slot
-  if (room.saveSlot != null) {
-    const saves = getOrInitSaves(room.hostId);
+  // Auto-save to disk
+  if (room.saveSlot != null && room.saveKey) {
+    const saves = getOrInitSaves(room.saveKey);
     saves[room.saveSlot] = snapshotRoom(room);
+    persistSaves();
     roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
   }
   emit(room);
@@ -516,7 +537,6 @@ function resetRoom(room) {
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
-    isMorning: true,
     players,
   });
   roomLog(room, '🔄 Game reset — back to lobby!');
@@ -526,30 +546,33 @@ function resetRoom(room) {
 // ─── Socket.io ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
-  // Send the host's save slots (only to the requesting socket)
-  socket.on('getSaves', () => {
-    const saves = getOrInitSaves(socket.id);
+  // Send the host's save slots using a stable saveKey from the client
+  socket.on('getSaves', ({ saveKey }) => {
+    const key = (saveKey || '').trim().slice(0, 64);
+    if (!key) { socket.emit('savesData', [null, null, null]); return; }
+    const saves = getOrInitSaves(key);
     socket.emit('savesData', saves);
   });
 
-  // Host explicitly saves to a slot (can also be called manually later)
-  socket.on('saveToSlot', (slotIdx) => {
-    const room = rooms.get(socketRoom.get(socket.id));
-    if (!room || room.hostId !== socket.id) return;
-    if (slotIdx < 0 || slotIdx > 2) return;
-    const saves = getOrInitSaves(socket.id);
-    saves[slotIdx] = snapshotRoom(room);
-    room.saveSlot = slotIdx;
+  // Delete a save slot
+  socket.on('deleteSave', ({ saveKey, slotIdx }) => {
+    const key = (saveKey || '').trim().slice(0, 64);
+    if (!key || slotIdx < 0 || slotIdx > 2) return;
+    const saves = getOrInitSaves(key);
+    saves[slotIdx] = null;
+    persistSaves();
     socket.emit('savesData', saves);
-    socket.emit('msg', { type:'success', text:`💾 Saved to slot ${slotIdx+1}!` });
+    socket.emit('msg', { type: 'success', text: `🗑️ Slot ${slotIdx + 1} deleted.` });
   });
 
-  socket.on('createRoom', ({ name, saveSlot }) => {
+  socket.on('createRoom', ({ name, saveSlot, saveKey }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
-    const saves = getOrInitSaves(socket.id);
+    const key = (saveKey || '').trim().slice(0, 64) || socket.id;
+    const saves = getOrInitSaves(key);
     const save = (saveSlot != null && saves[saveSlot]) ? saves[saveSlot] : null;
     const room = createRoom(socket.id, playerName, save);
-    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0; // track which slot to auto-save to
+    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0;
+    room.saveKey  = key; // stable key used for disk persistence
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
     socket.emit('roomJoined', { code: room.code, playerId: socket.id });
@@ -583,18 +606,14 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'lobby') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start!' }); return; }
-    // Enter morning shop phase — players prep before starting Day 1
-    room.phase = 'shop';
-    room.isMorning = true;
-    roomLog(room, `🌅 Morning! Restock shelves & buy upgrades, then start Day ${room.day}.`);
-    emit(room);
+    roomLog(room, `🎉 ${room.players[socket.id]?.name} opened the store!`);
+    startDay(room);
   });
 
   socket.on('nextDay', () => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') return;
     if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can start next day!' }); return; }
-    room.isMorning = false;
     startDay(room);
   });
 
@@ -675,13 +694,6 @@ io.on('connection', (socket) => {
       : `⬆️ ${room.players[socket.id]?.name||'?'} bought: ${upg.name}!`;
     roomLog(room, msg);
     emit(room);
-  });
-
-  socket.on('resetGame', () => {
-    const room = rooms.get(socketRoom.get(socket.id));
-    if (!room) return;
-    if (room.hostId !== socket.id) { socket.emit('msg', { type:'error', text:'Only the host can reset!' }); return; }
-    resetRoom(room);
   });
 
   socket.on('leaveRoom', () => handleLeave(socket));
