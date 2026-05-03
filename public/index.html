@@ -583,6 +583,23 @@ input::placeholder { color: var(--muted); }
 #toast.success { border-color: var(--green);  color: var(--green);  }
 #toast.vip     { border-color: var(--yellow); color: var(--yellow); }
 
+/* ── Save indicator ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.save-spinner {
+  width: 13px; height: 13px; border: 2px solid rgba(99,102,241,.3);
+  border-top-color: var(--blue); border-radius: 50%;
+  animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0;
+}
+#save-indicator {
+  display: none; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; color: var(--blue);
+  background: var(--blue-lo); border: 1px solid var(--blue);
+  border-radius: 20px; padding: 3px 10px; white-space: nowrap;
+}
+#save-indicator.show { display: flex; }
+#save-indicator.done { color: var(--green); background: var(--green-lo); border-color: var(--green); }
+#save-indicator.done .save-spinner { display: none; }
+
 /* ── Code input uppercase ── */
 #join-code { text-transform: uppercase; }
 
@@ -763,7 +780,11 @@ input::placeholder { color: var(--muted); }
   <!-- Shop banner -->
   <div id="shop-banner">
     <span id="shop-banner-text">🌙 Shop Phase — Restock &amp; buy upgrades. Only the host can start the next day.</span>
-    <button class="btn blue sm" id="next-day-btn" onclick="socket.emit('nextDay')" style="margin-left:auto;display:none">☀️ Start Day</button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+      <div id="save-indicator"><div class="save-spinner"></div><span id="save-indicator-text">Auto Saving...</span></div>
+      <button class="btn secondary xs" id="manual-save-btn" onclick="doManualSave()" style="display:none" title="Save now">💾 Save</button>
+      <button class="btn blue sm" id="next-day-btn" onclick="socket.emit('nextDay')" style="display:none">☀️ Start Day</button>
+    </div>
   </div>
 
   <!-- Morning overlay — shown at start of each day session -->
@@ -951,8 +972,32 @@ socket.on('msg', ({ type, text }) => showToast(text, type));
 
 socket.on('autoSave', ({ slotIdx, save }) => {
   lsSaveSave(slotIdx, save);
-  showToast('💾 Game saved!', 'success');
+  showSaveIndicator();
 });
+
+let _saveDoneTimer = null;
+function showSaveIndicator() {
+  const el = document.getElementById('save-indicator');
+  const txt = document.getElementById('save-indicator-text');
+  if (!el) return;
+  clearTimeout(_saveDoneTimer);
+  el.className = 'show';
+  txt.textContent = 'Auto Saving...';
+  _saveDoneTimer = setTimeout(() => {
+    el.className = 'show done';
+    txt.textContent = 'Saved ✓';
+    _saveDoneTimer = setTimeout(() => { el.className = ''; }, 2000);
+  }, 700);
+}
+
+function doManualSave() {
+  const btn = document.getElementById('manual-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '💾 Saving...'; }
+  socket.emit('manualSave');
+  setTimeout(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save'; }
+  }, 1500);
+}
 
 // ── Title Screen Actions ───────────────────────────
 function handleCreate() {
@@ -1205,6 +1250,8 @@ function renderShopBanner(s) {
 
     // Always show Start Day button for host during any shop phase
     nd.style.display = isHost ? 'inline-block' : 'none';
+    const msBtn = document.getElementById('manual-save-btn');
+    if (msBtn) msBtn.style.display = isHost ? 'inline-block' : 'none';
 
     if (s.isMorning) {
       // Reset dismissed flag when a new morning starts (new day number)
@@ -1230,6 +1277,10 @@ function renderShopBanner(s) {
   } else {
     sb.classList.remove('active');
     nd.style.display = 'none';
+    const msBtnHide = document.getElementById('manual-save-btn');
+    if (msBtnHide) msBtnHide.style.display = 'none';
+    const siHide = document.getElementById('save-indicator');
+    if (siHide) siHide.className = '';
     if (overlay) overlay.style.display = 'none';
   }
 }
