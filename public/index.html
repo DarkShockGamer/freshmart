@@ -218,6 +218,7 @@ input::placeholder { color: var(--muted); }
 #screen-game {
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 /* ── Header ── */
@@ -706,7 +707,7 @@ input::placeholder { color: var(--muted); }
   </div>
 
   <div class="lobby-actions">
-    <button class="btn" id="start-btn" onclick="socket.emit('startGame')">🚀 Open the Store!</button>
+    <button class="btn" id="start-btn" onclick="socket.emit('startGame')">🌅 Begin Morning Prep</button>
     <button class="btn secondary" onclick="leaveRoom()">← Leave</button>
   </div>
   <div class="waiting-note" id="lobby-waiting">Waiting for host to start...</div>
@@ -741,8 +742,35 @@ input::placeholder { color: var(--muted); }
 
   <!-- Shop banner -->
   <div id="shop-banner">
-    🌙 Shop Phase — Restock & buy upgrades. Only the host can start the next day.
-    <button class="btn blue sm" id="next-day-btn" onclick="socket.emit('nextDay')" style="margin-left:auto;display:none">▶ Start Day</button>
+    <span id="shop-banner-text">🌙 Shop Phase — Restock &amp; buy upgrades. Only the host can start the next day.</span>
+    <button class="btn blue sm" id="next-day-btn" onclick="socket.emit('nextDay')" style="margin-left:auto;display:none">☀️ Start Day</button>
+  </div>
+
+  <!-- Morning overlay — shown at start of each session -->
+  <div id="morning-overlay" style="display:none;position:absolute;inset:0;background:rgba(10,14,20,.92);z-index:800;align-items:center;justify-content:center;flex-direction:column;gap:24px;padding:32px;">
+    <div style="font-size:64px;animation:float 3s ease-in-out infinite">🌅</div>
+    <div style="font-size:28px;font-weight:800;letter-spacing:-1px" id="morning-title">Good Morning!</div>
+    <div style="font-size:14px;color:var(--muted);text-align:center;max-width:480px" id="morning-subtitle">Prep your store before opening. Restock shelves and buy upgrades during the morning phase.</div>
+
+    <!-- How to play card -->
+    <div style="background:var(--surf);border:1.5px solid var(--border);border-radius:20px;padding:28px 32px;max-width:520px;width:100%;display:flex;flex-direction:column;gap:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px">📖 How to Play</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">🧑</span><span><b style="color:var(--text)">Serve Customers</b> — Click their card before patience runs out to earn money</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">📦</span><span><b style="color:var(--text)">Restock Shelves</b> — Buy inventory in the Restock tab each morning</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">💰</span><span><b style="color:var(--text)">Set Prices</b> — Adjust prices in Inventory to maximize your profit margin</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">⭐</span><span><b style="color:var(--text)">VIP Customers</b> — Serve them first! They pay 2× and boost reputation</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">⬆️</span><span><b style="color:var(--text)">Buy Upgrades</b> — Unlock new departments &amp; store boosts between days</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">⚡</span><span><b style="color:var(--text)">Random Events</b> — React fast to rush hours, thefts &amp; inspections!</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">📊</span><span><b style="color:var(--text)">Watch Reputation</b> — Leaving customers unserved drops rep &amp; hurts income</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--muted)"><span style="flex-shrink:0;font-size:18px">👑</span><span><b style="color:var(--text)">Host Controls</b> — Only the host can open the store and advance days</span></div>
+      </div>
+    </div>
+
+    <button class="btn" id="morning-start-btn" style="font-size:20px;padding:18px 56px;border-radius:16px;letter-spacing:.5px;box-shadow:0 0 40px rgba(16,185,129,.35)" onclick="socket.emit('nextDay')">
+      ☀️ Open the Store — Day <span id="morning-day-num">1</span>
+    </button>
+    <div id="morning-waiting" style="color:var(--muted);font-size:13px">Waiting for host to open the store...</div>
   </div>
 
   <!-- Body -->
@@ -1099,12 +1127,39 @@ function renderEventBanner(s) {
 function renderShopBanner(s) {
   const sb = document.getElementById('shop-banner');
   const nd = document.getElementById('next-day-btn');
+  const overlay = document.getElementById('morning-overlay');
+  const isHost = s.hostId === myId;
+
   if (s.phase === 'shop') {
+    // Banner text varies: morning prep vs between-days
+    if (s.isMorning) {
+      document.getElementById('shop-banner-text').textContent = `🌅 Morning Prep — Restock & buy upgrades before opening Day ${s.day}.`;
+    } else {
+      document.getElementById('shop-banner-text').textContent = `🌙 Shop Phase — Restock & buy upgrades. Only the host can start the next day.`;
+    }
     sb.classList.add('active');
-    nd.style.display = s.hostId === myId ? 'inline-block' : 'none';
+    // The banner "Start Day" button only shows between days (overlay handles morning)
+    nd.style.display = (!s.isMorning && isHost) ? 'inline-block' : 'none';
+
+    // Morning overlay
+    if (s.isMorning) {
+      overlay.style.display = 'flex';
+      document.getElementById('morning-day-num').textContent = s.day;
+      document.getElementById('morning-title').textContent = s.day === 1
+        ? '🌅 Good Morning! Welcome to FreshMart'
+        : `🌅 Good Morning! Day ${s.day} Ahead`;
+      document.getElementById('morning-subtitle').textContent = s.day === 1
+        ? 'Prep your store before opening for the first time. Stock up, set prices, then open!'
+        : `Day ${s.day - 1} is done. Restock shelves & buy upgrades before opening Day ${s.day}.`;
+      document.getElementById('morning-start-btn').style.display = isHost ? 'inline-block' : 'none';
+      document.getElementById('morning-waiting').style.display = isHost ? 'none' : 'block';
+    } else {
+      overlay.style.display = 'none';
+    }
   } else {
     sb.classList.remove('active');
     nd.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
   }
 }
 
@@ -1330,7 +1385,7 @@ function renderSidebar(s) {
     t.textContent = m+':'+(sec<10?'0':'')+sec;
     t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
   } else if (s.phase === 'shop') {
-    t.textContent = 'SHOP'; t.className = 'timer-big shop-mode';
+    t.textContent = s.isMorning ? '🌅' : 'SHOP'; t.className = 'timer-big shop-mode';
   } else {
     t.textContent = '—'; t.className = 'timer-big';
   }
