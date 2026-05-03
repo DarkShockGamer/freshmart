@@ -438,22 +438,73 @@ input::placeholder { color: var(--muted); }
 }
 .toggle.on::after { transform: translateX(16px); }
 
-/* ── Upgrades ── */
-.upg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+/* ── Upgrades Tree ── */
+.upg-tree { display: flex; flex-direction: column; gap: 28px; padding-bottom: 20px; }
+
+.upg-branch {
+  background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: 16px; overflow: hidden;
+}
+.upg-branch-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  background: var(--surf2); border-bottom: 1px solid var(--border);
+  font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+}
+.upg-branch-header .bicon { font-size: 18px; }
+
+.upg-tier-row {
+  display: flex; align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.upg-tier-row:last-child { border-bottom: none; }
+
+.upg-tier-label {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 1px;
+  text-transform: uppercase; padding: 12px 6px; border-right: 1px solid var(--border);
+  background: var(--surf2); flex-shrink: 0; display: flex; align-items: center;
+}
+
+.upg-tier-cards { display: flex; gap: 12px; padding: 12px; flex: 1; flex-wrap: wrap; }
 
 .upg-card {
-  background: var(--surf); border: 1.5px solid var(--border);
-  border-radius: 14px; padding: 16px;
+  background: var(--surf2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 14px;
   display: flex; flex-direction: column; gap: 6px;
-  transition: border-color .15s;
+  transition: border-color .15s, background .15s;
+  min-width: 200px; flex: 1;
+  position: relative;
 }
 .upg-card.owned { border-color: var(--green); background: var(--green-lo); }
-.upg-card:not(.owned):hover { border-color: var(--blue); }
-.upg-emoji { font-size: 26px; }
-.upg-name  { font-size: 14px; font-weight: 700; }
-.upg-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; }
-.upg-cost  { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; }
-.upg-owned { font-size: 12px; color: var(--green); font-weight: 700; }
+.upg-card.available:not(.owned):hover { border-color: var(--blue); cursor: pointer; }
+.upg-card.locked { opacity: .5; }
+.upg-card.locked .upg-lock { display: flex; }
+
+.upg-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.upg-emoji { font-size: 22px; flex-shrink: 0; }
+.upg-name  { font-size: 13px; font-weight: 700; }
+.upg-tier-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .5px;
+  padding: 2px 6px; border-radius: 4px; margin-left: auto; flex-shrink: 0;
+}
+.tier-1 { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
+.tier-2 { background: var(--blue-lo); color: var(--blue); border: 1px solid var(--blue); }
+.tier-3 { background: var(--orange-lo); color: var(--orange); border: 1px solid var(--orange); }
+
+.upg-desc  { font-size: 11px; color: var(--muted); line-height: 1.5; flex: 1; }
+.upg-unlocks { font-size: 10px; color: var(--cyan); margin-top: 2px; }
+
+.upg-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.upg-cost  { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 700; flex: 1; }
+.upg-owned-badge { font-size: 11px; color: var(--green); font-weight: 700; }
+
+.upg-lock { 
+  display: none; position: absolute; top: 8px; right: 10px;
+  font-size: 14px; color: var(--muted);
+}
+.upg-req { font-size: 10px; color: var(--red); margin-top: 2px; }
 
 /* ── Sidebar ── */
 #sidebar {
@@ -677,8 +728,8 @@ input::placeholder { color: var(--muted); }
 
       <!-- Upgrades -->
       <div class="tab-pane" id="pane-upgrades">
-        <span class="section-label">Store Upgrades — Purchase during Shop Phase</span>
-        <div class="upg-grid" id="upg-grid"></div>
+        <span class="section-label">Upgrade Tree — Purchase during Shop Phase</span>
+        <div class="upg-tree" id="upg-tree"></div>
       </div>
     </div>
 
@@ -1000,45 +1051,22 @@ function renderInventory(s) {
 function renderShop(s) {
   const body = document.getElementById('shop-body');
   const isShop = s.phase === 'shop';
-
+  body.innerHTML = '';
   s.products.forEach(p => {
     const maxCap = 30 + (s.capacityBonus||0);
     const cur    = s.inventory[p.id]||0;
-
-    // Try to reuse existing row to preserve qty input values
-    let tr = body.querySelector(`tr[data-pid="${p.id}"]`);
-    if (!tr) {
-      tr = document.createElement('tr');
-      tr.dataset.pid = p.id;
-      tr.innerHTML = `
-        <td class="emoji-cell">${p.emoji}</td>
-        <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
-        <td class="cost-cell" style="font-family:var(--mono);font-size:12px;color:var(--muted)">$${p.cost}/u</td>
-        <td class="stock-cell"></td>
-        <td><input type="number" class="qty-input" min="1" max="30" value="5" id="qty-${p.id}"></td>
-        <td><button class="btn sm restock-btn" onclick="doRestock('${p.id}')">Buy</button></td>
-      `;
-      body.appendChild(tr);
-    }
-
-    // Update only the dynamic parts
-    const stockCell = tr.querySelector('.stock-cell');
-    stockCell.className = 'stock-cell ' + (cur<4?'stock-lo':'stock-ok');
-    stockCell.textContent = cur+'/'+maxCap;
-
-    const qtyInput = tr.querySelector('.qty-input');
-    qtyInput.disabled = !isShop;
-
-    const btn = tr.querySelector('.restock-btn');
-    btn.disabled = !isShop;
-    btn.className = 'btn sm restock-btn ' + (isShop?'':'secondary');
-    btn.style.opacity = isShop ? '' : '0.4';
-    btn.textContent = 'Buy';
-  });
-
-  // Remove rows for products no longer in list (shouldn't happen, but safety)
-  body.querySelectorAll('tr[data-pid]').forEach(tr => {
-    if (!s.products.find(p => p.id === tr.dataset.pid)) tr.remove();
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="emoji-cell">${p.emoji}</td>
+      <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">$${p.cost}/u</td>
+      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}">${cur}/${maxCap}</td>
+      <td><input type="number" class="qty-input" min="1" max="30" value="5"
+            id="qty-${p.id}" ${!isShop?'disabled':''}></td>
+      <td><button class="btn sm ${isShop?'':'secondary'}" ${!isShop?'disabled':''} style="${!isShop?'opacity:.4':''}"
+            onclick="doRestock('${p.id}')">Buy</button></td>
+    `;
+    body.appendChild(tr);
   });
 }
 
@@ -1047,30 +1075,110 @@ function doRestock(productId) {
   socket.emit('restock', { productId, qty });
 }
 
-// ── Upgrades ───────────────────────────────────────
+// ── Upgrades Tree ──────────────────────────────────────────────────
+const BRANCH_META = {
+  grocery:     { label: '🥗 Grocery',       color: 'var(--green)' },
+  store:       { label: '🏪 Store Ops',     color: 'var(--blue)'  },
+  clothing:    { label: '👕 Clothing',      color: 'var(--cyan)'  },
+  electronics: { label: '📱 Electronics',  color: 'var(--orange)' },
+  auto:        { label: '🚗 Automotive',    color: 'var(--yellow)' },
+  outdoors:    { label: '🏹 Outdoors',      color: 'var(--red)'    },
+  furniture:   { label: '🛋️ Furniture',    color: 'var(--muted)'  },
+};
+const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III' };
+
 function renderUpgrades(s) {
-  const grid = document.getElementById('upg-grid');
-  grid.innerHTML = '';
+  const tree = document.getElementById('upg-tree');
   const isShop = s.phase === 'shop';
+
+  // group by section, then tier
+  const sections = {};
   s.upgradeList.forEach(u => {
-    const owned = s.upgrades.includes(u.id);
-    const canAfford = s.money >= u.cost;
-    const card = document.createElement('div');
-    card.className = 'upg-card' + (owned?' owned':'');
-    card.innerHTML = `
-      <div class="upg-emoji">${u.emoji}</div>
-      <div class="upg-name">${u.name}</div>
-      <div class="upg-desc">${u.desc}</div>
-      ${owned
-        ? `<div class="upg-owned">✅ Purchased</div>`
-        : `<div class="upg-cost">$${u.cost}</div>
-           <button class="btn sm ${isShop&&canAfford?'blue':'secondary'}"
-             onclick="socket.emit('buyUpgrade','${u.id}')"
-             ${!isShop||!canAfford?'disabled style="opacity:.4"':''}>
-             ${isShop ? 'Purchase' : 'Shop Phase Only'}
-           </button>`}
-    `;
-    grid.appendChild(card);
+    if (!sections[u.section]) sections[u.section] = {};
+    if (!sections[u.section][u.tier]) sections[u.section][u.tier] = [];
+    sections[u.section][u.tier].push(u);
+  });
+
+  tree.innerHTML = '';
+
+  Object.entries(sections).forEach(([sectionId, tiers]) => {
+    const meta = BRANCH_META[sectionId] || { label: sectionId, color: 'var(--muted)' };
+    const branch = document.createElement('div');
+    branch.className = 'upg-branch';
+
+    const header = document.createElement('div');
+    header.className = 'upg-branch-header';
+    header.innerHTML = `<span class="bicon">${meta.label.split(' ')[0]}</span><span>${meta.label.slice(meta.label.indexOf(' ')+1)}</span>`;
+    header.style.borderBottom = `2px solid ${meta.color}`;
+    branch.appendChild(header);
+
+    [1, 2, 3].forEach(tier => {
+      const upgrades = tiers[tier];
+      if (!upgrades) return;
+
+      const tierRow = document.createElement('div');
+      tierRow.className = 'upg-tier-row';
+
+      const tierLabel = document.createElement('div');
+      tierLabel.className = 'upg-tier-label';
+      tierLabel.textContent = TIER_LABELS[tier] || `T${tier}`;
+      tierRow.appendChild(tierLabel);
+
+      const cards = document.createElement('div');
+      cards.className = 'upg-tier-cards';
+
+      upgrades.forEach(u => {
+        const owned = s.upgrades.includes(u.id);
+        const reqsMet = u.requires.every(r => s.upgrades.includes(r));
+        const canAfford = s.money >= u.cost;
+        const available = isShop && reqsMet && !owned;
+
+        const card = document.createElement('div');
+        card.className = 'upg-card' + (owned ? ' owned' : reqsMet ? ' available' : ' locked');
+
+        // unlocks preview
+        const nextUpgNames = (u.unlocks || [])
+          .map(id => s.upgradeList.find(x => x.id === id)?.name)
+          .filter(Boolean);
+        const unlocksHtml = nextUpgNames.length
+          ? `<div class="upg-unlocks">→ Unlocks: ${nextUpgNames.join(', ')}</div>` : '';
+
+        // missing req label
+        const missingReqs = u.requires.filter(r => !s.upgrades.includes(r))
+          .map(r => s.upgradeList.find(x => x.id === r)?.name || r);
+        const reqHtml = !reqsMet
+          ? `<div class="upg-req">🔒 Requires: ${missingReqs.join(', ')}</div>` : '';
+
+        card.innerHTML = `
+          <span class="upg-lock">🔒</span>
+          <div class="upg-card-top">
+            <span class="upg-emoji">${u.emoji}</span>
+            <span class="upg-name">${u.name}</span>
+            <span class="upg-tier-badge tier-${u.tier}">T${u.tier}</span>
+          </div>
+          <div class="upg-desc">${u.desc}</div>
+          ${reqHtml}
+          ${unlocksHtml}
+          <div class="upg-footer">
+            ${owned
+              ? `<span class="upg-owned-badge">✅ Owned</span>`
+              : `<span class="upg-cost">$${u.cost}</span>
+                 <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
+                   onclick="socket.emit('buyUpgrade','${u.id}')"
+                   ${!available || !canAfford ? 'disabled' : ''}>
+                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${u.cost}` : 'Purchase'}
+                 </button>`
+            }
+          </div>
+        `;
+        cards.appendChild(card);
+      });
+
+      tierRow.appendChild(cards);
+      branch.appendChild(tierRow);
+    });
+
+    tree.appendChild(branch);
   });
 }
 
@@ -1105,22 +1213,16 @@ function renderSidebar(s) {
     sb.appendChild(row);
   });
 
-  // log — diff update to avoid flash on every timer tick
+  // log
   const log = document.getElementById('log-area');
   const entries = s.eventLog||[];
-  const existingMsgs = [...log.querySelectorAll('.log-entry')].map(el => el.textContent);
-  const newMsgs = entries.map(e => e.msg);
-
-  // Only rebuild if content actually changed
-  if (JSON.stringify(existingMsgs) !== JSON.stringify(newMsgs)) {
-    log.innerHTML = '';
-    entries.forEach(e => {
-      const el = document.createElement('div');
-      el.className = 'log-entry';
-      el.textContent = e.msg;
-      log.appendChild(el);
-    });
-  }
+  log.innerHTML = '';
+  entries.forEach(e => {
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.textContent = e.msg;
+    log.appendChild(el);
+  });
 }
 
 // ── Tab switching ──────────────────────────────────
