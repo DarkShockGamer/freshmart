@@ -231,6 +231,24 @@ const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Assoc
 // ─── Room Storage ─────────────────────────────────────────────────
 const rooms = new Map();
 const socketRoom = new Map(); // socketId → roomCode
+const hostSaves  = new Map(); // socketId → [save0, save1, save2]
+
+function getOrInitSaves(hostId) {
+  if (!hostSaves.has(hostId)) hostSaves.set(hostId, [null, null, null]);
+  return hostSaves.get(hostId);
+}
+
+function snapshotRoom(room) {
+  return {
+    money: room.money, day: room.day, totalScore: room.totalScore,
+    reputation: room.reputation, upgrades: [...room.upgrades],
+    capacityBonus: room.capacityBonus,
+    inventory: { ...room.inventory },
+    prices:    { ...room.prices    },
+    shelves:   { ...room.shelves   },
+    savedAt: Date.now(),
+  };
+}
 
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -251,29 +269,47 @@ function freshStore(upgrades = []) {
   return { inv, prices, shelves };
 }
 
-function createRoom(hostId, hostName) {
+function createRoom(hostId, hostName, save = null) {
   const code = generateCode();
-  const { inv, prices, shelves } = freshStore();
+  let inv, prices, shelves, upgrades, money, day, totalScore, reputation, capacityBonus;
+
+  if (save) {
+    // Restore from save — ensure all products for unlocked upgrades exist
+    upgrades = save.upgrades || [];
+    const baseProd = freshStore(upgrades);
+    inv          = { ...baseProd.inv,    ...save.inventory };
+    prices       = { ...baseProd.prices, ...save.prices    };
+    shelves      = { ...baseProd.shelves,...save.shelves   };
+    money        = save.money;
+    day          = save.day;
+    totalScore   = save.totalScore;
+    reputation   = save.reputation;
+    capacityBonus= save.capacityBonus || 0;
+  } else {
+    ({ inv, prices, shelves } = freshStore());
+    upgrades = []; money = 200; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
+  }
+
   const room = {
     code, hostId,
     phase: 'lobby',
     players: {},
-    money: 200, day: 1, totalScore: 0, reputation: 100,
+    money, day, totalScore, reputation,
     inventory: inv, prices, shelves,
     customers: [], eventLog: [],
-    activeEvent: null, upgrades: [],
+    activeEvent: null, upgrades,
     nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
-    theftTimeout: null, capacityBonus: 0,
+    theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
   };
-  const idx = 0;
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
-    color: PLAYER_COLORS[idx], role: PLAYER_ROLES[idx],
+    color: PLAYER_COLORS[0], role: PLAYER_ROLES[0],
     personalScore: 0,
   };
   rooms.set(code, room);
+  if (save) roomLog(room, `💾 Loaded save — Day ${day}, $${money} cash`);
   return room;
 }
 
@@ -448,6 +484,12 @@ function endDay(room) {
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
+  // Auto-save to host's active slot
+  if (room.saveSlot != null) {
+    const saves = getOrInitSaves(room.hostId);
+    saves[room.saveSlot] = snapshotRoom(room);
+    roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
+  }
   emit(room);
 }
 
@@ -477,9 +519,30 @@ function resetRoom(room) {
 // ─── Socket.io ────────────────────────────────────────────────────
 io.on('connection', (socket) => {
 
-  socket.on('createRoom', ({ name }) => {
+  // Send the host's save slots (only to the requesting socket)
+  socket.on('getSaves', () => {
+    const saves = getOrInitSaves(socket.id);
+    socket.emit('savesData', saves);
+  });
+
+  // Host explicitly saves to a slot (can also be called manually later)
+  socket.on('saveToSlot', (slotIdx) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.hostId !== socket.id) return;
+    if (slotIdx < 0 || slotIdx > 2) return;
+    const saves = getOrInitSaves(socket.id);
+    saves[slotIdx] = snapshotRoom(room);
+    room.saveSlot = slotIdx;
+    socket.emit('savesData', saves);
+    socket.emit('msg', { type:'success', text:`💾 Saved to slot ${slotIdx+1}!` });
+  });
+
+  socket.on('createRoom', ({ name, saveSlot }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
-    const room = createRoom(socket.id, playerName);
+    const saves = getOrInitSaves(socket.id);
+    const save = (saveSlot != null && saves[saveSlot]) ? saves[saveSlot] : null;
+    const room = createRoom(socket.id, playerName, save);
+    room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0; // track which slot to auto-save to
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
     socket.emit('roomJoined', { code: room.code, playerId: socket.id });
@@ -622,11 +685,18 @@ io.on('connection', (socket) => {
     const pname = room.players[sock.id]?.name || 'A player';
     delete room.players[sock.id];
     sock.leave(code);
-    if (Object.keys(room.players).length === 0) { stopRoom(room); rooms.delete(code); return; }
+
     if (room.hostId === sock.id) {
-      room.hostId = Object.keys(room.players)[0];
-      roomLog(room, `👑 ${room.players[room.hostId].name} is now host.`);
+      // Host left — kick everyone back to title
+      stopRoom(room);
+      io.to(code).emit('hostLeft');
+      // Clean up all remaining players' socketRoom entries
+      Object.keys(room.players).forEach(pid => socketRoom.delete(pid));
+      rooms.delete(code);
+      return;
     }
+
+    if (Object.keys(room.players).length === 0) { stopRoom(room); rooms.delete(code); return; }
     roomLog(room, `👋 ${pname} left.`);
     emit(room);
   }
