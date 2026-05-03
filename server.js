@@ -10,20 +10,75 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Constants ────────────────────────────────────────────────────
-const PRODUCTS = [
-  { id: 'apple',   name: 'Apples',   emoji: '🍎', cost: 2, basePrice: 4,  category: 'Produce'   },
-  { id: 'bread',   name: 'Bread',    emoji: '🍞', cost: 1, basePrice: 3,  category: 'Bakery'    },
-  { id: 'milk',    name: 'Milk',     emoji: '🥛', cost: 2, basePrice: 5,  category: 'Dairy'     },
-  { id: 'cheese',  name: 'Cheese',   emoji: '🧀', cost: 3, basePrice: 7,  category: 'Dairy'     },
-  { id: 'chicken', name: 'Chicken',  emoji: '🍗', cost: 5, basePrice: 10, category: 'Meat'      },
-  { id: 'cola',    name: 'Cola',     emoji: '🥤', cost: 1, basePrice: 3,  category: 'Beverages' },
-  { id: 'cereal',  name: 'Cereal',   emoji: '🥣', cost: 3, basePrice: 6,  category: 'Dry Goods' },
-  { id: 'eggs',    name: 'Eggs',     emoji: '🥚', cost: 2, basePrice: 5,  category: 'Dairy'     },
-  { id: 'banana',  name: 'Bananas',  emoji: '🍌', cost: 1, basePrice: 3,  category: 'Produce'   },
-  { id: 'cookie',  name: 'Cookies',  emoji: '🍪', cost: 2, basePrice: 5,  category: 'Bakery'    },
-  { id: 'water',   name: 'Water',    emoji: '💧', cost: 0, basePrice: 2,  category: 'Beverages' },
-  { id: 'steak',   name: 'Steak',    emoji: '🥩', cost: 8, basePrice: 16, category: 'Meat'      },
+// All possible products — unlocked progressively via upgrades
+const ALL_PRODUCTS = [
+  // ── Grocery (always unlocked) ──
+  { id: 'apple',    name: 'Apples',      emoji: '🍎', cost: 2,  basePrice: 4,  category: 'Grocery', section: 'grocery' },
+  { id: 'bread',    name: 'Bread',       emoji: '🍞', cost: 1,  basePrice: 3,  category: 'Grocery', section: 'grocery' },
+  { id: 'milk',     name: 'Milk',        emoji: '🥛', cost: 2,  basePrice: 5,  category: 'Grocery', section: 'grocery' },
+  { id: 'banana',   name: 'Bananas',     emoji: '🍌', cost: 1,  basePrice: 3,  category: 'Grocery', section: 'grocery' },
+  { id: 'water',    name: 'Water',       emoji: '💧', cost: 0,  basePrice: 2,  category: 'Grocery', section: 'grocery' },
+  { id: 'cola',     name: 'Cola',        emoji: '🥤', cost: 1,  basePrice: 3,  category: 'Grocery', section: 'grocery' },
+  // ── Unlocked via grocery_l2 ──
+  { id: 'eggs',     name: 'Eggs',        emoji: '🥚', cost: 2,  basePrice: 5,  category: 'Grocery', section: 'grocery', requires: 'grocery_l2' },
+  { id: 'cheese',   name: 'Cheese',      emoji: '🧀', cost: 3,  basePrice: 7,  category: 'Grocery', section: 'grocery', requires: 'grocery_l2' },
+  { id: 'cereal',   name: 'Cereal',      emoji: '🥣', cost: 3,  basePrice: 6,  category: 'Grocery', section: 'grocery', requires: 'grocery_l2' },
+  { id: 'cookie',   name: 'Cookies',     emoji: '🍪', cost: 2,  basePrice: 5,  category: 'Grocery', section: 'grocery', requires: 'grocery_l2' },
+  // ── Unlocked via grocery_l3 ──
+  { id: 'chicken',  name: 'Chicken',     emoji: '🍗', cost: 5,  basePrice: 10, category: 'Grocery', section: 'grocery', requires: 'grocery_l3' },
+  { id: 'steak',    name: 'Steak',       emoji: '🥩', cost: 8,  basePrice: 16, category: 'Grocery', section: 'grocery', requires: 'grocery_l3' },
+  { id: 'salmon',   name: 'Salmon',      emoji: '🐟', cost: 7,  basePrice: 14, category: 'Grocery', section: 'grocery', requires: 'grocery_l3' },
+  { id: 'icecream', name: 'Ice Cream',   emoji: '🍦', cost: 3,  basePrice: 7,  category: 'Grocery', section: 'grocery', requires: 'grocery_l3' },
+  // ── Unlocked via grocery_l4 ──
+  { id: 'wine',     name: 'Wine',        emoji: '🍷', cost: 8,  basePrice: 18, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
+  { id: 'lobster',  name: 'Lobster',     emoji: '🦞', cost: 15, basePrice: 35, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
+  { id: 'truffle',  name: 'Truffles',    emoji: '🍄', cost: 20, basePrice: 50, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
+
+  // ── Clothing section ──
+  { id: 'tshirt',   name: 'T-Shirt',     emoji: '👕', cost: 5,  basePrice: 18, category: 'Clothing', section: 'clothing', requires: 'clothing_l1' },
+  { id: 'jeans',    name: 'Jeans',       emoji: '👖', cost: 10, basePrice: 30, category: 'Clothing', section: 'clothing', requires: 'clothing_l1' },
+  { id: 'shoes',    name: 'Shoes',       emoji: '👟', cost: 12, basePrice: 35, category: 'Clothing', section: 'clothing', requires: 'clothing_l1' },
+  { id: 'hat',      name: 'Hat',         emoji: '🧢', cost: 4,  basePrice: 15, category: 'Clothing', section: 'clothing', requires: 'clothing_l2' },
+  { id: 'jacket',   name: 'Jacket',      emoji: '🧥', cost: 20, basePrice: 55, category: 'Clothing', section: 'clothing', requires: 'clothing_l2' },
+  { id: 'dress',    name: 'Dress',       emoji: '👗', cost: 18, basePrice: 50, category: 'Clothing', section: 'clothing', requires: 'clothing_l2' },
+  { id: 'suit',     name: 'Suit',        emoji: '🤵', cost: 40, basePrice: 110,category: 'Clothing', section: 'clothing', requires: 'clothing_l3' },
+  { id: 'watch',    name: 'Watch',       emoji: '⌚', cost: 35, basePrice: 95, category: 'Clothing', section: 'clothing', requires: 'clothing_l3' },
+
+  // ── Electronics section ──
+  { id: 'phone',    name: 'Phone',       emoji: '📱', cost: 30, basePrice: 80, category: 'Electronics', section: 'electronics', requires: 'electronics_l1' },
+  { id: 'headphones',name:'Headphones',  emoji: '🎧', cost: 20, basePrice: 55, category: 'Electronics', section: 'electronics', requires: 'electronics_l1' },
+  { id: 'laptop',   name: 'Laptop',      emoji: '💻', cost: 60, basePrice: 160,category: 'Electronics', section: 'electronics', requires: 'electronics_l2' },
+  { id: 'tablet',   name: 'Tablet',      emoji: '📲', cost: 40, basePrice: 110,category: 'Electronics', section: 'electronics', requires: 'electronics_l2' },
+  { id: 'tv',       name: 'TV',          emoji: '📺', cost: 80, basePrice: 220,category: 'Electronics', section: 'electronics', requires: 'electronics_l3' },
+  { id: 'camera',   name: 'Camera',      emoji: '📷', cost: 50, basePrice: 130,category: 'Electronics', section: 'electronics', requires: 'electronics_l3' },
+
+  // ── Automotive section ──
+  { id: 'wipers',   name: 'Wipers',      emoji: '🚗', cost: 5,  basePrice: 18, category: 'Auto', section: 'auto', requires: 'auto_l1' },
+  { id: 'oilcan',   name: 'Motor Oil',   emoji: '🛢️', cost: 8,  basePrice: 22, category: 'Auto', section: 'auto', requires: 'auto_l1' },
+  { id: 'battery',  name: 'Car Battery', emoji: '🔋', cost: 20, basePrice: 55, category: 'Auto', section: 'auto', requires: 'auto_l2' },
+  { id: 'tires',    name: 'Tires',       emoji: '🔧', cost: 35, basePrice: 90, category: 'Auto', section: 'auto', requires: 'auto_l2' },
+  { id: 'gps',      name: 'GPS Unit',    emoji: '🗺️', cost: 25, basePrice: 65, category: 'Auto', section: 'auto', requires: 'auto_l3' },
+  { id: 'dashcam',  name: 'Dash Cam',    emoji: '📹', cost: 22, basePrice: 60, category: 'Auto', section: 'auto', requires: 'auto_l3' },
+
+  // ── Sporting Goods / Outdoors section ──
+  { id: 'arrow',    name: 'Bow & Arrow', emoji: '🏹', cost: 25, basePrice: 70, category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l1' },
+  { id: 'fishrod',  name: 'Fishing Rod', emoji: '🎣', cost: 15, basePrice: 40, category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l1' },
+  { id: 'tent',     name: 'Tent',        emoji: '⛺', cost: 30, basePrice: 80, category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l2' },
+  { id: 'rifle',    name: 'Hunting Rifle',emoji:'🔫', cost: 60, basePrice: 160,category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l2' },
+  { id: 'kayak',    name: 'Kayak',       emoji: '🛶', cost: 80, basePrice: 200,category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l3' },
+  { id: 'atv',      name: 'ATV',         emoji: '🏍️', cost: 150,basePrice: 400,category: 'Outdoors', section: 'outdoors', requires: 'outdoors_l3' },
+
+  // ── Furniture section ──
+  { id: 'chair',    name: 'Chair',       emoji: '🪑', cost: 15, basePrice: 45, category: 'Furniture', section: 'furniture', requires: 'furniture_l1' },
+  { id: 'lamp',     name: 'Lamp',        emoji: '🪔', cost: 10, basePrice: 30, category: 'Furniture', section: 'furniture', requires: 'furniture_l1' },
+  { id: 'sofa',     name: 'Sofa',        emoji: '🛋️', cost: 60, basePrice: 160,category: 'Furniture', section: 'furniture', requires: 'furniture_l2' },
+  { id: 'bed',      name: 'Bed',         emoji: '🛏️', cost: 70, basePrice: 185,category: 'Furniture', section: 'furniture', requires: 'furniture_l2' },
+  { id: 'desk',     name: 'Desk',        emoji: '🖥️', cost: 45, basePrice: 115,category: 'Furniture', section: 'furniture', requires: 'furniture_l3' },
+  { id: 'bathtub',  name: 'Bathtub',     emoji: '🛁', cost: 90, basePrice: 240,category: 'Furniture', section: 'furniture', requires: 'furniture_l3' },
 ];
+
+// Products available at game start (no requires)
+const PRODUCTS = ALL_PRODUCTS.filter(p => !p.requires);
 
 const CUSTOMER_NAMES = ['Alice','Bob','Carol','Dave','Eve','Frank','Grace','Hank','Iris','Jack','Karen','Leo'];
 const CUSTOMER_EMOJIS = ['🧑','👩','👨','🧓','👴','👵','🧒','👦','👧','🧔','👱','🧕'];
@@ -37,13 +92,137 @@ const EVENTS = [
   { type: 'vip',     label: '⭐ VIP Customer!',     desc: 'Big spender incoming — serve them well!', duration: 0  },
 ];
 
+// ── Upgrade Tree ──────────────────────────────────────────────────
+// Each node: { id, name, emoji, cost, desc, requires[], unlocks, section, tier }
 const UPGRADES = [
-  { id: 'cashier',  name: 'Extra Cashier',   emoji: '🧑‍💼', cost: 80,  desc: 'Customers are served 25% faster' },
-  { id: 'shelves',  name: 'Better Shelves',  emoji: '🗄️',  cost: 60,  desc: 'Hold 15 more units of every product' },
-  { id: 'ads',      name: 'Advertising',     emoji: '📢',  cost: 100, desc: '40% more customers each wave' },
-  { id: 'fresh',    name: 'Fresh Guarantee', emoji: '✅',  cost: 120, desc: 'Immune to spoilage events' },
-  { id: 'security', name: 'Security Guard',  emoji: '👮',  cost: 90,  desc: 'Auto-catches all shoplifters' },
-  { id: 'loyalty',  name: 'Loyalty Program', emoji: '💳',  cost: 150, desc: 'Earn +15% on every sale' },
+  // ══════════════ GROCERY BRANCH ══════════════
+  {
+    id: 'grocery_l2', name: 'Expanded Grocery', emoji: '🥗', cost: 80, tier: 1, section: 'grocery',
+    desc: 'Unlock dairy, eggs, cereal & cookies. Adds 4 new food products.',
+    requires: [], unlocks: ['grocery_l3'],
+  },
+  {
+    id: 'grocery_l3', name: 'Deli & Meat Counter', emoji: '🥩', cost: 150, tier: 2, section: 'grocery',
+    desc: 'Unlock chicken, steak, salmon & ice cream. Premium food items.',
+    requires: ['grocery_l2'], unlocks: ['grocery_l4'],
+  },
+  {
+    id: 'grocery_l4', name: 'Gourmet Market', emoji: '🦞', cost: 300, tier: 3, section: 'grocery',
+    desc: 'Unlock wine, lobster & truffles. Highest-margin food items in the game.',
+    requires: ['grocery_l3'], unlocks: [],
+  },
+
+  // ══════════════ STORE UPGRADES BRANCH ══════════════
+  {
+    id: 'shelves', name: 'Better Shelves', emoji: '🗄️', cost: 60, tier: 1, section: 'store',
+    desc: 'Hold 15 more units of every product.',
+    requires: [], unlocks: ['ads', 'fresh'],
+  },
+  {
+    id: 'ads', name: 'Advertising', emoji: '📢', cost: 100, tier: 2, section: 'store',
+    desc: '40% more customers arrive each wave.',
+    requires: ['shelves'], unlocks: ['loyalty'],
+  },
+  {
+    id: 'fresh', name: 'Fresh Guarantee', emoji: '✅', cost: 120, tier: 2, section: 'store',
+    desc: 'Immune to spoilage events.',
+    requires: ['shelves'], unlocks: ['security'],
+  },
+  {
+    id: 'loyalty', name: 'Loyalty Program', emoji: '💳', cost: 150, tier: 3, section: 'store',
+    desc: 'Earn +15% on every sale.',
+    requires: ['ads'], unlocks: [],
+  },
+  {
+    id: 'security', name: 'Security Guard', emoji: '👮', cost: 90, tier: 3, section: 'store',
+    desc: 'Auto-catches all shoplifters instantly.',
+    requires: ['fresh'], unlocks: [],
+  },
+
+  // ══════════════ CLOTHING BRANCH ══════════════
+  {
+    id: 'clothing_l1', name: 'Clothing Section', emoji: '👕', cost: 120, tier: 1, section: 'clothing',
+    desc: 'Open a clothing department. Unlock T-shirts, jeans & shoes.',
+    requires: [], unlocks: ['clothing_l2'],
+  },
+  {
+    id: 'clothing_l2', name: 'Fashion Floor', emoji: '👗', cost: 200, tier: 2, section: 'clothing',
+    desc: 'Expand with hats, jackets & dresses. Higher margins.',
+    requires: ['clothing_l1'], unlocks: ['clothing_l3'],
+  },
+  {
+    id: 'clothing_l3', name: 'Luxury Boutique', emoji: '🤵', cost: 350, tier: 3, section: 'clothing',
+    desc: 'Unlock suits & watches — the highest-margin clothing items.',
+    requires: ['clothing_l2'], unlocks: [],
+  },
+
+  // ══════════════ ELECTRONICS BRANCH ══════════════
+  {
+    id: 'electronics_l1', name: 'Electronics Corner', emoji: '📱', cost: 180, tier: 1, section: 'electronics',
+    desc: 'Open electronics. Unlock phones & headphones.',
+    requires: [], unlocks: ['electronics_l2'],
+  },
+  {
+    id: 'electronics_l2', name: 'Tech Department', emoji: '💻', cost: 280, tier: 2, section: 'electronics',
+    desc: 'Unlock laptops & tablets. Big-ticket items, big profits.',
+    requires: ['electronics_l1'], unlocks: ['electronics_l3'],
+  },
+  {
+    id: 'electronics_l3', name: 'AV Showroom', emoji: '📺', cost: 400, tier: 3, section: 'electronics',
+    desc: 'Unlock TVs & cameras — the highest-value electronics.',
+    requires: ['electronics_l2'], unlocks: [],
+  },
+
+  // ══════════════ AUTO BRANCH ══════════════
+  {
+    id: 'auto_l1', name: 'Auto Corner', emoji: '🚗', cost: 100, tier: 1, section: 'auto',
+    desc: 'Open an auto section. Unlock wipers & motor oil.',
+    requires: [], unlocks: ['auto_l2'],
+  },
+  {
+    id: 'auto_l2', name: 'Auto Parts Aisle', emoji: '🔋', cost: 200, tier: 2, section: 'auto',
+    desc: 'Unlock car batteries & tires. Serious profit items.',
+    requires: ['auto_l1'], unlocks: ['auto_l3'],
+  },
+  {
+    id: 'auto_l3', name: 'Performance Shop', emoji: '🗺️', cost: 300, tier: 3, section: 'auto',
+    desc: 'Unlock GPS units & dash cams. Premium auto accessories.',
+    requires: ['auto_l2'], unlocks: [],
+  },
+
+  // ══════════════ OUTDOORS BRANCH ══════════════
+  {
+    id: 'outdoors_l1', name: 'Outdoors & Sporting', emoji: '🏹', cost: 130, tier: 1, section: 'outdoors',
+    desc: 'Open outdoors section. Unlock bow & arrow and fishing rods.',
+    requires: [], unlocks: ['outdoors_l2'],
+  },
+  {
+    id: 'outdoors_l2', name: 'Hunting & Camping', emoji: '⛺', cost: 220, tier: 2, section: 'outdoors',
+    desc: 'Unlock tents & hunting rifles. High-demand items.',
+    requires: ['outdoors_l1'], unlocks: ['outdoors_l3'],
+  },
+  {
+    id: 'outdoors_l3', name: 'Adventure Gear', emoji: '🛶', cost: 380, tier: 3, section: 'outdoors',
+    desc: 'Unlock kayaks & ATVs — the biggest-ticket items in the store.',
+    requires: ['outdoors_l2'], unlocks: [],
+  },
+
+  // ══════════════ FURNITURE BRANCH ══════════════
+  {
+    id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 110, tier: 1, section: 'furniture',
+    desc: 'Open home goods. Unlock chairs & lamps.',
+    requires: [], unlocks: ['furniture_l2'],
+  },
+  {
+    id: 'furniture_l2', name: 'Furniture Floor', emoji: '🛋️', cost: 230, tier: 2, section: 'furniture',
+    desc: 'Unlock sofas & beds. Large-margin home items.',
+    requires: ['furniture_l1'], unlocks: ['furniture_l3'],
+  },
+  {
+    id: 'furniture_l3', name: 'Premium Living', emoji: '🛁', cost: 400, tier: 3, section: 'furniture',
+    desc: 'Unlock desks & bathtubs — top-tier home products.',
+    requires: ['furniture_l2'], unlocks: [],
+  },
 ];
 
 const PLAYER_COLORS = ['#f97316','#6366f1','#10b981','#ec4899','#eab308','#06b6d4'];
@@ -60,9 +239,15 @@ function generateCode() {
   return rooms.has(c) ? generateCode() : c;
 }
 
-function freshStore() {
+function getUnlockedProducts(upgrades = []) {
+  return ALL_PRODUCTS.filter(p => !p.requires || upgrades.includes(p.requires));
+}
+
+function freshStore(upgrades = []) {
   const inv = {}, prices = {}, shelves = {};
-  PRODUCTS.forEach(p => { inv[p.id] = 10; prices[p.id] = p.basePrice; shelves[p.id] = true; });
+  getUnlockedProducts(upgrades).forEach(p => {
+    if (!(p.id in inv)) { inv[p.id] = 10; prices[p.id] = p.basePrice; shelves[p.id] = true; }
+  });
   return { inv, prices, shelves };
 }
 
@@ -98,6 +283,7 @@ function roomLog(room, msg) {
 }
 
 function emit(room) {
+  const products = getUnlockedProducts(room.upgrades);
   io.to(room.code).emit('roomState', {
     code: room.code, phase: room.phase, hostId: room.hostId,
     players: room.players,
@@ -109,14 +295,15 @@ function emit(room) {
     dayTimer: room.dayTimer,
     rushActive: room.rushActive, saleActive: room.saleActive, theftActive: room.theftActive,
     capacityBonus: room.capacityBonus,
-    products: PRODUCTS, upgradeList: UPGRADES,
+    products, upgradeList: UPGRADES,
   });
 }
 
 // ─── Customer Logic ───────────────────────────────────────────────
 function spawnCustomer(room) {
   if (room.phase !== 'playing') return;
-  const avail = PRODUCTS.filter(p => (room.inventory[p.id] || 0) > 0 && room.shelves[p.id]);
+  const unlocked = getUnlockedProducts(room.upgrades);
+  const avail = unlocked.filter(p => (room.inventory[p.id] || 0) > 0 && room.shelves[p.id]);
   if (avail.length === 0) return;
 
   const isVip = room.activeEvent?.type === 'vip';
@@ -208,12 +395,14 @@ function triggerEvent(room) {
     if (room.upgrades.includes('fresh')) {
       roomLog(room, '✅ Fresh Guarantee blocked spoilage!');
     } else {
-      const t = PRODUCTS.slice().sort(()=>Math.random()-0.5).find(p => room.inventory[p.id] > 0);
+      const unlocked = getUnlockedProducts(room.upgrades);
+      const t = unlocked.slice().sort(()=>Math.random()-0.5).find(p => room.inventory[p.id] > 0);
       if (t) { room.inventory[t.id] = Math.max(0, room.inventory[t.id]-5); roomLog(room, `🤢 ${t.name} spoiled! -5 stock`); }
     }
     room.activeEvent = null; emit(room);
   } else if (ev.type === 'inspect') {
-    const low = PRODUCTS.filter(p => room.shelves[p.id] && (room.inventory[p.id]||0) < 3);
+    const unlocked = getUnlockedProducts(room.upgrades);
+    const low = unlocked.filter(p => room.shelves[p.id] && (room.inventory[p.id]||0) < 3);
     if (low.length > 0) {
       room.money = Math.max(0, room.money-20);
       roomLog(room, `🕵️ Failed inspection! (${low.map(p=>p.name).join(', ')}) -$20`);
@@ -268,7 +457,7 @@ function stopRoom(room) {
 
 function resetRoom(room) {
   stopRoom(room);
-  const { inv, prices, shelves } = freshStore();
+  const { inv, prices, shelves } = freshStore([]); // reset to base products only
   const players = {};
   Object.entries(room.players).forEach(([id, p], i) => {
     players[id] = { ...p, personalScore: 0, role: PLAYER_ROLES[i % PLAYER_ROLES.length], color: PLAYER_COLORS[i % PLAYER_COLORS.length] };
@@ -355,7 +544,7 @@ io.on('connection', (socket) => {
   socket.on('restock', ({ productId, qty }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
-    const prod = PRODUCTS.find(p => p.id === productId); if (!prod) return;
+    const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
     const maxCap = 30 + room.capacityBonus;
     const cur = room.inventory[productId]||0;
     const canAdd = Math.min(Math.max(0, qty), maxCap - cur);
@@ -371,7 +560,7 @@ io.on('connection', (socket) => {
   socket.on('setPrice', ({ productId, price }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
-    room.prices[productId] = Math.max(1, Math.min(99, Math.round(Number(price)||1)));
+    room.prices[productId] = Math.max(1, Math.min(9999, Math.round(Number(price)||1)));
     emit(room);
   });
 
@@ -387,11 +576,30 @@ io.on('connection', (socket) => {
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     if (room.upgrades.includes(uid)) { socket.emit('msg', { type:'error', text:'Already owned!' }); return; }
     const upg = UPGRADES.find(u => u.id === uid); if (!upg) return;
+    // Check all prerequisites are owned
+    const missingReq = upg.requires.find(r => !room.upgrades.includes(r));
+    if (missingReq) {
+      const reqUpg = UPGRADES.find(u => u.id === missingReq);
+      socket.emit('msg', { type:'error', text:`Requires "${reqUpg?.name || missingReq}" first!` }); return;
+    }
     if (room.money < upg.cost) { socket.emit('msg', { type:'error', text:`Need $${upg.cost}!` }); return; }
     room.money -= upg.cost;
     room.upgrades.push(uid);
     if (uid === 'shelves') room.capacityBonus += 15;
-    roomLog(room, `⬆️ ${room.players[socket.id]?.name||'?'} bought: ${upg.name}!`);
+    // Initialize any newly unlocked products
+    const newProds = ALL_PRODUCTS.filter(p => p.requires === uid);
+    newProds.forEach(p => {
+      if (!(p.id in room.inventory)) {
+        room.inventory[p.id] = 0;
+        room.prices[p.id] = p.basePrice;
+        room.shelves[p.id] = true;
+      }
+    });
+    const newCount = newProds.length;
+    const msg = newCount > 0
+      ? `⬆️ ${room.players[socket.id]?.name||'?'} unlocked: ${upg.name}! +${newCount} new product${newCount>1?'s':''}`
+      : `⬆️ ${room.players[socket.id]?.name||'?'} bought: ${upg.name}!`;
+    roomLog(room, msg);
     emit(room);
   });
 
