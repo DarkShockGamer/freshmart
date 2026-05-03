@@ -116,7 +116,12 @@ const UPGRADES = [
   {
     id: 'shelves', name: 'Better Shelves', emoji: '🗄️', cost: 60, tier: 1, section: 'store',
     desc: 'Hold 15 more units of every product.',
-    requires: [], unlocks: ['ads', 'fresh'],
+    requires: [], unlocks: ['ads', 'fresh', 'smart_restock'],
+  },
+  {
+    id: 'smart_restock', name: 'Smart Restocking', emoji: '📦', cost: 80, tier: 2, section: 'store',
+    desc: 'Unlocks the Fill button — instantly restock any product to full capacity in one click.',
+    requires: ['shelves'], unlocks: [],
   },
   {
     id: 'ads', name: 'Advertising', emoji: '📢', cost: 100, tier: 2, section: 'store',
@@ -342,20 +347,51 @@ function emit(room) {
 }
 
 // ─── Customer Logic ───────────────────────────────────────────────
+// Returns a 0-1 demand weight for a product based on price vs basePrice.
+// At base price: weight = 1.0. Each 10% over base cuts demand by ~25%.
+// At 3x base price: weight ~0.05 (almost nobody buys it).
+function demandWeight(room, prod) {
+  const price = room.prices[prod.id] || prod.basePrice;
+  const ratio = price / prod.basePrice; // 1.0 = fair, >1 = overpriced
+  if (ratio <= 1) return 1;            // at or below base: full demand
+  // Exponential decay: demand = 1 / ratio^2
+  return Math.max(0.02, 1 / (ratio * ratio));
+}
+
+// Weighted random pick from array using weight function
+function weightedPick(arr, weightFn) {
+  const weights = arr.map(weightFn);
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total <= 0) return arr[Math.floor(Math.random() * arr.length)];
+  let r = Math.random() * total;
+  for (let i = 0; i < arr.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return arr[i];
+  }
+  return arr[arr.length - 1];
+}
+
 function spawnCustomer(room) {
   if (room.phase !== 'playing') return;
   const unlocked = getUnlockedProducts(room.upgrades);
-  const avail = unlocked.filter(p => (room.inventory[p.id] || 0) > 0 && room.shelves[p.id]);
+  // Filter to in-stock, on-shelf items that have any demand at all
+  const avail = unlocked.filter(p =>
+    (room.inventory[p.id] || 0) > 0 &&
+    room.shelves[p.id] &&
+    demandWeight(room, p) > 0.01
+  );
   if (avail.length === 0) return;
 
   const isVip = room.activeEvent?.type === 'vip';
   const numItems = isVip ? Math.floor(Math.random()*4)+3 : Math.floor(Math.random()*3)+1;
   const wants = [];
   for (let i = 0; i < numItems; i++) {
-    const prod = avail[Math.floor(Math.random() * avail.length)];
+    // Pick product weighted by demand — overpriced items are rarely chosen
+    const prod = weightedPick(avail, p => demandWeight(room, p));
     if (!wants.find(w => w.id === prod.id))
       wants.push({ id: prod.id, qty: isVip ? Math.floor(Math.random()*4)+2 : Math.floor(Math.random()*3)+1 });
   }
+  if (wants.length === 0) return;
   const patience = 15 + Math.floor(Math.random() * 12);
   const c = {
     id: room.nextCustomerId++,
