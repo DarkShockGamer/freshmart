@@ -564,6 +564,58 @@ input::placeholder { color: var(--muted); }
 /* ── Code input uppercase ── */
 #join-code { text-transform: uppercase; }
 
+/* ══════════════════════════════════════
+   SAVE SELECT SCREEN
+══════════════════════════════════════ */
+#screen-saves {
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px 20px;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(99,102,241,.07) 0%, transparent 70%);
+}
+
+.saves-header { text-align: center; }
+.saves-header h2 { font-size: 26px; font-weight: 800; }
+.saves-header p  { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+.save-slots {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  width: 100%; max-width: 780px;
+}
+
+.save-slot {
+  flex: 1; min-width: 210px; max-width: 240px;
+  background: var(--surf); border: 2px solid var(--border);
+  border-radius: 18px; padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 10px;
+  cursor: pointer; transition: border-color .2s, transform .1s, box-shadow .15s;
+  position: relative;
+}
+.save-slot:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(99,102,241,.15); }
+.save-slot.empty { opacity: .7; border-style: dashed; }
+.save-slot.empty:hover { border-color: var(--green); border-style: solid; opacity: 1; }
+.save-slot.selected { border-color: var(--green); box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+
+.save-slot-num {
+  font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.save-slot-icon { font-size: 36px; line-height: 1; }
+.save-slot-title { font-size: 16px; font-weight: 800; }
+.save-slot-meta  { font-size: 12px; color: var(--muted); line-height: 1.8; }
+.save-slot-date  { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
+
+.save-slot-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+}
+.save-slot-badge.new-game { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
+.save-slot-badge.continue  { background: var(--blue-lo);  color: var(--blue);  border: 1px solid var(--blue); }
+
+.saves-actions { display: flex; gap: 12px; }
+.saves-actions .btn { min-width: 140px; }
+
 /* ── Responsive ── */
 @media (max-width: 700px) {
   #game-body { grid-template-columns: 1fr; }
@@ -599,6 +651,19 @@ input::placeholder { color: var(--muted); }
       <button class="btn secondary" onclick="handleJoin()">Join →</button>
     </div>
     <div class="error-msg" id="join-error"></div>
+  </div>
+</div>
+
+<!-- ══════════════ SAVE SELECT SCREEN ══════════════ -->
+<div id="screen-saves" class="screen">
+  <div class="saves-header">
+    <h2>🛒 Choose a Save Slot</h2>
+    <p>Select a slot to continue a run, or start fresh</p>
+  </div>
+  <div class="save-slots" id="save-slots-container"></div>
+  <div class="saves-actions">
+    <button class="btn blue" id="saves-confirm-btn" onclick="confirmSaveSelection()" disabled>▶ Open Lobby</button>
+    <button class="btn secondary" onclick="show('title')">← Back</button>
   </div>
 </div>
 
@@ -765,6 +830,9 @@ const socket = io();
 let myId = null;
 let roomState = null;
 let myRoomCode = null;
+let pendingCreateName = '';
+let selectedSaveSlot = null;   // null = new game, 0/1/2 = slot index
+let savesData = [null, null, null];
 
 // ── Screen management ──────────────────────────────
 function show(id) {
@@ -774,6 +842,17 @@ function show(id) {
 
 // ── Socket setup ───────────────────────────────────
 socket.on('connect', () => { myId = socket.id; });
+
+socket.on('savesData', (saves) => {
+  savesData = saves;
+  renderSaveSlots(saves);
+});
+
+socket.on('hostLeft', () => {
+  myRoomCode = null; roomState = null;
+  show('title');
+  showToast('Host ended the session.', 'error');
+});
 
 socket.on('roomJoined', ({ code, playerId }) => {
   myId = playerId;
@@ -801,8 +880,68 @@ socket.on('msg', ({ type, text }) => showToast(text, type));
 
 // ── Title Screen Actions ───────────────────────────
 function handleCreate() {
-  const name = document.getElementById('create-name').value.trim();
-  socket.emit('createRoom', { name: name || 'Player 1' });
+  pendingCreateName = document.getElementById('create-name').value.trim() || 'Player 1';
+  selectedSaveSlot = null;
+  // Request saves then show save selection screen
+  socket.emit('getSaves');
+  show('saves');
+}
+
+// ── Save Slot UI ───────────────────────────────────
+function renderSaveSlots(saves) {
+  const container = document.getElementById('save-slots-container');
+  container.innerHTML = '';
+  selectedSaveSlot = null;
+  document.getElementById('saves-confirm-btn').disabled = true;
+
+  saves.forEach((save, i) => {
+    const slot = document.createElement('div');
+    slot.className = 'save-slot' + (save ? '' : ' empty');
+    slot.dataset.slot = i;
+    slot.onclick = () => selectSaveSlot(i, !!save);
+
+    if (save) {
+      const d = new Date(save.savedAt);
+      const dateStr = d.toLocaleDateString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+      slot.innerHTML = `
+        <div class="save-slot-badge continue">CONTINUE</div>
+        <div class="save-slot-num">Slot ${i+1}</div>
+        <div class="save-slot-icon">🏪</div>
+        <div class="save-slot-title">Day ${save.day}</div>
+        <div class="save-slot-meta">
+          💰 $${save.money} cash<br>
+          📊 $${save.totalScore} total earned<br>
+          ⭐ ${save.reputation}% reputation<br>
+          ⬆️ ${save.upgrades.length} upgrade${save.upgrades.length!==1?'s':''}
+        </div>
+        <div class="save-slot-date">Saved ${dateStr}</div>
+      `;
+    } else {
+      slot.innerHTML = `
+        <div class="save-slot-badge new-game">NEW GAME</div>
+        <div class="save-slot-num">Slot ${i+1}</div>
+        <div class="save-slot-icon">✨</div>
+        <div class="save-slot-title">Empty Slot</div>
+        <div class="save-slot-meta" style="color:var(--muted)">Start a fresh run<br>from Day 1</div>
+      `;
+    }
+    container.appendChild(slot);
+  });
+}
+
+function selectSaveSlot(slotIdx, hasSave) {
+  document.querySelectorAll('.save-slot').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.save-slot[data-slot="${slotIdx}"]`);
+  if (el) el.classList.add('selected');
+  selectedSaveSlot = slotIdx;
+  document.getElementById('saves-confirm-btn').disabled = false;
+}
+
+function confirmSaveSelection() {
+  if (selectedSaveSlot === null) return;
+  const save = savesData[selectedSaveSlot];
+  // saveSlot is the slot index; if slot is empty, pass null for save (fresh game in that slot)
+  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot });
 }
 
 function handleJoin() {
