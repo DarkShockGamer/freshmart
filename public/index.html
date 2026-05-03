@@ -855,8 +855,23 @@ input::placeholder { color: var(--muted); }
       <div class="tab-pane" id="pane-shop">
         <span class="section-label">Restock — Only available during Shop Phase</span>
         <table class="inv-table">
+          <colgroup>
+            <col style="width:40px">
+            <col>
+            <col style="width:130px">
+            <col style="width:110px">
+            <col style="width:80px">
+            <col style="width:140px">
+          </colgroup>
           <thead>
-            <tr><th></th><th>Product</th><th>Cost/unit</th><th class="center">Stock</th><th>Qty</th><th></th></tr>
+            <tr>
+              <th></th>
+              <th>Product</th>
+              <th style="text-align:center">Cost/unit</th>
+              <th style="text-align:center">Stock</th>
+              <th style="text-align:center">Qty</th>
+              <th style="text-align:center">Action</th>
+            </tr>
           </thead>
           <tbody id="shop-body"></tbody>
         </table>
@@ -1411,20 +1426,20 @@ function renderShop(s) {
         <div class="pname-cell">${p.name}</div>
         <div class="pcat-cell">${p.category}</div>
       </td>
-      <td style="text-align:center">
+      <td style="text-align:center;vertical-align:middle">
         <div style="font-family:var(--mono);font-size:13px;font-weight:600">$${p.cost}/u</div>
         <span class="cost-badge ${mClass}" title="Sell price $${sellPrice}">${mSign}$${profit} margin</span>
       </td>
-      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}">
+      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}" style="text-align:center;vertical-align:middle">
         ${cur}/${maxCap}
         ${isFull ? '<div style="font-size:10px;color:var(--muted)">FULL</div>' : '<div style="font-size:10px;color:var(--muted)">'+space+' free</div>'}
       </td>
-      <td>
+      <td style="text-align:center;vertical-align:middle">
         <input type="number" class="qty-input" min="1" max="${Math.max(1,space)}" value="${Math.min(5,Math.max(1,space))}"
               id="qty-${p.id}" ${(!isShop||isFull)?'disabled':''}
               oninput="clampQty('${p.id}',${space})">
       </td>
-      <td style="white-space:nowrap;padding:6px 8px;vertical-align:middle">
+      <td style="white-space:nowrap;padding:6px 8px;vertical-align:middle;text-align:center">
         <div style="display:inline-flex;gap:5px;align-items:center">
           <button class="btn sm ${(isShop&&!isFull)?'':'secondary'}" ${(!isShop||isFull)?'disabled':''} style="${(!isShop||isFull)?'opacity:.4':''}"
               onclick="doRestock('${p.id}')">
