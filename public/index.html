@@ -655,6 +655,64 @@ input::placeholder { color: var(--muted); }
 .saves-actions { display: flex; gap: 12px; }
 .saves-actions .btn { min-width: 140px; }
 
+/* ══════════════════════════════════════
+   DIFFICULTY SCREEN
+══════════════════════════════════════ */
+#screen-difficulty {
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 40px 20px;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(239,68,68,.06) 0%, transparent 70%);
+}
+
+.diff-header { text-align: center; }
+.diff-header h2 { font-size: 26px; font-weight: 800; }
+.diff-header p  { color: var(--muted); font-size: 14px; margin-top: 6px; }
+
+.diff-cards {
+  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+  width: 100%; max-width: 820px;
+}
+
+.diff-card {
+  flex: 1; min-width: 220px; max-width: 260px;
+  background: var(--surf); border: 2px solid var(--border);
+  border-radius: 18px; padding: 28px 22px;
+  display: flex; flex-direction: column; gap: 12px;
+  cursor: pointer; transition: border-color .2s, transform .1s, box-shadow .15s;
+  position: relative;
+}
+.diff-card:hover { transform: translateY(-3px); }
+.diff-card.selected.easy  { border-color: var(--green); box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+.diff-card.selected.normal{ border-color: var(--blue);  box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+.diff-card.selected.hard  { border-color: var(--red);   box-shadow: 0 0 0 3px rgba(239,68,68,.2); }
+.diff-card:hover.easy  { border-color: var(--green); }
+.diff-card:hover.normal{ border-color: var(--blue); }
+.diff-card:hover.hard  { border-color: var(--red); }
+
+.diff-emoji { font-size: 44px; line-height: 1; }
+.diff-name  { font-size: 20px; font-weight: 800; }
+.diff-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.diff-stats { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.diff-stat  { display: flex; justify-content: space-between; font-size: 11px; font-family: var(--mono); }
+.diff-stat .ds-label { color: var(--muted); }
+.diff-stat .ds-val   { font-weight: 700; }
+.ds-val.good { color: var(--green); }
+.ds-val.ok   { color: var(--yellow); }
+.ds-val.bad  { color: var(--red); }
+
+.diff-badge {
+  position: absolute; top: 12px; right: 12px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+}
+.diff-badge.easy   { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
+.diff-badge.normal { background: var(--blue-lo);  color: var(--blue);  border: 1px solid var(--blue); }
+.diff-badge.hard   { background: var(--red-lo);   color: var(--red);   border: 1px solid var(--red); }
+
+.diff-actions { display: flex; gap: 12px; }
+.diff-actions .btn { min-width: 140px; }
+
 /* ── Responsive ── */
 @media (max-width: 700px) {
   #game-body { grid-template-columns: 1fr; }
@@ -703,6 +761,19 @@ input::placeholder { color: var(--muted); }
   <div class="saves-actions">
     <button class="btn blue" id="saves-confirm-btn" onclick="confirmSaveSelection()" disabled>▶ Open Lobby</button>
     <button class="btn secondary" onclick="show('title')">← Back</button>
+  </div>
+</div>
+
+<!-- ══════════════ DIFFICULTY SCREEN ══════════════ -->
+<div id="screen-difficulty" class="screen">
+  <div class="diff-header">
+    <h2>⚔️ Choose Difficulty</h2>
+    <p>How hard do you want your store life to be?</p>
+  </div>
+  <div class="diff-cards" id="diff-cards-container"></div>
+  <div class="diff-actions">
+    <button class="btn blue" id="diff-confirm-btn" onclick="confirmDifficulty()" disabled>▶ Open Lobby</button>
+    <button class="btn secondary" onclick="show('saves')">← Back</button>
   </div>
 </div>
 
@@ -763,6 +834,7 @@ input::placeholder { color: var(--muted); }
     <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">TIME</span><span class="hv" id="h-time">2:00</span></div>
     <div id="day-pill">Day 1</div>
     <div id="phase-pill" class="lobby">LOBBY</div>
+    <div id="diff-pill" style="border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;letter-spacing:.5px;border:1px solid var(--border);color:var(--muted);display:none"></div>
     <div id="header-right">
       <button class="btn secondary xs" onclick="leaveRoom()">← Leave</button>
     </div>
@@ -919,6 +991,7 @@ let myRoomCode = null;
 let pendingCreateName = '';
 let selectedSaveSlot = null;   // null = new game, 0/1/2 = slot index
 let savesData = [null, null, null];
+let selectedDifficulty = 'normal';
 
 // ── localStorage save helpers ──────────────────────
 const LS_KEY = 'fm_saves';
@@ -1085,7 +1158,86 @@ function deleteSave(e, slotIdx) {
 function confirmSaveSelection() {
   if (selectedSaveSlot === null) return;
   const save = savesData[selectedSaveSlot] || null;
-  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save });
+  if (save) {
+    // Continuing a save — no difficulty pick, use saved difficulty or default normal
+    selectedDifficulty = save.difficulty || 'normal';
+    socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save, difficulty: selectedDifficulty });
+  } else {
+    // New game — pick difficulty
+    renderDifficultyScreen();
+    show('difficulty');
+  }
+}
+
+// ── Difficulty Screen ──────────────────────────────
+const DIFF_DATA = {
+  easy: {
+    label: 'Easy', emoji: '🌱', cssClass: 'easy',
+    desc: 'Relaxed store sim. Generous cash, cheap upgrades, and patient customers.',
+    stats: [
+      { label: 'Starting Cash',  val: '$400',    cls: 'good' },
+      { label: 'Upgrade Costs',  val: '−40%',    cls: 'good' },
+      { label: 'Customers',      val: 'Few & patient', cls: 'good' },
+      { label: 'Events',         val: 'Lenient', cls: 'good' },
+    ],
+  },
+  normal: {
+    label: 'Normal', emoji: '🏪', cssClass: 'normal',
+    desc: 'Balanced challenge. Manage budget carefully and react to events.',
+    stats: [
+      { label: 'Starting Cash',  val: '$200',    cls: 'ok' },
+      { label: 'Upgrade Costs',  val: 'Steep',   cls: 'ok' },
+      { label: 'Customers',      val: 'Moderate', cls: 'ok' },
+      { label: 'Events',         val: 'Painful', cls: 'ok' },
+    ],
+  },
+  hard: {
+    label: 'Hard', emoji: '🔥', cssClass: 'hard',
+    desc: 'Brutal economy. Tight cash, impatient customers, punishing events.',
+    stats: [
+      { label: 'Starting Cash',  val: '$100',    cls: 'bad' },
+      { label: 'Upgrade Costs',  val: '3× Base', cls: 'bad' },
+      { label: 'Customers',      val: 'Flood & impatient', cls: 'bad' },
+      { label: 'Events',         val: 'Devastating', cls: 'bad' },
+    ],
+  },
+};
+
+function renderDifficultyScreen() {
+  const container = document.getElementById('diff-cards-container');
+  container.innerHTML = '';
+  selectedDifficulty = 'normal';
+  document.getElementById('diff-confirm-btn').disabled = true;
+
+  Object.entries(DIFF_DATA).forEach(([key, d]) => {
+    const card = document.createElement('div');
+    card.className = `diff-card ${d.cssClass}`;
+    card.dataset.diff = key;
+    card.onclick = () => selectDifficulty(key);
+    card.innerHTML = `
+      <div class="diff-badge ${d.cssClass}">${d.label.toUpperCase()}</div>
+      <div class="diff-emoji">${d.emoji}</div>
+      <div class="diff-name">${d.label}</div>
+      <div class="diff-desc">${d.desc}</div>
+      <div class="diff-stats">
+        ${d.stats.map(s => `<div class="diff-stat"><span class="ds-label">${s.label}</span><span class="ds-val ${s.cls}">${s.val}</span></div>`).join('')}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function selectDifficulty(key) {
+  document.querySelectorAll('.diff-card').forEach(el => el.classList.remove('selected'));
+  const el = document.querySelector(`.diff-card[data-diff="${key}"]`);
+  if (el) el.classList.add('selected');
+  selectedDifficulty = key;
+  document.getElementById('diff-confirm-btn').disabled = false;
+}
+
+function confirmDifficulty() {
+  if (!selectedDifficulty || selectedSaveSlot === null) return;
+  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save: null, difficulty: selectedDifficulty });
 }
 
 function handleJoin() {
@@ -1184,6 +1336,19 @@ function renderHeader(s) {
   if (s.phase === 'playing') phEl.textContent = 'OPEN';
   else if (s.phase === 'shop') phEl.textContent = 'SHOP';
   else phEl.textContent = 'LOBBY';
+
+  // Difficulty pill
+  const dpEl = document.getElementById('diff-pill');
+  if (s.difficulty) {
+    const diffEmoji = { easy: '🌱', normal: '🏪', hard: '🔥' }[s.difficulty] || '';
+    const diffColor = { easy: 'var(--green)', normal: 'var(--blue)', hard: 'var(--red)' }[s.difficulty] || 'var(--muted)';
+    dpEl.style.display = 'block';
+    dpEl.textContent = `${diffEmoji} ${s.difficulty.toUpperCase()}`;
+    dpEl.style.borderColor = diffColor;
+    dpEl.style.color = diffColor;
+  } else {
+    dpEl.style.display = 'none';
+  }
 
   // Removed incorrect 'phEl.className' reassignment
 
@@ -1527,7 +1692,9 @@ function renderUpgrades(s) {
       upgrades.forEach(u => {
         const owned = s.upgrades.includes(u.id);
         const reqsMet = u.requires.every(r => s.upgrades.includes(r));
-        const canAfford = s.money >= u.cost;
+        const diffMult = (s.diffConfig && s.diffConfig.upgradeCostMult) || 1;
+        const adjCost = Math.round(u.cost * diffMult);
+        const canAfford = s.money >= adjCost;
         const available = isShop && reqsMet && !owned;
 
         const card = document.createElement('div');
@@ -1559,12 +1726,16 @@ function renderUpgrades(s) {
           <div class="upg-footer">
             ${owned
               ? `<span class="upg-owned-badge">✅ Owned</span>`
-              : `<span class="upg-cost">$${u.cost}</span>
-                 <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
-                   onclick="socket.emit('buyUpgrade','${u.id}')"
-                   ${!available || !canAfford ? 'disabled' : ''}>
-                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${u.cost}` : 'Purchase'}
-                 </button>`
+              : (() => {
+                  const diffMult = (s.diffConfig && s.diffConfig.upgradeCostMult) || 1;
+                  const adjCost = Math.round(u.cost * diffMult);
+                  return `<span class="upg-cost">$${adjCost}</span>
+                   <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
+                     onclick="socket.emit('buyUpgrade','${u.id}')"
+                     ${!available || !canAfford ? 'disabled' : ''}>
+                     ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${adjCost}` : 'Purchase'}
+                   </button>`;
+                })()
             }
           </div>
         `;
