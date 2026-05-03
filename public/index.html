@@ -6,961 +6,1085 @@
 <title>🛒 FreshMart — Multiplayer Supermarket</title>
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
 
-  :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface2: #1f2937;
-    --border: #30363d;
-    --green: #10b981;
-    --green-dim: #064e3b;
-    --orange: #f97316;
-    --orange-dim: #431407;
-    --red: #ef4444;
-    --red-dim: #450a0a;
-    --blue: #6366f1;
-    --blue-dim: #1e1b4b;
-    --yellow: #eab308;
-    --yellow-dim: #422006;
-    --text: #e6edf3;
-    --text-dim: #8b949e;
-    --font: 'Syne', sans-serif;
-    --mono: 'DM Mono', monospace;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0a0e14;
+  --surf:      #111720;
+  --surf2:     #1a2233;
+  --border:    #263047;
+  --green:     #10b981;
+  --green-lo:  rgba(16,185,129,.12);
+  --orange:    #f97316;
+  --orange-lo: rgba(249,115,22,.12);
+  --red:       #ef4444;
+  --red-lo:    rgba(239,68,68,.12);
+  --blue:      #6366f1;
+  --blue-lo:   rgba(99,102,241,.12);
+  --yellow:    #eab308;
+  --yellow-lo: rgba(234,179,8,.12);
+  --cyan:      #06b6d4;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --font:      'Syne', sans-serif;
+  --mono:      'DM Mono', monospace;
+}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+html, body { height: 100%; overflow: hidden; }
 
-  /* ── Scrollbars ── */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: var(--surface); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  display: flex;
+  flex-direction: column;
+}
 
-  /* ── Header ── */
-  #header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-  #header h1 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    color: var(--green);
-  }
-  #header h1 span { color: var(--text); }
+/* ── Utility ── */
+input, button { font-family: var(--font); }
+input { background: var(--surf2); border: 1.5px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px 14px; font-size: 14px; outline: none; transition: border-color .2s; width: 100%; }
+input:focus { border-color: var(--green); }
+input::placeholder { color: var(--muted); }
 
-  .stat-pill {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 13px;
-    font-family: var(--mono);
-    font-weight: 500;
-  }
-  .stat-pill .label { color: var(--text-dim); font-size: 11px; }
-  .stat-pill .val { color: var(--text); font-weight: 500; }
-  .stat-pill.money .val { color: var(--green); }
-  .stat-pill.rep .val { color: var(--orange); }
-  .stat-pill.timer .val { color: var(--yellow); }
+.btn {
+  background: var(--green); color: #000; border: none; border-radius: 10px;
+  padding: 12px 24px; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s, transform .1s; white-space: nowrap;
+}
+.btn:hover { opacity: .88; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn.secondary { background: var(--surf2); color: var(--text); border: 1.5px solid var(--border); }
+.btn.red    { background: var(--red);    color: #fff; }
+.btn.blue   { background: var(--blue);   color: #fff; }
+.btn.orange { background: var(--orange); color: #000; }
+.btn.yellow { background: var(--yellow); color: #000; }
+.btn.sm { padding: 7px 14px; font-size: 12px; border-radius: 7px; }
+.btn.xs { padding: 4px 10px; font-size: 11px; border-radius: 6px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
-  #day-badge {
-    margin-left: auto;
-    background: var(--blue-dim);
-    border: 1px solid var(--blue);
-    color: var(--blue);
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: 13px;
-    font-weight: 700;
-  }
+/* ─────────────────────────────────────────
+   SCREENS
+───────────────────────────────────────── */
+.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.screen.active { display: flex; }
 
-  /* ── Players strip ── */
-  #players-bar {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 8px 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .player-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface2);
-    border-radius: 20px;
-    padding: 3px 10px 3px 4px;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid var(--border);
-  }
-  .player-chip .dot {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700; color: #000;
-  }
-  .player-chip .score { color: var(--text-dim); font-family: var(--mono); }
-  #players-bar .you-label { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+/* ══════════════════════════════════════
+   TITLE SCREEN
+══════════════════════════════════════ */
+#screen-title {
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(16,185,129,.08) 0%, transparent 70%);
+  gap: 0;
+  padding: 40px 20px;
+}
 
-  /* ── Event banner ── */
-  #event-banner {
-    display: none;
-    background: linear-gradient(90deg, var(--yellow-dim), transparent);
-    border-bottom: 1px solid var(--yellow);
-    padding: 8px 20px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--yellow);
-    align-items: center;
-    gap: 12px;
-  }
-  #event-banner.active { display: flex; }
-  #event-banner button {
-    background: var(--yellow);
-    color: #000;
-    border: none;
-    border-radius: 6px;
-    padding: 4px 14px;
-    font-family: var(--font);
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    margin-left: 8px;
-  }
-  #event-banner button:hover { opacity: 0.85; }
+.title-logo {
+  font-size: 88px;
+  line-height: 1;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
 
-  /* ── Main layout ── */
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    grid-template-rows: auto 1fr;
-    height: calc(100vh - 100px);
-    gap: 0;
-  }
+.title-wordmark {
+  font-size: clamp(36px, 7vw, 64px);
+  font-weight: 800;
+  letter-spacing: -2px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.title-wordmark span { color: var(--green); }
 
-  /* ── Center / main panel ── */
-  #main-panel {
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
+.title-tagline {
+  color: var(--muted);
+  font-size: 15px;
+  margin-bottom: 48px;
+  letter-spacing: .5px;
+}
 
-  /* ── Tabs ── */
-  #tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    position: sticky; top: 0; z-index: 10;
-  }
-  .tab {
-    padding: 10px 22px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    color: var(--text-dim);
-    transition: all 0.15s;
-    letter-spacing: 0.5px;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+.title-card {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
-  .tab-content { display: none; padding: 16px; flex: 1; }
-  .tab-content.active { display: block; }
+.title-card h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
 
-  /* ── Lobby ── */
-  #lobby {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: 24px;
-    padding: 40px;
-  }
-  #lobby .logo {
-    font-size: 64px;
-  }
-  #lobby h2 {
-    font-size: 36px;
-    font-weight: 800;
-    color: var(--green);
-  }
-  #lobby p { color: var(--text-dim); text-align: center; max-width: 400px; line-height: 1.6; }
-  #lobby .name-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    width: 100%; max-width: 320px;
-  }
-  #lobby input {
-    flex: 1;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    padding: 10px 14px;
-    font-family: var(--font);
-    font-size: 14px;
-    outline: none;
-  }
-  #lobby input:focus { border-color: var(--green); }
-  .btn {
-    background: var(--green);
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 20px;
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s;
-  }
-  .btn:hover { opacity: 0.88; transform: translateY(-1px); }
-  .btn:active { transform: translateY(0); }
-  .btn.secondary {
-    background: var(--surface2);
-    color: var(--text);
-    border: 1px solid var(--border);
-  }
-  .btn.danger { background: var(--red); color: #fff; }
-  .btn.orange { background: var(--orange); color: #000; }
-  .btn.blue { background: var(--blue); color: #fff; }
-  .btn.sm { padding: 6px 14px; font-size: 12px; }
+.or-divider {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1px;
+}
+.or-divider::before, .or-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
 
-  /* ── Customers ── */
-  #customer-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-  }
+.join-row { display: flex; gap: 8px; }
+.join-row input { flex: 1; font-family: var(--mono); letter-spacing: 3px; text-transform: uppercase; font-size: 16px; font-weight: 700; text-align: center; }
 
-  .customer-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-    cursor: pointer;
-    transition: border-color 0.15s, transform 0.1s;
-    position: relative;
-    overflow: hidden;
-  }
-  .customer-card:hover { border-color: var(--green); transform: translateY(-2px); }
-  .customer-card:active { transform: translateY(0); }
+.error-msg { color: var(--red); font-size: 13px; font-weight: 600; text-align: center; min-height: 18px; }
 
-  .customer-card .patience-bar {
-    position: absolute;
-    bottom: 0; left: 0;
-    height: 3px;
-    background: var(--green);
-    transition: width 1s linear;
-  }
-  .customer-card.impatient .patience-bar { background: var(--red); }
+/* ══════════════════════════════════════
+   LOBBY SCREEN
+══════════════════════════════════════ */
+#screen-lobby {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 20px;
+  overflow-y: auto;
+}
 
-  .customer-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .customer-emoji { font-size: 24px; }
-  .customer-name { font-size: 13px; font-weight: 700; }
-  .customer-wants { display: flex; flex-wrap: wrap; gap: 4px; }
-  .want-tag {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-family: var(--mono);
-  }
-  .serve-hint {
-    margin-top: 8px;
-    font-size: 11px;
-    color: var(--green);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
+.lobby-header {
+  text-align: center;
+}
+.lobby-header h2 { font-size: 24px; font-weight: 800; }
+.lobby-header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
 
-  #no-customers {
-    color: var(--text-dim);
-    text-align: center;
-    padding: 40px;
-    font-size: 14px;
-  }
+.room-code-display {
+  background: var(--surf);
+  border: 2px solid var(--green);
+  border-radius: 16px;
+  padding: 20px 32px;
+  text-align: center;
+}
+.room-code-display .label { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 6px; }
+.room-code-display .code {
+  font-family: var(--mono); font-size: 48px; font-weight: 700;
+  letter-spacing: 12px; color: var(--green);
+}
+.room-code-display .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-  /* ── Inventory / products ── */
-  .product-row {
-    display: grid;
-    grid-template-columns: 36px 1fr 80px 80px 60px auto;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-    transition: background 0.1s;
-  }
-  .product-row:hover { background: var(--surface2); }
-  .product-row .emoji { font-size: 20px; text-align: center; }
-  .product-row .pname { font-weight: 600; }
-  .product-row .pcat { font-size: 11px; color: var(--text-dim); }
-  .product-row .stock-val {
-    font-family: var(--mono);
-    font-size: 13px;
-    text-align: center;
-  }
-  .stock-low { color: var(--red); }
-  .stock-ok { color: var(--green); }
-  .product-row input[type=number] {
-    width: 64px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    padding: 4px 8px;
-    font-family: var(--mono);
-    font-size: 12px;
-    outline: none;
-    text-align: center;
-  }
-  .product-row input[type=number]:focus { border-color: var(--blue); }
+.lobby-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  max-width: 700px;
+}
 
-  .shelf-toggle {
-    width: 36px; height: 20px;
-    background: var(--border);
-    border-radius: 10px;
-    cursor: pointer;
-    position: relative;
-    border: none;
-    transition: background 0.2s;
-  }
-  .shelf-toggle.on { background: var(--green); }
-  .shelf-toggle::after {
-    content: '';
-    position: absolute;
-    top: 2px; left: 2px;
-    width: 16px; height: 16px;
-    background: #fff;
-    border-radius: 50%;
-    transition: transform 0.2s;
-  }
-  .shelf-toggle.on::after { transform: translateX(16px); }
+.lobby-panel {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+}
+.lobby-panel h3 { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px; }
 
-  /* ── Shop / restock ── */
-  .shop-row {
-    display: grid;
-    grid-template-columns: 36px 1fr 70px 60px auto;
-    gap: 8px;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .shop-row .cost-label { color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
-  .qty-input {
-    width: 52px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    padding: 4px 6px;
-    font-family: var(--mono);
-    font-size: 12px;
-    outline: none;
-    text-align: center;
-  }
-  .qty-input:focus { border-color: var(--green); }
+.player-list { display: flex; flex-direction: column; gap: 8px; }
 
-  /* ── Upgrades ── */
-  .upgrade-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
-  }
-  .upgrade-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    transition: border-color 0.15s;
-  }
-  .upgrade-card.owned { border-color: var(--green); background: rgba(16,185,129,0.05); }
-  .upgrade-card:not(.owned):hover { border-color: var(--blue); }
-  .upgrade-emoji { font-size: 28px; }
-  .upgrade-name { font-size: 14px; font-weight: 700; }
-  .upgrade-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
-  .upgrade-cost { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; }
-  .owned-label { color: var(--green); font-size: 12px; font-weight: 700; }
+.player-lobby-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px;
+  animation: popIn .25s ease;
+}
+@keyframes popIn { from { opacity:0; transform:scale(.95) } to { opacity:1; transform:scale(1) } }
 
-  /* ── Right sidebar ── */
-  #sidebar {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+.player-lobby-row .avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #000; flex-shrink: 0;
+}
+.player-lobby-row .info { flex: 1; min-width: 0; }
+.player-lobby-row .pname { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-lobby-row .prole { font-size: 11px; color: var(--muted); }
+.host-crown { font-size: 14px; }
 
-  .sidebar-section {
-    border-bottom: 1px solid var(--border);
-    padding: 12px;
-    flex-shrink: 0;
-  }
-  .sidebar-section h3 {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
+.lobby-rules { display: flex; flex-direction: column; gap: 8px; }
+.rule-item { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.rule-item .ri { flex-shrink: 0; font-size: 16px; }
 
-  /* ── Log ── */
-  #log-panel {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 12px;
-  }
-  .log-entry {
-    padding: 6px 0;
-    font-size: 12px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text-dim);
-    line-height: 1.4;
-    animation: fadeIn 0.3s ease;
-  }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.lobby-actions { display: flex; gap: 10px; width: 100%; max-width: 700px; }
+.lobby-actions .btn { flex: 1; padding: 14px; font-size: 15px; }
 
-  /* ── Shop phase overlay ── */
-  #shop-phase-banner {
-    display: none;
-    background: linear-gradient(90deg, var(--blue-dim), transparent);
-    border-bottom: 1px solid var(--blue);
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--blue);
-    align-items: center;
-    gap: 12px;
-  }
-  #shop-phase-banner.active { display: flex; }
+.waiting-note { color: var(--muted); font-size: 13px; text-align: center; }
 
-  /* ── Score board ── */
-  .score-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 13px;
-  }
-  .score-row .sname { font-weight: 600; }
-  .score-row .sval { font-family: var(--mono); color: var(--green); }
+/* ══════════════════════════════════════
+   GAME SCREEN
+══════════════════════════════════════ */
+#screen-game {
+  flex-direction: column;
+  height: 100%;
+}
 
-  /* ── Gameover ── */
-  #gameover {
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
-    padding: 40px;
-    text-align: center;
-  }
-  #gameover.show { display: flex; }
-  #gameover h2 { font-size: 32px; font-weight: 800; color: var(--orange); }
-  #gameover .final-score { font-size: 48px; font-weight: 800; color: var(--green); }
+/* ── Header ── */
+#game-header {
+  background: var(--surf);
+  border-bottom: 1.5px solid var(--border);
+  padding: 0 16px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  position: relative;
+}
 
-  /* ── Section label ── */
-  .section-label {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 10px 0 6px;
-    display: block;
-  }
+#game-header .logo { font-size: 20px; font-weight: 800; color: var(--green); letter-spacing: -1px; }
+#game-header .logo span { color: var(--text); }
 
-  /* ── Toast ── */
-  #toast {
-    position: fixed;
-    bottom: 24px; right: 24px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 18px;
-    font-size: 13px;
-    font-weight: 600;
-    z-index: 9999;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: all 0.3s ease;
-    pointer-events: none;
-  }
-  #toast.show { transform: translateY(0); opacity: 1; }
-  #toast.error { border-color: var(--red); color: var(--red); }
-  #toast.success { border-color: var(--green); color: var(--green); }
+.hstat {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 11px;
+  font-size: 12px; font-family: var(--mono);
+}
+.hstat .hl { color: var(--muted); font-size: 10px; font-family: var(--font); font-weight: 700; letter-spacing: .5px; }
+.hstat .hv { font-weight: 600; }
+.hstat.money .hv { color: var(--green); }
+.hstat.rep .hv { color: var(--orange); }
+.hstat.timer .hv { color: var(--yellow); }
 
-  /* ── Rep bar ── */
-  .rep-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
-  .rep-bar { height: 100%; background: var(--orange); border-radius: 4px; transition: width 0.5s ease; }
+#day-pill {
+  background: var(--blue-lo); border: 1px solid var(--blue); color: var(--blue);
+  border-radius: 20px; padding: 3px 12px; font-size: 12px; font-weight: 700;
+}
+#phase-pill {
+  border-radius: 20px; padding: 3px 12px; font-size: 11px; font-weight: 700; letter-spacing: .5px;
+  border: 1px solid;
+}
+#phase-pill.playing { background: var(--green-lo); color: var(--green); border-color: var(--green); }
+#phase-pill.shop    { background: var(--blue-lo);  color: var(--blue);  border-color: var(--blue);  }
+#phase-pill.lobby   { background: var(--surf2);    color: var(--muted); border-color: var(--border); }
 
-  /* ── Timer ring ── */
-  .timer-ring {
-    font-size: 28px;
-    font-family: var(--mono);
-    font-weight: 700;
-    color: var(--yellow);
-    text-align: center;
-  }
-  .timer-ring.urgent { color: var(--red); animation: pulse 0.5s ease-in-out infinite alternate; }
-  @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+#header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
-  /* ── Phase pill ── */
-  .phase-pill {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    border: 1px solid;
-  }
-  .phase-pill.playing { background: rgba(16,185,129,0.1); color: var(--green); border-color: var(--green); }
-  .phase-pill.shop { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
-  .phase-pill.lobby { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+/* ── Players bar ── */
+#players-bar {
+  background: var(--surf);
+  border-bottom: 1.5px solid var(--border);
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+#players-bar::-webkit-scrollbar { height: 0; }
 
-  @media (max-width: 768px) {
-    #app { grid-template-columns: 1fr; }
-    #sidebar { display: none; }
-    .product-row { grid-template-columns: 28px 1fr 60px 60px; }
-  }
+.pchip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px 3px 4px;
+  font-size: 12px; font-weight: 600; flex-shrink: 0;
+}
+.pchip .dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #000; }
+.pchip .pscore { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.pchip.me { border-color: var(--green); }
+
+/* ── Event banner ── */
+#event-banner {
+  display: none;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid;
+  flex-shrink: 0;
+}
+#event-banner.rush    { background: var(--orange-lo); color: var(--orange); border-color: var(--orange); }
+#event-banner.sale    { background: var(--green-lo);  color: var(--green);  border-color: var(--green);  }
+#event-banner.theft   { background: var(--red-lo);    color: var(--red);    border-color: var(--red);    animation: blink .5s ease-in-out infinite alternate; }
+#event-banner.default { background: var(--yellow-lo); color: var(--yellow); border-color: var(--yellow); }
+@keyframes blink { from { opacity:1 } to { opacity:.6 } }
+#event-banner.active { display: flex; }
+#theft-btn { margin-left: auto; }
+
+/* ── Shop banner ── */
+#shop-banner {
+  display: none; padding: 8px 16px;
+  background: var(--blue-lo); border-bottom: 1px solid var(--blue);
+  color: var(--blue); font-size: 13px; font-weight: 700;
+  align-items: center; gap: 10px; flex-shrink: 0;
+}
+#shop-banner.active { display: flex; }
+
+/* ── Game body ── */
+#game-body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Main panel ── */
+#main-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+#tabs {
+  display: flex;
+  background: var(--surf);
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.tab {
+  padding: 10px 20px; font-size: 13px; font-weight: 700;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  color: var(--muted); transition: color .15s, border-color .15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+.tab-pane { display: none; flex: 1; overflow-y: auto; padding: 14px; }
+.tab-pane.active { display: block; }
+.tab-pane::-webkit-scrollbar { width: 4px; }
+.tab-pane::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Customers ── */
+#customer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.ccard {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color .15s, transform .1s, box-shadow .15s;
+  position: relative;
+  overflow: hidden;
+}
+.ccard:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(16,185,129,.12); }
+.ccard:active { transform: translateY(0); }
+.ccard.vip { border-color: var(--yellow); }
+.ccard.vip:hover { border-color: var(--yellow); box-shadow: 0 8px 24px rgba(234,179,8,.2); }
+.ccard.urgent { border-color: var(--red); }
+
+.ccard .pbar {
+  position: absolute; bottom: 0; left: 0;
+  height: 3px; border-radius: 0 2px 0 0;
+  transition: width 1s linear;
+}
+.pbar.ok { background: var(--green); }
+.pbar.warn { background: var(--yellow); }
+.pbar.bad { background: var(--red); }
+
+.ccard-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cemoji { font-size: 26px; }
+.cname { font-size: 13px; font-weight: 700; }
+.ctype { font-size: 11px; color: var(--muted); }
+
+.cwants { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.wtag {
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 2px 8px;
+  font-size: 11px; font-family: var(--mono);
+}
+.vip .wtag { border-color: var(--yellow); }
+
+.serve-label { font-size: 11px; color: var(--green); font-weight: 700; letter-spacing: .5px; }
+.vip .serve-label { color: var(--yellow); }
+
+#no-customers { text-align: center; padding: 60px 20px; color: var(--muted); }
+#no-customers .emoji { font-size: 48px; margin-bottom: 12px; }
+
+/* ── Inventory / shop ── */
+.section-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase;
+  padding-bottom: 10px; display: block;
+}
+
+.inv-table { width: 100%; border-collapse: collapse; }
+.inv-table th {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  letter-spacing: .5px; text-transform: uppercase;
+  padding: 0 8px 8px; text-align: left;
+}
+.inv-table th.center { text-align: center; }
+.inv-table td { padding: 6px 8px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.inv-table tr:hover td { background: var(--surf2); }
+
+.emoji-cell { font-size: 20px; width: 36px; text-align: center; }
+.pname-cell { font-weight: 600; }
+.pcat-cell  { font-size: 11px; color: var(--muted); }
+.stock-cell { text-align: center; font-family: var(--mono); font-weight: 600; }
+.stock-lo { color: var(--red); }
+.stock-ok { color: var(--green); }
+
+.price-input, .qty-input {
+  width: 62px; background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text); padding: 5px 8px;
+  font-family: var(--mono); font-size: 12px; text-align: center; outline: none;
+}
+.price-input:focus, .qty-input:focus { border-color: var(--blue); }
+
+.toggle {
+  width: 36px; height: 20px; background: var(--border); border-radius: 10px;
+  cursor: pointer; position: relative; border: none; transition: background .2s;
+}
+.toggle.on { background: var(--green); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; background: #fff; border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle.on::after { transform: translateX(16px); }
+
+/* ── Upgrades ── */
+.upg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+
+.upg-card {
+  background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .15s;
+}
+.upg-card.owned { border-color: var(--green); background: var(--green-lo); }
+.upg-card:not(.owned):hover { border-color: var(--blue); }
+.upg-emoji { font-size: 26px; }
+.upg-name  { font-size: 14px; font-weight: 700; }
+.upg-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; }
+.upg-cost  { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; }
+.upg-owned { font-size: 12px; color: var(--green); font-weight: 700; }
+
+/* ── Sidebar ── */
+#sidebar {
+  border-left: 1.5px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden; background: var(--surf);
+}
+
+.sb-section { padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sb-section h3 { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+
+.timer-big {
+  font-family: var(--mono); font-size: 36px; font-weight: 700;
+  color: var(--yellow); text-align: center; letter-spacing: -1px;
+}
+.timer-big.urgent { color: var(--red); animation: tpulse .5s ease-in-out infinite alternate; }
+.timer-big.shop-mode { color: var(--blue); font-size: 20px; }
+@keyframes tpulse { from{opacity:1} to{opacity:.3} }
+
+.rep-wrap { background: var(--surf2); border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 4px; }
+.rep-fill { height: 100%; border-radius: 4px; background: var(--orange); transition: width .6s ease; }
+.rep-label { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+.sb-score-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border);
+}
+.sb-score-row:last-child { border-bottom: none; }
+.sb-score-row .sn { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.sb-score-row .sv { font-family: var(--mono); color: var(--green); font-size: 12px; }
+
+#log-area { flex: 1; overflow-y: auto; }
+#log-area::-webkit-scrollbar { width: 3px; }
+#log-area::-webkit-scrollbar-thumb { background: var(--border); }
+
+.log-entry {
+  padding: 7px 14px; font-size: 11.5px; color: var(--muted);
+  border-bottom: 1px solid var(--border); line-height: 1.5;
+  animation: fadeIn .3s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surf2); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 10px 18px;
+  font-size: 13px; font-weight: 700;
+  z-index: 9999; transform: translateY(80px); opacity: 0;
+  transition: all .3s ease; pointer-events: none;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.error   { border-color: var(--red);    color: var(--red);    }
+#toast.success { border-color: var(--green);  color: var(--green);  }
+#toast.vip     { border-color: var(--yellow); color: var(--yellow); }
+
+/* ── Code input uppercase ── */
+#join-code { text-transform: uppercase; }
+
+/* ── Responsive ── */
+@media (max-width: 700px) {
+  #game-body { grid-template-columns: 1fr; }
+  #sidebar { display: none; }
+}
 </style>
 </head>
 <body>
 
-<!-- Header -->
-<div id="header">
-  <h1>🛒 Fresh<span>Mart</span></h1>
-  <div class="stat-pill money"><span class="label">CASH</span><span class="val" id="stat-money">$200</span></div>
-  <div class="stat-pill rep"><span class="label">REP</span><span class="val" id="stat-rep">100%</span></div>
-  <div class="stat-pill"><span class="label">SCORE</span><span class="val" id="stat-score">0</span></div>
-  <span id="stat-timer" class="stat-pill timer" style="display:none"><span class="label">TIME</span><span class="val" id="timer-val">2:00</span></span>
-  <span id="day-badge">Day 1</span>
-  <span id="phase-badge" class="phase-pill lobby">LOBBY</span>
+<!-- ══════════════ TITLE SCREEN ══════════════ -->
+<div id="screen-title" class="screen active">
+  <div class="title-logo">🛒</div>
+  <div class="title-wordmark">Fresh<span>Mart</span></div>
+  <div class="title-tagline">Run a supermarket together — multiplayer store management</div>
+
+  <div class="title-card">
+    <div>
+      <h2>Create a new store</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:4px">Host a room — share the code with friends</p>
+    </div>
+    <input id="create-name" type="text" placeholder="Your name..." maxlength="20">
+    <button class="btn" onclick="handleCreate()">🏪 Create Room</button>
+
+    <div class="or-divider">OR</div>
+
+    <div>
+      <h2>Join a store</h2>
+      <p style="font-size:13px;color:var(--muted);margin-top:4px">Enter the 4-letter code from your host</p>
+    </div>
+    <input id="join-name" type="text" placeholder="Your name..." maxlength="20">
+    <div class="join-row">
+      <input id="join-code" type="text" placeholder="CODE" maxlength="4" autocomplete="off" spellcheck="false">
+      <button class="btn secondary" onclick="handleJoin()">Join →</button>
+    </div>
+    <div class="error-msg" id="join-error"></div>
+  </div>
 </div>
 
-<!-- Players bar -->
-<div id="players-bar">
-  <span style="font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:1px;">STAFF:</span>
-  <div id="player-chips"></div>
-  <span class="you-label" id="you-label"></span>
+<!-- ══════════════ LOBBY SCREEN ══════════════ -->
+<div id="screen-lobby" class="screen">
+  <div class="lobby-header">
+    <h2>🛒 FreshMart Lobby</h2>
+    <p>Waiting for players to join...</p>
+  </div>
+
+  <div class="room-code-display">
+    <div class="label">Room Code — Share with friends!</div>
+    <div class="code" id="lobby-code">····</div>
+    <div class="hint">Open this page and enter the code above to join</div>
+  </div>
+
+  <div style="display:flex;gap:8px;width:100%;max-width:700px;align-items:center">
+    <input id="lobby-name-input" type="text" placeholder="Your display name..." maxlength="20"
+      style="max-width:260px;font-size:14px">
+    <button class="btn secondary sm" onclick="updateLobbyName()">Update Name</button>
+    <button class="btn xs secondary" onclick="copyCode()" style="margin-left:auto">📋 Copy Code</button>
+  </div>
+
+  <div class="lobby-main">
+    <div class="lobby-panel">
+      <h3>Players (<span id="player-count">0</span>/6)</h3>
+      <div class="player-list" id="lobby-player-list"></div>
+    </div>
+    <div class="lobby-panel">
+      <h3>How to Play</h3>
+      <div class="lobby-rules">
+        <div class="rule-item"><span class="ri">🧑</span><span>Click customers to serve them before patience runs out</span></div>
+        <div class="rule-item"><span class="ri">📦</span><span>Restock shelves between days to keep inventory full</span></div>
+        <div class="rule-item"><span class="ri">💰</span><span>Adjust prices to maximize profit</span></div>
+        <div class="rule-item"><span class="ri">⚡</span><span>Survive random events like thefts and inspections</span></div>
+        <div class="rule-item"><span class="ri">⬆️</span><span>Buy upgrades to boost your store performance</span></div>
+        <div class="rule-item"><span class="ri">👑</span><span>Only the host can start the game and advance days</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lobby-actions">
+    <button class="btn" id="start-btn" onclick="socket.emit('startGame')">🚀 Open the Store!</button>
+    <button class="btn secondary" onclick="leaveRoom()">← Leave</button>
+  </div>
+  <div class="waiting-note" id="lobby-waiting">Waiting for host to start...</div>
 </div>
 
-<!-- Event banner -->
-<div id="event-banner">
-  <span id="event-text"></span>
-  <button id="theft-btn" style="display:none" onclick="stopThief()">🚨 STOP THIEF!</button>
-</div>
+<!-- ══════════════ GAME SCREEN ══════════════ -->
+<div id="screen-game" class="screen">
 
-<!-- Shop phase banner -->
-<div id="shop-phase-banner">
-  🌙 Shop Phase — Restock shelves & buy upgrades before next day!
-  <button class="btn blue sm" onclick="socket.emit('nextDay')" style="margin-left:auto">▶ Start Next Day</button>
+  <!-- Header -->
+  <div id="game-header">
+    <div class="logo">Fresh<span>Mart</span></div>
+    <div class="hstat money"><span class="hl">CASH</span><span class="hv" id="h-money">$200</span></div>
+    <div class="hstat rep"><span class="hl">REP</span><span class="hv" id="h-rep">100%</span></div>
+    <div class="hstat"><span class="hl">STORE</span><span class="hv" id="h-score">$0</span></div>
+    <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">TIME</span><span class="hv" id="h-time">2:00</span></div>
+    <div id="day-pill">Day 1</div>
+    <div id="phase-pill" class="lobby">LOBBY</div>
+    <div id="header-right">
+      <button class="btn secondary xs" onclick="socket.emit('resetGame')">🔄 Reset</button>
+      <button class="btn secondary xs" onclick="leaveRoom()">← Leave</button>
+    </div>
+  </div>
+
+  <!-- Players bar -->
+  <div id="players-bar"></div>
+
+  <!-- Event banner -->
+  <div id="event-banner">
+    <span id="event-text"></span>
+    <button class="btn red sm" id="theft-btn" style="display:none" onclick="socket.emit('stopThief')">🚨 STOP THIEF!</button>
+  </div>
+
+  <!-- Shop banner -->
+  <div id="shop-banner">
+    🌙 Shop Phase — Restock & buy upgrades. Only the host can start the next day.
+    <button class="btn blue sm" id="next-day-btn" onclick="socket.emit('nextDay')" style="margin-left:auto;display:none">▶ Start Day</button>
+  </div>
+
+  <!-- Body -->
+  <div id="game-body">
+    <!-- Main panel -->
+    <div id="main-panel">
+      <div id="tabs">
+        <div class="tab active" data-tab="customers" onclick="switchTab('customers')">🧑 Customers</div>
+        <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">📋 Inventory</div>
+        <div class="tab" data-tab="shop" onclick="switchTab('shop')">🛍️ Restock</div>
+        <div class="tab" data-tab="upgrades" onclick="switchTab('upgrades')">⬆️ Upgrades</div>
+      </div>
+
+      <!-- Customers -->
+      <div class="tab-pane active" id="pane-customers">
+        <div id="no-customers">
+          <div class="emoji">😴</div>
+          <p>No customers right now...</p>
+          <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
+        </div>
+        <div id="customer-grid"></div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="tab-pane" id="pane-inventory">
+        <span class="section-label">Stock Levels &amp; Pricing</span>
+        <table class="inv-table">
+          <thead>
+            <tr>
+              <th></th><th>Product</th>
+              <th class="center">Stock</th><th class="center">Price ($)</th><th class="center">Shelf</th>
+            </tr>
+          </thead>
+          <tbody id="inv-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Restock -->
+      <div class="tab-pane" id="pane-shop">
+        <span class="section-label">Restock — Only available during Shop Phase</span>
+        <table class="inv-table">
+          <thead>
+            <tr><th></th><th>Product</th><th>Cost/unit</th><th class="center">Stock</th><th>Qty</th><th></th></tr>
+          </thead>
+          <tbody id="shop-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Upgrades -->
+      <div class="tab-pane" id="pane-upgrades">
+        <span class="section-label">Store Upgrades — Purchase during Shop Phase</span>
+        <div class="upg-grid" id="upg-grid"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sb-section">
+        <h3>Day Timer</h3>
+        <div class="timer-big" id="sb-timer">—</div>
+      </div>
+      <div class="sb-section">
+        <h3>Reputation</h3>
+        <div class="rep-wrap"><div class="rep-fill" id="rep-fill" style="width:100%"></div></div>
+        <div class="rep-label" id="rep-label">100%</div>
+      </div>
+      <div class="sb-section">
+        <h3>Leaderboard</h3>
+        <div id="sb-scores"></div>
+      </div>
+      <div class="sb-section" style="flex-shrink:0">
+        <h3>Event Log</h3>
+      </div>
+      <div id="log-area"></div>
+    </div>
+  </div>
 </div>
 
 <!-- Toast -->
 <div id="toast"></div>
 
-<!-- Main app -->
-<div id="app">
-  <div id="main-panel">
-    <!-- LOBBY -->
-    <div id="lobby-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px;padding:40px;">
-      <div style="font-size:72px">🛒</div>
-      <h2 style="font-size:32px;font-weight:800;color:var(--green)">Welcome to FreshMart!</h2>
-      <p style="color:var(--text-dim);text-align:center;max-width:400px;line-height:1.7">
-        Run a supermarket with your partner! Serve customers, manage inventory, set prices, and buy upgrades.
-        Share this page's URL to invite a co-worker.
-      </p>
-      <div style="display:flex;gap:8px;width:100%;max-width:320px">
-        <input id="name-input" type="text" placeholder="Your name..." maxlength="20"
-          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-family:var(--font);font-size:14px;outline:none">
-        <button class="btn secondary" onclick="setName()">Set</button>
-      </div>
-      <button class="btn" style="font-size:16px;padding:12px 36px" onclick="startGame()">🚀 Open the Store!</button>
-      <p style="font-size:12px;color:var(--text-dim)">Any player can start the game</p>
-    </div>
-
-    <!-- GAME tabs -->
-    <div id="game-screen" style="display:none;flex-direction:column;flex:1">
-      <div id="tabs">
-        <div class="tab active" onclick="switchTab('customers')">🧑 Customers</div>
-        <div class="tab" onclick="switchTab('inventory')">📋 Inventory</div>
-        <div class="tab" onclick="switchTab('shop')">🛍️ Restock</div>
-        <div class="tab" onclick="switchTab('upgrades')">⬆️ Upgrades</div>
-      </div>
-
-      <!-- CUSTOMERS TAB -->
-      <div id="tab-customers" class="tab-content active">
-        <div id="no-customers" style="display:none">
-          <div style="font-size:40px">😴</div>
-          <p>No customers right now... waiting for the rush!</p>
-        </div>
-        <div id="customer-grid"></div>
-      </div>
-
-      <!-- INVENTORY TAB -->
-      <div id="tab-inventory" class="tab-content">
-        <span class="section-label">Current Stock & Pricing</span>
-        <div style="display:grid;grid-template-columns:36px 1fr 80px 90px 60px;gap:8px;padding:0 12px 8px;font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px">
-          <div></div><div>PRODUCT</div><div style="text-align:center">STOCK</div><div style="text-align:center">PRICE ($)</div><div style="text-align:center">SHELF</div>
-        </div>
-        <div id="inventory-list"></div>
-      </div>
-
-      <!-- SHOP TAB -->
-      <div id="tab-shop" class="tab-content">
-        <span class="section-label">Restock Products (available during Shop Phase)</span>
-        <div style="display:grid;grid-template-columns:36px 1fr 70px 60px auto;gap:8px;padding:0 12px 8px;font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px">
-          <div></div><div>PRODUCT</div><div>COST/UNIT</div><div>QTY</div><div></div>
-        </div>
-        <div id="shop-list"></div>
-      </div>
-
-      <!-- UPGRADES TAB -->
-      <div id="tab-upgrades" class="tab-content">
-        <span class="section-label">Store Upgrades</span>
-        <div id="upgrade-grid" class="upgrade-grid"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- RIGHT SIDEBAR -->
-  <div id="sidebar">
-    <div class="sidebar-section">
-      <h3>Day Timer</h3>
-      <div class="timer-ring" id="sidebar-timer">—</div>
-    </div>
-    <div class="sidebar-section">
-      <h3>Reputation</h3>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <div class="rep-bar-wrap" style="flex:1"><div class="rep-bar" id="rep-bar" style="width:100%"></div></div>
-        <span style="font-family:var(--mono);font-size:12px" id="rep-pct">100%</span>
-      </div>
-      <p style="font-size:11px;color:var(--text-dim)">Keep customers happy to maintain rep!</p>
-    </div>
-    <div class="sidebar-section">
-      <h3>Scoreboard</h3>
-      <div id="scoreboard"></div>
-    </div>
-    <div class="sidebar-section">
-      <h3>Store Controls</h3>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <button class="btn orange sm" onclick="socket.emit('nextDay')" id="next-day-btn" style="display:none">▶ Start Next Day</button>
-        <button class="btn secondary sm" onclick="socket.emit('resetGame')">🔄 Reset Game</button>
-      </div>
-    </div>
-    <div class="sidebar-section" style="flex-shrink:0">
-      <h3>Event Log</h3>
-    </div>
-    <div id="log-panel"></div>
-  </div>
-</div>
-
 <script>
+// ── State ──────────────────────────────────────────
 const socket = io();
 let myId = null;
-let state = null;
-let patienceTimers = {};
+let roomState = null;
+let myRoomCode = null;
 
+// ── Screen management ──────────────────────────────
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+// ── Socket setup ───────────────────────────────────
 socket.on('connect', () => { myId = socket.id; });
 
-socket.on('state', (s) => {
-  state = s;
-  renderAll();
+socket.on('roomJoined', ({ code, playerId }) => {
+  myId = playerId;
+  myRoomCode = code;
+  document.getElementById('lobby-code').textContent = code;
+  show('lobby');
+});
+
+socket.on('joinError', (msg) => {
+  document.getElementById('join-error').textContent = msg;
+  setTimeout(() => document.getElementById('join-error').textContent = '', 4000);
+});
+
+socket.on('roomState', (state) => {
+  roomState = state;
+  renderAll(state);
+});
+
+socket.on('serveResult', ({ ok, earned, isVip, msg }) => {
+  if (ok) showToast(`+$${earned}${isVip ? ' ⭐ VIP BONUS!' : ''}`, isVip ? 'vip' : 'success');
+  else showToast(msg, 'error');
 });
 
 socket.on('msg', ({ type, text }) => showToast(text, type));
 
-socket.on('serveResult', (r) => {
-  if (r.ok) showToast(`+$${r.earned} earned!`, 'success');
-  else showToast(r.msg, 'error');
-});
-
-// ─── Rendering ─────────────────────────────────────────────────────
-function renderAll() {
-  if (!state) return;
-  renderHeader();
-  renderPlayers();
-  renderEventBanner();
-  renderPhase();
-  renderCustomers();
-  renderInventory();
-  renderShop();
-  renderUpgrades();
-  renderSidebar();
+// ── Title Screen Actions ───────────────────────────
+function handleCreate() {
+  const name = document.getElementById('create-name').value.trim();
+  socket.emit('createRoom', { name: name || 'Player 1' });
 }
 
-function renderHeader() {
-  document.getElementById('stat-money').textContent = `$${state.money}`;
-  document.getElementById('stat-rep').textContent = `${state.reputation}%`;
-  document.getElementById('stat-score').textContent = state.score;
-  document.getElementById('day-badge').textContent = `Day ${state.day}`;
+function handleJoin() {
+  const name = document.getElementById('join-name').value.trim();
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (!code || code.length < 2) { document.getElementById('join-error').textContent = 'Enter a room code!'; return; }
+  socket.emit('joinRoom', { code, name: name || '' });
+}
 
-  const timerEl = document.getElementById('stat-timer');
-  const timerVal = document.getElementById('timer-val');
-  if (state.phase === 'playing') {
+document.getElementById('create-name').addEventListener('keydown', e => { if (e.key==='Enter') handleCreate(); });
+document.getElementById('join-code').addEventListener('keydown',  e => { if (e.key==='Enter') handleJoin(); });
+document.getElementById('join-name').addEventListener('keydown',  e => { if (e.key==='Enter') handleJoin(); });
+
+function updateLobbyName() {
+  const name = document.getElementById('lobby-name-input').value.trim();
+  if (name) socket.emit('setName', { name });
+}
+document.getElementById('lobby-name-input').addEventListener('keydown', e => { if (e.key==='Enter') updateLobbyName(); });
+
+function copyCode() {
+  if (myRoomCode) navigator.clipboard.writeText(myRoomCode).then(() => showToast('Code copied!', 'success'));
+}
+
+function leaveRoom() {
+  socket.emit('leaveRoom');
+  myRoomCode = null; roomState = null;
+  show('title');
+}
+
+// ── Render All ─────────────────────────────────────
+function renderAll(s) {
+  const isGame = s.phase !== 'lobby';
+
+  if (isGame && document.getElementById('screen-lobby').classList.contains('active')) {
+    show('game');
+  } else if (!isGame && document.getElementById('screen-game').classList.contains('active')) {
+    show('lobby');
+  } else if (s.phase === 'lobby') {
+    renderLobby(s);
+    return;
+  }
+
+  if (s.phase === 'lobby') { renderLobby(s); return; }
+
+  renderHeader(s);
+  renderPlayers(s);
+  renderEventBanner(s);
+  renderShopBanner(s);
+  renderCustomers(s);
+  renderInventory(s);
+  renderShop(s);
+  renderUpgrades(s);
+  renderSidebar(s);
+}
+
+// ── Lobby ──────────────────────────────────────────
+function renderLobby(s) {
+  document.getElementById('lobby-code').textContent = s.code;
+  const players = Object.values(s.players);
+  document.getElementById('player-count').textContent = players.length;
+
+  const list = document.getElementById('lobby-player-list');
+  list.innerHTML = '';
+  players.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'player-lobby-row';
+    row.innerHTML = `
+      <div class="avatar" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
+      <div class="info">
+        <div class="pname">${p.name}${p.id===myId?' <span style="font-size:10px;color:var(--green)">(you)</span>':''}</div>
+        <div class="prole">${p.role}</div>
+      </div>
+      ${p.id===s.hostId ? '<span class="host-crown" title="Host">👑</span>' : ''}
+    `;
+    list.appendChild(row);
+  });
+
+  const isHost = s.hostId === myId;
+  document.getElementById('start-btn').style.display = isHost ? 'block' : 'none';
+  document.getElementById('lobby-waiting').style.display = isHost ? 'none' : 'block';
+
+  // pre-fill name
+  const me = s.players[myId];
+  if (me && !document.getElementById('lobby-name-input').value) {
+    document.getElementById('lobby-name-input').value = me.name;
+  }
+}
+
+// ── Header ─────────────────────────────────────────
+function renderHeader(s) {
+  document.getElementById('h-money').textContent = '$' + s.money;
+  document.getElementById('h-rep').textContent   = s.reputation + '%';
+  document.getElementById('h-score').textContent = '$' + s.totalScore;
+  document.getElementById('day-pill').textContent = 'Day ' + s.day;
+
+  const phEl = document.getElementById('phase-pill');
+  phEl.className = 'phase-pill ' + s.phase; // wait for class to be set before text
+  if (s.phase === 'playing') phEl.textContent = 'OPEN';
+  else if (s.phase === 'shop') phEl.textContent = 'SHOP';
+  else phEl.textContent = 'LOBBY';
+
+  // Removed incorrect 'phEl.className' reassignment
+
+  const timerEl = document.getElementById('h-timer');
+  if (s.phase === 'playing') {
     timerEl.style.display = 'flex';
-    const m = Math.floor(state.dayTimer / 60);
-    const s = state.dayTimer % 60;
-    timerVal.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
+    document.getElementById('h-time').textContent = m+':'+(sec<10?'0':'')+sec;
   } else {
     timerEl.style.display = 'none';
   }
-
-  const badge = document.getElementById('phase-badge');
-  badge.className = 'phase-pill ' + state.phase;
-  badge.textContent = state.phase.toUpperCase();
 }
 
-function renderPlayers() {
-  const chips = document.getElementById('player-chips');
-  chips.innerHTML = '';
-  for (const [id, p] of Object.entries(state.players)) {
+// ── Players bar ────────────────────────────────────
+function renderPlayers(s) {
+  const bar = document.getElementById('players-bar');
+  bar.innerHTML = '';
+  for (const p of Object.values(s.players)) {
     const chip = document.createElement('div');
-    chip.className = 'player-chip';
+    chip.className = 'pchip' + (p.id === myId ? ' me' : '');
     chip.innerHTML = `
-      <div class="dot" style="background:${p.color}">${p.name[0]}</div>
+      <div class="dot" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
       <span>${p.name}</span>
-      <span class="score">$${p.score}</span>
+      <span class="pscore">$${p.personalScore}</span>
+      ${p.id===s.hostId?'<span title="Host" style="font-size:12px">👑</span>':''}
     `;
-    chips.appendChild(chip);
+    bar.appendChild(chip);
   }
-  const me = state.players[myId];
-  document.getElementById('you-label').textContent = me ? `You are ${me.name} (${me.role})` : '';
 }
 
-function renderEventBanner() {
+// ── Event Banner ───────────────────────────────────
+function renderEventBanner(s) {
   const banner = document.getElementById('event-banner');
-  const text = document.getElementById('event-text');
-  const btn = document.getElementById('theft-btn');
-  if (state.activeEvent || state.theftActive) {
-    banner.classList.add('active');
-    if (state.theftActive) {
-      text.textContent = '🦝 SHOPLIFTER! Click to stop them before they escape!';
-      btn.style.display = 'inline-block';
-    } else if (state.activeEvent) {
-      text.textContent = state.activeEvent.label + ' — ' + state.activeEvent.desc;
-      btn.style.display = 'none';
-    }
+  const text   = document.getElementById('event-text');
+  const theftBtn = document.getElementById('theft-btn');
+
+  if (s.theftActive) {
+    banner.className = 'event-banner active theft';
+    banner.style.display = 'flex';
+    text.textContent = '🦝 SHOPLIFTER IN THE STORE! Click the button NOW!';
+    theftBtn.style.display = 'inline-block';
+  } else if (s.activeEvent) {
+    banner.style.display = 'flex';
+    const typeClass = { rush:'rush', sale:'sale', vip:'default', spoil:'default', inspect:'default' }[s.activeEvent.type] || 'default';
+    banner.className = 'event-banner active ' + typeClass;
+    text.textContent = s.activeEvent.label + ' — ' + s.activeEvent.desc;
+    theftBtn.style.display = 'none';
   } else {
-    banner.classList.remove('active');
-    btn.style.display = 'none';
+    banner.style.display = 'none';
+    theftBtn.style.display = 'none';
   }
 }
 
-function renderPhase() {
-  const lobby = document.getElementById('lobby-screen');
-  const game = document.getElementById('game-screen');
-  const shopBanner = document.getElementById('shop-phase-banner');
-  const nextDayBtn = document.getElementById('next-day-btn');
-
-  if (state.phase === 'lobby') {
-    lobby.style.display = 'flex';
-    game.style.display = 'none';
-    shopBanner.classList.remove('active');
-    nextDayBtn.style.display = 'none';
+// ── Shop Banner ────────────────────────────────────
+function renderShopBanner(s) {
+  const sb = document.getElementById('shop-banner');
+  const nd = document.getElementById('next-day-btn');
+  if (s.phase === 'shop') {
+    sb.classList.add('active');
+    nd.style.display = s.hostId === myId ? 'inline-block' : 'none';
   } else {
-    lobby.style.display = 'none';
-    game.style.display = 'flex';
-    if (state.phase === 'shop') {
-      shopBanner.classList.add('active');
-      nextDayBtn.style.display = 'block';
-    } else {
-      shopBanner.classList.remove('active');
-      nextDayBtn.style.display = 'none';
-    }
+    sb.classList.remove('active');
+    nd.style.display = 'none';
   }
 }
 
-function renderCustomers() {
+// ── Customers ──────────────────────────────────────
+function renderCustomers(s) {
   const grid = document.getElementById('customer-grid');
-  const noC = document.getElementById('no-customers');
-  if (!state.customers || state.customers.length === 0) {
-    grid.innerHTML = '';
+  const noC  = document.getElementById('no-customers');
+
+  if (!s.customers.length) {
     noC.style.display = 'block';
+    grid.innerHTML = '';
     return;
   }
   noC.style.display = 'none';
 
-  // keep existing cards, update patience bars
-  const existing = new Set([...grid.querySelectorAll('.customer-card')].map(c=>c.dataset.id));
-  const incoming = new Set(state.customers.map(c=>String(c.id)));
+  const existIds = new Set([...grid.querySelectorAll('.ccard')].map(c => Number(c.dataset.id)));
+  const incomingIds = new Set(s.customers.map(c => c.id));
 
   // remove gone
-  existing.forEach(id => { if (!incoming.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove(); });
+  existIds.forEach(id => { if (!incomingIds.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove(); });
 
-  state.customers.forEach(c => {
-    let card = grid.querySelector(`[data-id="${c.id}"]`);
+  s.customers.forEach(c => {
     const pct = Math.round((c.patience / c.maxPatience) * 100);
-    const impatient = pct < 30;
+    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+    let card = grid.querySelector(`[data-id="${c.id}"]`);
 
     if (!card) {
       card = document.createElement('div');
-      card.className = 'customer-card' + (impatient ? ' impatient' : '');
+      card.className = 'ccard' + (c.isVip ? ' vip' : '') + (pct < 25 ? ' urgent' : '');
       card.dataset.id = c.id;
-      card.onclick = () => serveCustomer(c.id);
+      card.onclick = () => socket.emit('serveCustomer', c.id);
 
       const wantsHtml = c.wants.map(w => {
-        const prod = state.products.find(p => p.id === w.id);
-        return `<span class="want-tag">${prod?.emoji || '?'} ${prod?.name || w.id} ×${w.qty}</span>`;
+        const prod = s.products.find(p => p.id === w.id);
+        return `<span class="wtag">${prod?.emoji||'?'} ${prod?.name||w.id} ×${w.qty}</span>`;
       }).join('');
 
       card.innerHTML = `
-        <div class="customer-header">
-          <span class="customer-emoji">${c.emoji}</span>
+        <div class="ccard-top">
+          <span class="cemoji">${c.emoji}</span>
           <div>
-            <div class="customer-name">${c.name}</div>
-            <div style="font-size:11px;color:var(--text-dim)">Wants ${c.wants.length} item${c.wants.length > 1 ? 's' : ''}</div>
+            <div class="cname">${c.isVip ? '⭐ ' : ''}${c.name}</div>
+            <div class="ctype">${c.isVip ? 'VIP — 2× payout!' : c.wants.length+' item'+(c.wants.length>1?'s':'')}</div>
           </div>
         </div>
-        <div class="customer-wants">${wantsHtml}</div>
-        <div class="serve-hint">▶ CLICK TO SERVE</div>
-        <div class="patience-bar" style="width:${pct}%"></div>
+        <div class="cwants">${wantsHtml}</div>
+        <div class="serve-label">▶ CLICK TO SERVE</div>
+        <div class="pbar ${barClass}" style="width:${pct}%"></div>
       `;
       grid.appendChild(card);
     } else {
-      card.className = 'customer-card' + (impatient ? ' impatient' : '');
-      card.querySelector('.patience-bar').style.width = pct + '%';
+      const bar = card.querySelector('.pbar');
+      if (bar) { bar.className = 'pbar '+barClass; bar.style.width = pct+'%'; }
+      card.className = 'ccard' + (c.isVip?' vip':'') + (pct<25?' urgent':'');
     }
   });
 }
 
-function renderInventory() {
-  const list = document.getElementById('inventory-list');
-  list.innerHTML = '';
-  state.products.forEach(p => {
-    const stock = state.inventory[p.id] || 0;
-    const price = state.prices[p.id] || p.basePrice;
-    const on = state.shelves[p.id];
-    const stockClass = stock < 4 ? 'stock-low' : 'stock-ok';
-    const row = document.createElement('div');
-    row.className = 'product-row';
-    row.innerHTML = `
-      <div class="emoji">${p.emoji}</div>
-      <div><div class="pname">${p.name}</div><div class="pcat">${p.category}</div></div>
-      <div class="stock-val ${stockClass}">${stock}</div>
-      <input type="number" min="1" max="50" value="${price}" title="Set price for ${p.name}"
-        onchange="setPrice('${p.id}', this.value)" style="width:72px">
-      <button class="shelf-toggle ${on ? 'on' : ''}" onclick="toggleShelf('${p.id}', this)" title="${on ? 'Remove from shelf' : 'Put on shelf'}"></button>
+// ── Inventory Table ────────────────────────────────
+function renderInventory(s) {
+  const body = document.getElementById('inv-body');
+  body.innerHTML = '';
+  s.products.forEach(p => {
+    const stock = s.inventory[p.id]||0;
+    const price = s.prices[p.id]||p.basePrice;
+    const on    = s.shelves[p.id];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="emoji-cell">${p.emoji}</td>
+      <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
+      <td class="stock-cell ${stock<4?'stock-lo':'stock-ok'}">${stock}</td>
+      <td><input type="number" class="price-input" min="1" max="99" value="${price}"
+            onchange="socket.emit('setPrice',{productId:'${p.id}',price:+this.value})"></td>
+      <td style="text-align:center">
+        <button class="toggle ${on?'on':''}" onclick="socket.emit('toggleShelf',{productId:'${p.id}'})"></button>
+      </td>
     `;
-    list.appendChild(row);
+    body.appendChild(tr);
   });
 }
 
-function renderShop() {
-  const list = document.getElementById('shop-list');
-  list.innerHTML = '';
-  const isShop = state.phase === 'shop';
-  state.products.forEach(p => {
-    const maxCap = 30 + (state.capacityBonus || 0);
-    const stock = state.inventory[p.id] || 0;
-    const row = document.createElement('div');
-    row.className = 'shop-row';
-    row.innerHTML = `
-      <div class="emoji">${p.emoji}</div>
-      <div>
-        <div style="font-weight:600;font-size:13px">${p.name}</div>
-        <div class="cost-label">Cost: $${p.cost}/unit • Stock: ${stock}/${maxCap}</div>
-      </div>
-      <div class="cost-label" style="color:var(--yellow)">$${p.cost}</div>
-      <input class="qty-input" type="number" min="1" max="30" value="5" id="qty-${p.id}" ${!isShop ? 'disabled' : ''}>
-      <button class="btn sm ${isShop ? '' : 'secondary'}" onclick="restock('${p.id}')" ${!isShop ? 'disabled style="opacity:0.4"' : ''}>Buy</button>
+// ── Shop Table ─────────────────────────────────────
+function renderShop(s) {
+  const body = document.getElementById('shop-body');
+  const isShop = s.phase === 'shop';
+  body.innerHTML = '';
+  s.products.forEach(p => {
+    const maxCap = 30 + (s.capacityBonus||0);
+    const cur    = s.inventory[p.id]||0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="emoji-cell">${p.emoji}</td>
+      <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">$${p.cost}/u</td>
+      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}">${cur}/${maxCap}</td>
+      <td><input type="number" class="qty-input" min="1" max="30" value="5"
+            id="qty-${p.id}" ${!isShop?'disabled':''}></td>
+      <td><button class="btn sm ${isShop?'':'secondary'}" ${!isShop?'disabled':''} style="${!isShop?'opacity:.4':''}"
+            onclick="doRestock('${p.id}')">Buy</button></td>
     `;
-    list.appendChild(row);
+    body.appendChild(tr);
   });
 }
 
-function renderUpgrades() {
-  const grid = document.getElementById('upgrade-grid');
+function doRestock(productId) {
+  const qty = parseInt(document.getElementById('qty-'+productId)?.value||5);
+  socket.emit('restock', { productId, qty });
+}
+
+// ── Upgrades ───────────────────────────────────────
+function renderUpgrades(s) {
+  const grid = document.getElementById('upg-grid');
   grid.innerHTML = '';
-  state.upgradeList.forEach(u => {
-    const owned = state.upgrades.includes(u.id);
-    const isShop = state.phase === 'shop';
+  const isShop = s.phase === 'shop';
+  s.upgradeList.forEach(u => {
+    const owned = s.upgrades.includes(u.id);
+    const canAfford = s.money >= u.cost;
     const card = document.createElement('div');
-    card.className = 'upgrade-card' + (owned ? ' owned' : '');
+    card.className = 'upg-card' + (owned?' owned':'');
     card.innerHTML = `
-      <div class="upgrade-emoji">${u.emoji}</div>
-      <div class="upgrade-name">${u.name}</div>
-      <div class="upgrade-desc">${u.desc}</div>
+      <div class="upg-emoji">${u.emoji}</div>
+      <div class="upg-name">${u.name}</div>
+      <div class="upg-desc">${u.desc}</div>
       ${owned
-        ? `<div class="owned-label">✅ Purchased</div>`
-        : `<div class="upgrade-cost">$${u.cost}</div>
-           <button class="btn sm ${isShop ? 'blue' : 'secondary'}" onclick="buyUpgrade('${u.id}')" ${!isShop || state.money < u.cost ? 'disabled style="opacity:0.4"' : ''}>Buy Upgrade</button>`
-      }
+        ? `<div class="upg-owned">✅ Purchased</div>`
+        : `<div class="upg-cost">$${u.cost}</div>
+           <button class="btn sm ${isShop&&canAfford?'blue':'secondary'}"
+             onclick="socket.emit('buyUpgrade','${u.id}')"
+             ${!isShop||!canAfford?'disabled style="opacity:.4"':''}>
+             ${isShop ? 'Purchase' : 'Shop Phase Only'}
+           </button>`}
     `;
     grid.appendChild(card);
   });
 }
 
-function renderSidebar() {
+// ── Sidebar ────────────────────────────────────────
+function renderSidebar(s) {
   // timer
-  const t = document.getElementById('sidebar-timer');
-  if (state.phase === 'playing') {
-    const m = Math.floor(state.dayTimer / 60);
-    const s = state.dayTimer % 60;
-    t.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-    t.className = 'timer-ring' + (state.dayTimer < 20 ? ' urgent' : '');
+  const t = document.getElementById('sb-timer');
+  if (s.phase === 'playing') {
+    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
+    t.textContent = m+':'+(sec<10?'0':'')+sec;
+    t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
+  } else if (s.phase === 'shop') {
+    t.textContent = 'SHOP'; t.className = 'timer-big shop-mode';
   } else {
-    t.textContent = state.phase === 'shop' ? 'Shop!' : '—';
-    t.className = 'timer-ring';
+    t.textContent = '—'; t.className = 'timer-big';
   }
 
-  // rep bar
-  document.getElementById('rep-bar').style.width = state.reputation + '%';
-  document.getElementById('rep-pct').textContent = state.reputation + '%';
+  // rep
+  document.getElementById('rep-fill').style.width  = s.reputation+'%';
+  document.getElementById('rep-label').textContent = s.reputation+'%';
 
   // scoreboard
-  const sb = document.getElementById('scoreboard');
+  const sb = document.getElementById('sb-scores');
   sb.innerHTML = '';
-  const sorted = Object.values(state.players).sort((a,b) => b.score - a.score);
-  sorted.forEach(p => {
+  Object.values(s.players).sort((a,b)=>b.personalScore-a.personalScore).forEach(p => {
     const row = document.createElement('div');
-    row.className = 'score-row';
+    row.className = 'sb-score-row';
     row.innerHTML = `
-      <span class="sname" style="color:${p.color}">${p.name}</span>
-      <span class="sval">$${p.score}</span>
+      <span class="sn"><span style="width:10px;height:10px;border-radius:50%;background:${p.color};display:inline-block"></span>${p.name}${p.id===myId?' <span style="font-size:10px;color:var(--green)">(you)</span>':''}</span>
+      <span class="sv">$${p.personalScore}</span>
     `;
     sb.appendChild(row);
   });
 
   // log
-  const log = document.getElementById('log-panel');
-  const entries = state.eventLog || [];
+  const log = document.getElementById('log-area');
+  const entries = s.eventLog||[];
   log.innerHTML = '';
   entries.forEach(e => {
     const el = document.createElement('div');
@@ -970,67 +1094,21 @@ function renderSidebar() {
   });
 }
 
-// ─── Actions ────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach((t,i) => {
-    const names = ['customers','inventory','shop','upgrades'];
-    t.classList.toggle('active', names[i] === tab);
-  });
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
+// ── Tab switching ──────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id==='pane-'+name));
 }
 
-function startGame() {
-  const name = document.getElementById('name-input').value.trim();
-  if (name) socket.emit('setName', name);
-  socket.emit('startGame');
-}
-
-function setName() {
-  const name = document.getElementById('name-input').value.trim();
-  if (name) socket.emit('setName', name);
-}
-
-function serveCustomer(id) {
-  socket.emit('serveCustomer', id);
-}
-
-function stopThief() {
-  socket.emit('stopThief');
-}
-
-function setPrice(productId, price) {
-  socket.emit('setPrice', { productId, price: Number(price) });
-}
-
-function toggleShelf(productId, btn) {
-  socket.emit('toggleShelf', { productId });
-}
-
-function restock(productId) {
-  const qtyEl = document.getElementById('qty-' + productId);
-  const qty = parseInt(qtyEl?.value || 5);
-  socket.emit('restock', { productId, qty });
-}
-
-function buyUpgrade(upgradeId) {
-  socket.emit('buyUpgrade', upgradeId);
-}
-
-// ─── Toast ──────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg, type = 'info') {
+// ── Toast ──────────────────────────────────────────
+let _toastTimer;
+function showToast(msg, type='info') {
   const t = document.getElementById('toast');
-  clearTimeout(toastTimer);
+  clearTimeout(_toastTimer);
   t.className = 'show ' + type;
   t.textContent = msg;
-  toastTimer = setTimeout(() => { t.className = ''; }, 2500);
+  _toastTimer = setTimeout(() => { t.className = ''; }, 2800);
 }
-
-// ─── Name input enter key ───────────────────────────────────────────
-document.getElementById('name-input')?.addEventListener('keydown', e => {
-  if (e.key === 'Enter') setName();
-});
 </script>
 </body>
 </html>
