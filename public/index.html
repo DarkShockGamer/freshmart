@@ -436,6 +436,18 @@ input::placeholder { color: var(--muted); }
 .margin-ok  { color: var(--green); border-color: rgba(16,185,129,.3); }
 .margin-bad { color: var(--red);   border-color: rgba(239,68,68,.3);  }
 
+.demand-bar-wrap {
+  width: 52px; height: 5px; background: var(--border); border-radius: 3px;
+  margin: 4px auto 0; overflow: hidden;
+}
+.demand-bar-fill {
+  height: 100%; border-radius: 3px; transition: width .4s, background .4s;
+}
+.demand-label {
+  font-size: 9px; font-family: var(--mono); color: var(--muted);
+  text-align: center; margin-top: 1px; letter-spacing: .3px;
+}
+
 .toggle {
   width: 36px; height: 20px; background: var(--border); border-radius: 10px;
   cursor: pointer; position: relative; border: none; transition: background .2s;
@@ -1278,6 +1290,13 @@ function renderCustomers(s) {
 }
 
 // ── Inventory Table ────────────────────────────────
+// Client-side demand weight mirror (matches server logic)
+function clientDemandWeight(price, basePrice) {
+  const ratio = price / basePrice;
+  if (ratio <= 1) return 1;
+  return Math.max(0.02, 1 / (ratio * ratio));
+}
+
 function renderInventory(s) {
   const body = document.getElementById('inv-body');
   body.innerHTML = '';
@@ -1288,6 +1307,13 @@ function renderInventory(s) {
     const profit = price - p.cost;
     const marginClass = profit > 0 ? 'margin-ok' : 'margin-bad';
     const marginSign  = profit >= 0 ? '+' : '';
+
+    // Demand calculation
+    const dw = clientDemandWeight(price, p.basePrice);
+    const demandPct = Math.round(dw * 100);
+    const demandColor = dw > 0.7 ? 'var(--green)' : dw > 0.35 ? 'var(--yellow)' : 'var(--red)';
+    const demandText = dw > 0.7 ? 'HIGH' : dw > 0.35 ? 'MED' : dw > 0.1 ? 'LOW' : 'NONE';
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="emoji-cell">${p.emoji}</td>
@@ -1300,6 +1326,10 @@ function renderInventory(s) {
         <input type="number" class="price-input" min="1" max="9999" value="${price}"
               onchange="socket.emit('setPrice',{productId:'${p.id}',price:+this.value})">
         <span class="cost-badge ${marginClass}" title="Cost $${p.cost}/unit">cost $${p.cost} · ${marginSign}$${profit}/u</span>
+        <div class="demand-bar-wrap" title="Demand: ${demandPct}%">
+          <div class="demand-bar-fill" style="width:${demandPct}%;background:${demandColor}"></div>
+        </div>
+        <div class="demand-label" style="color:${demandColor}">${demandText} DEMAND</div>
       </td>
       <td style="text-align:center">
         <button class="toggle ${on?'on':''}" onclick="socket.emit('toggleShelf',{productId:'${p.id}'})"></button>
@@ -1343,11 +1373,12 @@ function renderShop(s) {
               id="qty-${p.id}" ${(!isShop||isFull)?'disabled':''}
               oninput="clampQty('${p.id}',${space})">
       </td>
-      <td>
+      <td style="display:flex;gap:5px;align-items:center;padding:6px 4px">
         <button class="btn sm ${(isShop&&!isFull)?'':'secondary'}" ${(!isShop||isFull)?'disabled':''} style="${(!isShop||isFull)?'opacity:.4':''}"
               onclick="doRestock('${p.id}')">
           ${isFull ? 'Full' : 'Buy'}
         </button>
+        ${(!isFull&&isShop&&space>1&&s.upgrades.includes('smart_restock')) ? `<button class="btn sm orange" title="Fill shelf to capacity (${space} units)" onclick="doRestockFull('${p.id}',${space})">⚡ Fill</button>` : ''}
       </td>
     `;
     body.appendChild(tr);
@@ -1366,6 +1397,11 @@ function clampQty(productId, maxSpace) {
 function doRestock(productId) {
   const qty = parseInt(document.getElementById('qty-'+productId)?.value||5);
   socket.emit('restock', { productId, qty });
+}
+
+function doRestockFull(productId, space) {
+  if (space <= 0) return;
+  socket.emit('restock', { productId, qty: space });
 }
 
 // ── Upgrades Tree ──────────────────────────────────────────────────
