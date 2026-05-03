@@ -1424,12 +1424,14 @@ function renderShop(s) {
               id="qty-${p.id}" ${(!isShop||isFull)?'disabled':''}
               oninput="clampQty('${p.id}',${space})">
       </td>
-      <td style="display:flex;gap:5px;align-items:center;padding:6px 4px">
-        <button class="btn sm ${(isShop&&!isFull)?'':'secondary'}" ${(!isShop||isFull)?'disabled':''} style="${(!isShop||isFull)?'opacity:.4':''}"
+      <td style="white-space:nowrap;padding:6px 8px;vertical-align:middle">
+        <div style="display:inline-flex;gap:5px;align-items:center">
+          <button class="btn sm ${(isShop&&!isFull)?'':'secondary'}" ${(!isShop||isFull)?'disabled':''} style="${(!isShop||isFull)?'opacity:.4':''}"
               onclick="doRestock('${p.id}')">
-          ${isFull ? 'Full' : 'Buy'}
-        </button>
-        ${(!isFull&&isShop&&space>1&&s.upgrades.includes('smart_restock')) ? `<button class="btn sm orange" title="Fill shelf to capacity (${space} units)" onclick="doRestockFull('${p.id}',${space})">⚡ Fill</button>` : ''}
+            ${isFull ? 'Full' : 'Buy'}
+          </button>
+          ${(!isFull&&isShop&&space>1&&s.upgrades.includes('smart_restock')) ? `<button class="btn sm orange" title="Fill shelf to capacity (${space} units)" onclick="doRestockFull('${p.id}',${space})">⚡ Fill</button>` : ''}
+        </div>
       </td>
     `;
     body.appendChild(tr);
