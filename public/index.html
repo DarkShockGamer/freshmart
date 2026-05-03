@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🛒 FreshMart — Multiplayer Supermarket</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1f2937;
+    --border: #30363d;
+    --green: #10b981;
+    --green-dim: #064e3b;
+    --orange: #f97316;
+    --orange-dim: #431407;
+    --red: #ef4444;
+    --red-dim: #450a0a;
+    --blue: #6366f1;
+    --blue-dim: #1e1b4b;
+    --yellow: #eab308;
+    --yellow-dim: #422006;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --font: 'Syne', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scrollbars ── */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── Header ── */
+  #header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  #header h1 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--green);
+  }
+  #header h1 span { color: var(--text); }
+
+  .stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 500;
+  }
+  .stat-pill .label { color: var(--text-dim); font-size: 11px; }
+  .stat-pill .val { color: var(--text); font-weight: 500; }
+  .stat-pill.money .val { color: var(--green); }
+  .stat-pill.rep .val { color: var(--orange); }
+  .stat-pill.timer .val { color: var(--yellow); }
+
+  #day-badge {
+    margin-left: auto;
+    background: var(--blue-dim);
+    border: 1px solid var(--blue);
+    color: var(--blue);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  /* ── Players strip ── */
+  #players-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .player-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border-radius: 20px;
+    padding: 3px 10px 3px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+  }
+  .player-chip .dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #000;
+  }
+  .player-chip .score { color: var(--text-dim); font-family: var(--mono); }
+  #players-bar .you-label { font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  /* ── Event banner ── */
+  #event-banner {
+    display: none;
+    background: linear-gradient(90deg, var(--yellow-dim), transparent);
+    border-bottom: 1px solid var(--yellow);
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--yellow);
+    align-items: center;
+    gap: 12px;
+  }
+  #event-banner.active { display: flex; }
+  #event-banner button {
+    background: var(--yellow);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 14px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  #event-banner button:hover { opacity: 0.85; }
+
+  /* ── Main layout ── */
+  #app {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto 1fr;
+    height: calc(100vh - 100px);
+    gap: 0;
+  }
+
+  /* ── Center / main panel ── */
+  #main-panel {
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Tabs ── */
+  #tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .tab {
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  .tab-content { display: none; padding: 16px; flex: 1; }
+  .tab-content.active { display: block; }
+
+  /* ── Lobby ── */
+  #lobby {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 24px;
+    padding: 40px;
+  }
+  #lobby .logo {
+    font-size: 64px;
+  }
+  #lobby h2 {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--green);
+  }
+  #lobby p { color: var(--text-dim); text-align: center; max-width: 400px; line-height: 1.6; }
+  #lobby .name-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    width: 100%; max-width: 320px;
+  }
+  #lobby input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 14px;
+    font-family: var(--font);
+    font-size: 14px;
+    outline: none;
+  }
+  #lobby input:focus { border-color: var(--green); }
+  .btn {
+    background: var(--green);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn.secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.danger { background: var(--red); color: #fff; }
+  .btn.orange { background: var(--orange); color: #000; }
+  .btn.blue { background: var(--blue); color: #fff; }
+  .btn.sm { padding: 6px 14px; font-size: 12px; }
+
+  /* ── Customers ── */
+  #customer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+
+  .customer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+  .customer-card:hover { border-color: var(--green); transform: translateY(-2px); }
+  .customer-card:active { transform: translateY(0); }
+
+  .customer-card .patience-bar {
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 3px;
+    background: var(--green);
+    transition: width 1s linear;
+  }
+  .customer-card.impatient .patience-bar { background: var(--red); }
+
+  .customer-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .customer-emoji { font-size: 24px; }
+  .customer-name { font-size: 13px; font-weight: 700; }
+  .customer-wants { display: flex; flex-wrap: wrap; gap: 4px; }
+  .want-tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .serve-hint {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  #no-customers {
+    color: var(--text-dim);
+    text-align: center;
+    padding: 40px;
+    font-size: 14px;
+  }
+
+  /* ── Inventory / products ── */
+  .product-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 80px 80px 60px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    transition: background 0.1s;
+  }
+  .product-row:hover { background: var(--surface2); }
+  .product-row .emoji { font-size: 20px; text-align: center; }
+  .product-row .pname { font-weight: 600; }
+  .product-row .pcat { font-size: 11px; color: var(--text-dim); }
+  .product-row .stock-val {
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: center;
+  }
+  .stock-low { color: var(--red); }
+  .stock-ok { color: var(--green); }
+  .product-row input[type=number] {
+    width: 64px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 4px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    text-align: center;
+  }
+  .product-row input[type=number]:focus { border-color: var(--blue); }
+
+  .shelf-toggle {
+    width: 36px; height: 20px;
+    background: var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    border: none;
+    transition: background 0.2s;
+  }
+  .shelf-toggle.on { background: var(--green); }
+  .shelf-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .shelf-toggle.on::after { transform: translateX(16px); }
+
+  /* ── Shop / restock ── */
+  .shop-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 70px 60px auto;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .shop-row .cost-label { color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+  .qty-input {
+    width: 52px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 4px 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    outline: none;
+    text-align: center;
+  }
+  .qty-input:focus { border-color: var(--green); }
+
+  /* ── Upgrades ── */
+  .upgrade-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .upgrade-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s;
+  }
+  .upgrade-card.owned { border-color: var(--green); background: rgba(16,185,129,0.05); }
+  .upgrade-card:not(.owned):hover { border-color: var(--blue); }
+  .upgrade-emoji { font-size: 28px; }
+  .upgrade-name { font-size: 14px; font-weight: 700; }
+  .upgrade-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .upgrade-cost { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 600; }
+  .owned-label { color: var(--green); font-size: 12px; font-weight: 700; }
+
+  /* ── Right sidebar ── */
+  #sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    padding: 12px;
+    flex-shrink: 0;
+  }
+  .sidebar-section h3 {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  /* ── Log ── */
+  #log-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px;
+  }
+  .log-entry {
+    padding: 6px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    line-height: 1.4;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Shop phase overlay ── */
+  #shop-phase-banner {
+    display: none;
+    background: linear-gradient(90deg, var(--blue-dim), transparent);
+    border-bottom: 1px solid var(--blue);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--blue);
+    align-items: center;
+    gap: 12px;
+  }
+  #shop-phase-banner.active { display: flex; }
+
+  /* ── Score board ── */
+  .score-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  .score-row .sname { font-weight: 600; }
+  .score-row .sval { font-family: var(--mono); color: var(--green); }
+
+  /* ── Gameover ── */
+  #gameover {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 40px;
+    text-align: center;
+  }
+  #gameover.show { display: flex; }
+  #gameover h2 { font-size: 32px; font-weight: 800; color: var(--orange); }
+  #gameover .final-score { font-size: 48px; font-weight: 800; color: var(--green); }
+
+  /* ── Section label ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 0 6px;
+    display: block;
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 9999;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { border-color: var(--red); color: var(--red); }
+  #toast.success { border-color: var(--green); color: var(--green); }
+
+  /* ── Rep bar ── */
+  .rep-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+  .rep-bar { height: 100%; background: var(--orange); border-radius: 4px; transition: width 0.5s ease; }
+
+  /* ── Timer ring ── */
+  .timer-ring {
+    font-size: 28px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--yellow);
+    text-align: center;
+  }
+  .timer-ring.urgent { color: var(--red); animation: pulse 0.5s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+
+  /* ── Phase pill ── */
+  .phase-pill {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+  .phase-pill.playing { background: rgba(16,185,129,0.1); color: var(--green); border-color: var(--green); }
+  .phase-pill.shop { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+  .phase-pill.lobby { background: var(--surface2); color: var(--text-dim); border-color: var(--border); }
+
+  @media (max-width: 768px) {
+    #app { grid-template-columns: 1fr; }
+    #sidebar { display: none; }
+    .product-row { grid-template-columns: 28px 1fr 60px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+  <h1>🛒 Fresh<span>Mart</span></h1>
+  <div class="stat-pill money"><span class="label">CASH</span><span class="val" id="stat-money">$200</span></div>
+  <div class="stat-pill rep"><span class="label">REP</span><span class="val" id="stat-rep">100%</span></div>
+  <div class="stat-pill"><span class="label">SCORE</span><span class="val" id="stat-score">0</span></div>
+  <span id="stat-timer" class="stat-pill timer" style="display:none"><span class="label">TIME</span><span class="val" id="timer-val">2:00</span></span>
+  <span id="day-badge">Day 1</span>
+  <span id="phase-badge" class="phase-pill lobby">LOBBY</span>
+</div>
+
+<!-- Players bar -->
+<div id="players-bar">
+  <span style="font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:1px;">STAFF:</span>
+  <div id="player-chips"></div>
+  <span class="you-label" id="you-label"></span>
+</div>
+
+<!-- Event banner -->
+<div id="event-banner">
+  <span id="event-text"></span>
+  <button id="theft-btn" style="display:none" onclick="stopThief()">🚨 STOP THIEF!</button>
+</div>
+
+<!-- Shop phase banner -->
+<div id="shop-phase-banner">
+  🌙 Shop Phase — Restock shelves & buy upgrades before next day!
+  <button class="btn blue sm" onclick="socket.emit('nextDay')" style="margin-left:auto">▶ Start Next Day</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Main app -->
+<div id="app">
+  <div id="main-panel">
+    <!-- LOBBY -->
+    <div id="lobby-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px;padding:40px;">
+      <div style="font-size:72px">🛒</div>
+      <h2 style="font-size:32px;font-weight:800;color:var(--green)">Welcome to FreshMart!</h2>
+      <p style="color:var(--text-dim);text-align:center;max-width:400px;line-height:1.7">
+        Run a supermarket with your partner! Serve customers, manage inventory, set prices, and buy upgrades.
+        Share this page's URL to invite a co-worker.
+      </p>
+      <div style="display:flex;gap:8px;width:100%;max-width:320px">
+        <input id="name-input" type="text" placeholder="Your name..." maxlength="20"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 14px;font-family:var(--font);font-size:14px;outline:none">
+        <button class="btn secondary" onclick="setName()">Set</button>
+      </div>
+      <button class="btn" style="font-size:16px;padding:12px 36px" onclick="startGame()">🚀 Open the Store!</button>
+      <p style="font-size:12px;color:var(--text-dim)">Any player can start the game</p>
+    </div>
+
+    <!-- GAME tabs -->
+    <div id="game-screen" style="display:none;flex-direction:column;flex:1">
+      <div id="tabs">
+        <div class="tab active" onclick="switchTab('customers')">🧑 Customers</div>
+        <div class="tab" onclick="switchTab('inventory')">📋 Inventory</div>
+        <div class="tab" onclick="switchTab('shop')">🛍️ Restock</div>
+        <div class="tab" onclick="switchTab('upgrades')">⬆️ Upgrades</div>
+      </div>
+
+      <!-- CUSTOMERS TAB -->
+      <div id="tab-customers" class="tab-content active">
+        <div id="no-customers" style="display:none">
+          <div style="font-size:40px">😴</div>
+          <p>No customers right now... waiting for the rush!</p>
+        </div>
+        <div id="customer-grid"></div>
+      </div>
+
+      <!-- INVENTORY TAB -->
+      <div id="tab-inventory" class="tab-content">
+        <span class="section-label">Current Stock & Pricing</span>
+        <div style="display:grid;grid-template-columns:36px 1fr 80px 90px 60px;gap:8px;padding:0 12px 8px;font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px">
+          <div></div><div>PRODUCT</div><div style="text-align:center">STOCK</div><div style="text-align:center">PRICE ($)</div><div style="text-align:center">SHELF</div>
+        </div>
+        <div id="inventory-list"></div>
+      </div>
+
+      <!-- SHOP TAB -->
+      <div id="tab-shop" class="tab-content">
+        <span class="section-label">Restock Products (available during Shop Phase)</span>
+        <div style="display:grid;grid-template-columns:36px 1fr 70px 60px auto;gap:8px;padding:0 12px 8px;font-size:11px;color:var(--text-dim);font-weight:700;letter-spacing:0.5px">
+          <div></div><div>PRODUCT</div><div>COST/UNIT</div><div>QTY</div><div></div>
+        </div>
+        <div id="shop-list"></div>
+      </div>
+
+      <!-- UPGRADES TAB -->
+      <div id="tab-upgrades" class="tab-content">
+        <span class="section-label">Store Upgrades</span>
+        <div id="upgrade-grid" class="upgrade-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <h3>Day Timer</h3>
+      <div class="timer-ring" id="sidebar-timer">—</div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Reputation</h3>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div class="rep-bar-wrap" style="flex:1"><div class="rep-bar" id="rep-bar" style="width:100%"></div></div>
+        <span style="font-family:var(--mono);font-size:12px" id="rep-pct">100%</span>
+      </div>
+      <p style="font-size:11px;color:var(--text-dim)">Keep customers happy to maintain rep!</p>
+    </div>
+    <div class="sidebar-section">
+      <h3>Scoreboard</h3>
+      <div id="scoreboard"></div>
+    </div>
+    <div class="sidebar-section">
+      <h3>Store Controls</h3>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button class="btn orange sm" onclick="socket.emit('nextDay')" id="next-day-btn" style="display:none">▶ Start Next Day</button>
+        <button class="btn secondary sm" onclick="socket.emit('resetGame')">🔄 Reset Game</button>
+      </div>
+    </div>
+    <div class="sidebar-section" style="flex-shrink:0">
+      <h3>Event Log</h3>
+    </div>
+    <div id="log-panel"></div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let myId = null;
+let state = null;
+let patienceTimers = {};
+
+socket.on('connect', () => { myId = socket.id; });
+
+socket.on('state', (s) => {
+  state = s;
+  renderAll();
+});
+
+socket.on('msg', ({ type, text }) => showToast(text, type));
+
+socket.on('serveResult', (r) => {
+  if (r.ok) showToast(`+$${r.earned} earned!`, 'success');
+  else showToast(r.msg, 'error');
+});
+
+// ─── Rendering ─────────────────────────────────────────────────────
+function renderAll() {
+  if (!state) return;
+  renderHeader();
+  renderPlayers();
+  renderEventBanner();
+  renderPhase();
+  renderCustomers();
+  renderInventory();
+  renderShop();
+  renderUpgrades();
+  renderSidebar();
+}
+
+function renderHeader() {
+  document.getElementById('stat-money').textContent = `$${state.money}`;
+  document.getElementById('stat-rep').textContent = `${state.reputation}%`;
+  document.getElementById('stat-score').textContent = state.score;
+  document.getElementById('day-badge').textContent = `Day ${state.day}`;
+
+  const timerEl = document.getElementById('stat-timer');
+  const timerVal = document.getElementById('timer-val');
+  if (state.phase === 'playing') {
+    timerEl.style.display = 'flex';
+    const m = Math.floor(state.dayTimer / 60);
+    const s = state.dayTimer % 60;
+    timerVal.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  } else {
+    timerEl.style.display = 'none';
+  }
+
+  const badge = document.getElementById('phase-badge');
+  badge.className = 'phase-pill ' + state.phase;
+  badge.textContent = state.phase.toUpperCase();
+}
+
+function renderPlayers() {
+  const chips = document.getElementById('player-chips');
+  chips.innerHTML = '';
+  for (const [id, p] of Object.entries(state.players)) {
+    const chip = document.createElement('div');
+    chip.className = 'player-chip';
+    chip.innerHTML = `
+      <div class="dot" style="background:${p.color}">${p.name[0]}</div>
+      <span>${p.name}</span>
+      <span class="score">$${p.score}</span>
+    `;
+    chips.appendChild(chip);
+  }
+  const me = state.players[myId];
+  document.getElementById('you-label').textContent = me ? `You are ${me.name} (${me.role})` : '';
+}
+
+function renderEventBanner() {
+  const banner = document.getElementById('event-banner');
+  const text = document.getElementById('event-text');
+  const btn = document.getElementById('theft-btn');
+  if (state.activeEvent || state.theftActive) {
+    banner.classList.add('active');
+    if (state.theftActive) {
+      text.textContent = '🦝 SHOPLIFTER! Click to stop them before they escape!';
+      btn.style.display = 'inline-block';
+    } else if (state.activeEvent) {
+      text.textContent = state.activeEvent.label + ' — ' + state.activeEvent.desc;
+      btn.style.display = 'none';
+    }
+  } else {
+    banner.classList.remove('active');
+    btn.style.display = 'none';
+  }
+}
+
+function renderPhase() {
+  const lobby = document.getElementById('lobby-screen');
+  const game = document.getElementById('game-screen');
+  const shopBanner = document.getElementById('shop-phase-banner');
+  const nextDayBtn = document.getElementById('next-day-btn');
+
+  if (state.phase === 'lobby') {
+    lobby.style.display = 'flex';
+    game.style.display = 'none';
+    shopBanner.classList.remove('active');
+    nextDayBtn.style.display = 'none';
+  } else {
+    lobby.style.display = 'none';
+    game.style.display = 'flex';
+    if (state.phase === 'shop') {
+      shopBanner.classList.add('active');
+      nextDayBtn.style.display = 'block';
+    } else {
+      shopBanner.classList.remove('active');
+      nextDayBtn.style.display = 'none';
+    }
+  }
+}
+
+function renderCustomers() {
+  const grid = document.getElementById('customer-grid');
+  const noC = document.getElementById('no-customers');
+  if (!state.customers || state.customers.length === 0) {
+    grid.innerHTML = '';
+    noC.style.display = 'block';
+    return;
+  }
+  noC.style.display = 'none';
+
+  // keep existing cards, update patience bars
+  const existing = new Set([...grid.querySelectorAll('.customer-card')].map(c=>c.dataset.id));
+  const incoming = new Set(state.customers.map(c=>String(c.id)));
+
+  // remove gone
+  existing.forEach(id => { if (!incoming.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove(); });
+
+  state.customers.forEach(c => {
+    let card = grid.querySelector(`[data-id="${c.id}"]`);
+    const pct = Math.round((c.patience / c.maxPatience) * 100);
+    const impatient = pct < 30;
+
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'customer-card' + (impatient ? ' impatient' : '');
+      card.dataset.id = c.id;
+      card.onclick = () => serveCustomer(c.id);
+
+      const wantsHtml = c.wants.map(w => {
+        const prod = state.products.find(p => p.id === w.id);
+        return `<span class="want-tag">${prod?.emoji || '?'} ${prod?.name || w.id} ×${w.qty}</span>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="customer-header">
+          <span class="customer-emoji">${c.emoji}</span>
+          <div>
+            <div class="customer-name">${c.name}</div>
+            <div style="font-size:11px;color:var(--text-dim)">Wants ${c.wants.length} item${c.wants.length > 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div class="customer-wants">${wantsHtml}</div>
+        <div class="serve-hint">▶ CLICK TO SERVE</div>
+        <div class="patience-bar" style="width:${pct}%"></div>
+      `;
+      grid.appendChild(card);
+    } else {
+      card.className = 'customer-card' + (impatient ? ' impatient' : '');
+      card.querySelector('.patience-bar').style.width = pct + '%';
+    }
+  });
+}
+
+function renderInventory() {
+  const list = document.getElementById('inventory-list');
+  list.innerHTML = '';
+  state.products.forEach(p => {
+    const stock = state.inventory[p.id] || 0;
+    const price = state.prices[p.id] || p.basePrice;
+    const on = state.shelves[p.id];
+    const stockClass = stock < 4 ? 'stock-low' : 'stock-ok';
+    const row = document.createElement('div');
+    row.className = 'product-row';
+    row.innerHTML = `
+      <div class="emoji">${p.emoji}</div>
+      <div><div class="pname">${p.name}</div><div class="pcat">${p.category}</div></div>
+      <div class="stock-val ${stockClass}">${stock}</div>
+      <input type="number" min="1" max="50" value="${price}" title="Set price for ${p.name}"
+        onchange="setPrice('${p.id}', this.value)" style="width:72px">
+      <button class="shelf-toggle ${on ? 'on' : ''}" onclick="toggleShelf('${p.id}', this)" title="${on ? 'Remove from shelf' : 'Put on shelf'}"></button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderShop() {
+  const list = document.getElementById('shop-list');
+  list.innerHTML = '';
+  const isShop = state.phase === 'shop';
+  state.products.forEach(p => {
+    const maxCap = 30 + (state.capacityBonus || 0);
+    const stock = state.inventory[p.id] || 0;
+    const row = document.createElement('div');
+    row.className = 'shop-row';
+    row.innerHTML = `
+      <div class="emoji">${p.emoji}</div>
+      <div>
+        <div style="font-weight:600;font-size:13px">${p.name}</div>
+        <div class="cost-label">Cost: $${p.cost}/unit • Stock: ${stock}/${maxCap}</div>
+      </div>
+      <div class="cost-label" style="color:var(--yellow)">$${p.cost}</div>
+      <input class="qty-input" type="number" min="1" max="30" value="5" id="qty-${p.id}" ${!isShop ? 'disabled' : ''}>
+      <button class="btn sm ${isShop ? '' : 'secondary'}" onclick="restock('${p.id}')" ${!isShop ? 'disabled style="opacity:0.4"' : ''}>Buy</button>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function renderUpgrades() {
+  const grid = document.getElementById('upgrade-grid');
+  grid.innerHTML = '';
+  state.upgradeList.forEach(u => {
+    const owned = state.upgrades.includes(u.id);
+    const isShop = state.phase === 'shop';
+    const card = document.createElement('div');
+    card.className = 'upgrade-card' + (owned ? ' owned' : '');
+    card.innerHTML = `
+      <div class="upgrade-emoji">${u.emoji}</div>
+      <div class="upgrade-name">${u.name}</div>
+      <div class="upgrade-desc">${u.desc}</div>
+      ${owned
+        ? `<div class="owned-label">✅ Purchased</div>`
+        : `<div class="upgrade-cost">$${u.cost}</div>
+           <button class="btn sm ${isShop ? 'blue' : 'secondary'}" onclick="buyUpgrade('${u.id}')" ${!isShop || state.money < u.cost ? 'disabled style="opacity:0.4"' : ''}>Buy Upgrade</button>`
+      }
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderSidebar() {
+  // timer
+  const t = document.getElementById('sidebar-timer');
+  if (state.phase === 'playing') {
+    const m = Math.floor(state.dayTimer / 60);
+    const s = state.dayTimer % 60;
+    t.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    t.className = 'timer-ring' + (state.dayTimer < 20 ? ' urgent' : '');
+  } else {
+    t.textContent = state.phase === 'shop' ? 'Shop!' : '—';
+    t.className = 'timer-ring';
+  }
+
+  // rep bar
+  document.getElementById('rep-bar').style.width = state.reputation + '%';
+  document.getElementById('rep-pct').textContent = state.reputation + '%';
+
+  // scoreboard
+  const sb = document.getElementById('scoreboard');
+  sb.innerHTML = '';
+  const sorted = Object.values(state.players).sort((a,b) => b.score - a.score);
+  sorted.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    row.innerHTML = `
+      <span class="sname" style="color:${p.color}">${p.name}</span>
+      <span class="sval">$${p.score}</span>
+    `;
+    sb.appendChild(row);
+  });
+
+  // log
+  const log = document.getElementById('log-panel');
+  const entries = state.eventLog || [];
+  log.innerHTML = '';
+  entries.forEach(e => {
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    el.textContent = e.msg;
+    log.appendChild(el);
+  });
+}
+
+// ─── Actions ────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const names = ['customers','inventory','shop','upgrades'];
+    t.classList.toggle('active', names[i] === tab);
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function startGame() {
+  const name = document.getElementById('name-input').value.trim();
+  if (name) socket.emit('setName', name);
+  socket.emit('startGame');
+}
+
+function setName() {
+  const name = document.getElementById('name-input').value.trim();
+  if (name) socket.emit('setName', name);
+}
+
+function serveCustomer(id) {
+  socket.emit('serveCustomer', id);
+}
+
+function stopThief() {
+  socket.emit('stopThief');
+}
+
+function setPrice(productId, price) {
+  socket.emit('setPrice', { productId, price: Number(price) });
+}
+
+function toggleShelf(productId, btn) {
+  socket.emit('toggleShelf', { productId });
+}
+
+function restock(productId) {
+  const qtyEl = document.getElementById('qty-' + productId);
+  const qty = parseInt(qtyEl?.value || 5);
+  socket.emit('restock', { productId, qty });
+}
+
+function buyUpgrade(upgradeId) {
+  socket.emit('buyUpgrade', upgradeId);
+}
+
+// ─── Toast ──────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  t.className = 'show ' + type;
+  t.textContent = msg;
+  toastTimer = setTimeout(() => { t.className = ''; }, 2500);
+}
+
+// ─── Name input enter key ───────────────────────────────────────────
+document.getElementById('name-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') setName();
+});
+</script>
+</body>
+</html>
