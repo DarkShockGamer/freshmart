@@ -233,6 +233,55 @@ const UPGRADES = [
 const PLAYER_COLORS = ['#f97316','#6366f1','#10b981','#ec4899','#eab308','#06b6d4'];
 const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Associate','Floor Manager','Greeter'];
 
+// ─── Difficulty Configs ───────────────────────────────────────────
+const DIFFICULTY_CONFIGS = {
+  easy: {
+    label: 'Easy',
+    emoji: '🌱',
+    desc: 'Relaxed store sim — generous starting cash, cheap upgrades, patient customers.',
+    startMoney: 400,            // more starting cash
+    upgradeCostMult: 0.6,       // upgrades 40% cheaper than normal
+    spawnChance: 0.55,          // fewer customers per tick
+    spawnInterval: 3500,        // same interval
+    customerPatience: 1.6,      // 60% more patient
+    theftLoss: 5,               // low theft penalty
+    inspectPenalty: 10,         // low inspection penalty
+    spoilageLoss: 3,            // small spoilage hit
+    repLossUnserved: 3,         // less rep damage
+    rushSpawnMult: 1.5,         // rush hour is gentler
+  },
+  normal: {
+    label: 'Normal',
+    emoji: '🏪',
+    desc: 'Balanced challenge — manage your budget carefully and react to events.',
+    startMoney: 200,            // current default
+    upgradeCostMult: 1.8,       // upgrades significantly more expensive than old defaults
+    spawnChance: 0.72,          // same as current
+    spawnInterval: 3500,
+    customerPatience: 1.0,      // baseline patience
+    theftLoss: 25,              // more painful theft
+    inspectPenalty: 40,         // meaningful inspection fine
+    spoilageLoss: 8,            // more spoilage
+    repLossUnserved: 5,         // current rep loss
+    rushSpawnMult: 2,
+  },
+  hard: {
+    label: 'Hard',
+    emoji: '🔥',
+    desc: 'Brutal economy — tight cash, impatient customers, punishing events.',
+    startMoney: 100,            // very little starting cash
+    upgradeCostMult: 3.0,       // upgrades nearly 3x normal base cost
+    spawnChance: 0.88,          // customers flood in
+    spawnInterval: 2500,        // faster spawn ticks
+    customerPatience: 0.6,      // customers leave 40% faster
+    theftLoss: 50,              // brutal theft
+    inspectPenalty: 80,         // inspection nearly wipes you
+    spoilageLoss: 15,           // heavy spoilage
+    repLossUnserved: 8,         // rep crumbles fast
+    rushSpawnMult: 2,
+  },
+};
+
 // ─── Room Storage ─────────────────────────────────────────────────
 const rooms = new Map();
 const socketRoom = new Map(); // socketId → roomCode
@@ -251,6 +300,7 @@ function snapshotRoom(room) {
     inventory: { ...room.inventory },
     prices:    { ...room.prices    },
     shelves:   { ...room.shelves   },
+    difficulty: room.difficulty || 'normal',
     savedAt: Date.now(),
   };
 }
@@ -274,8 +324,11 @@ function freshStore(upgrades = []) {
   return { inv, prices, shelves };
 }
 
-function createRoom(hostId, hostName, save = null) {
+function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
   const code = generateCode();
+  // If loading from save, use the saved difficulty
+  const effectiveDiff = (save && save.difficulty) ? save.difficulty : difficulty;
+  const diff = DIFFICULTY_CONFIGS[effectiveDiff] || DIFFICULTY_CONFIGS.normal;
   let inv, prices, shelves, upgrades, money, day, totalScore, reputation, capacityBonus;
 
   if (save) {
@@ -292,7 +345,7 @@ function createRoom(hostId, hostName, save = null) {
     capacityBonus= save.capacityBonus || 0;
   } else {
     ({ inv, prices, shelves } = freshStore());
-    upgrades = []; money = 200; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
+    upgrades = []; money = diff.startMoney; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
   }
 
   const room = {
@@ -308,6 +361,7 @@ function createRoom(hostId, hostName, save = null) {
     theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, // always start in morning prep before first day
+    difficulty: effectiveDiff, diff,
   };
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
@@ -343,6 +397,8 @@ function emit(room) {
     capacityBonus: room.capacityBonus,
     isMorning: !!room.isMorning,
     products, upgradeList: UPGRADES,
+    difficulty: room.difficulty,
+    diffConfig: room.diff,
   });
 }
 
@@ -392,7 +448,9 @@ function spawnCustomer(room) {
       wants.push({ id: prod.id, qty: isVip ? Math.floor(Math.random()*4)+2 : Math.floor(Math.random()*3)+1 });
   }
   if (wants.length === 0) return;
-  const patience = 15 + Math.floor(Math.random() * 12);
+  const diff = room.diff || DIFFICULTY_CONFIGS.normal;
+  const basePatience = 15 + Math.floor(Math.random() * 12);
+  const patience = Math.max(6, Math.round(basePatience * diff.customerPatience));
   const c = {
     id: room.nextCustomerId++,
     name: CUSTOMER_NAMES[Math.floor(Math.random()*CUSTOMER_NAMES.length)],
@@ -403,8 +461,9 @@ function spawnCustomer(room) {
   setTimeout(() => {
     const idx = room.customers.findIndex(x => x.id === c.id);
     if (idx !== -1) {
-      room.reputation = Math.max(0, room.reputation - 5);
-      roomLog(room, `😤 ${c.name} left unserved! Rep -5`);
+      const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
+      room.reputation = Math.max(0, room.reputation - repLoss);
+      roomLog(room, `😤 ${c.name} left unserved! Rep -${repLoss}`);
       room.customers.splice(idx, 1);
       emit(room);
     }
@@ -444,6 +503,7 @@ function serveCustomer(room, cid, sid) {
 // ─── Events ───────────────────────────────────────────────────────
 function triggerEvent(room) {
   if (room.phase !== 'playing') return;
+  const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
   room.activeEvent = ev;
   roomLog(room, `⚡ ${ev.label} — ${ev.desc}`);
@@ -463,9 +523,9 @@ function triggerEvent(room) {
       room.theftActive = true;
       room.theftTimeout = setTimeout(() => {
         if (room.theftActive) {
-          room.money = Math.max(0, room.money - 10);
+          room.money = Math.max(0, room.money - diff.theftLoss);
           room.theftActive = false; room.activeEvent = null;
-          roomLog(room, '🦝 Thief escaped! Lost $10'); emit(room);
+          roomLog(room, `🦝 Thief escaped! Lost $${diff.theftLoss}`); emit(room);
         }
       }, ev.duration*1000);
     }
@@ -475,15 +535,15 @@ function triggerEvent(room) {
     } else {
       const unlocked = getUnlockedProducts(room.upgrades);
       const t = unlocked.slice().sort(()=>Math.random()-0.5).find(p => room.inventory[p.id] > 0);
-      if (t) { room.inventory[t.id] = Math.max(0, room.inventory[t.id]-5); roomLog(room, `🤢 ${t.name} spoiled! -5 stock`); }
+      if (t) { room.inventory[t.id] = Math.max(0, room.inventory[t.id]-diff.spoilageLoss); roomLog(room, `🤢 ${t.name} spoiled! -${diff.spoilageLoss} stock`); }
     }
     room.activeEvent = null; emit(room);
   } else if (ev.type === 'inspect') {
     const unlocked = getUnlockedProducts(room.upgrades);
     const low = unlocked.filter(p => room.shelves[p.id] && (room.inventory[p.id]||0) < 3);
     if (low.length > 0) {
-      room.money = Math.max(0, room.money-20);
-      roomLog(room, `🕵️ Failed inspection! (${low.map(p=>p.name).join(', ')}) -$20`);
+      room.money = Math.max(0, room.money - diff.inspectPenalty);
+      roomLog(room, `🕵️ Failed inspection! (${low.map(p=>p.name).join(', ')}) -$${diff.inspectPenalty}`);
     } else { roomLog(room, '🕵️ Passed health inspection! ✅'); }
     room.activeEvent = null; emit(room);
   } else if (ev.type === 'vip') {
@@ -497,16 +557,17 @@ function startDay(room) {
   room.phase = 'playing';
   room.dayTimer = 120;
   room.customers = [];
+  const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   roomLog(room, `📅 Day ${room.day} open! You have 2 minutes.`);
   emit(room);
 
   room._cInt = setInterval(() => {
     if (room.phase !== 'playing') return;
     const boost = room.upgrades.includes('ads') ? 1.4 : 1;
-    const times = room.rushActive ? 2 : 1;
-    for (let i = 0; i < times; i++) if (Math.random() < 0.72 * boost) spawnCustomer(room);
+    const times = room.rushActive ? diff.rushSpawnMult : 1;
+    for (let i = 0; i < times; i++) if (Math.random() < diff.spawnChance * boost) spawnCustomer(room);
     emit(room);
-  }, 3500);
+  }, diff.spawnInterval);
 
   const schedEv = () => {
     const d = (18 + Math.random()*15)*1000;
@@ -567,7 +628,7 @@ function resetRoom(room) {
     players[id] = { ...p, personalScore: 0, role: PLAYER_ROLES[i % PLAYER_ROLES.length], color: PLAYER_COLORS[i % PLAYER_COLORS.length] };
   });
   Object.assign(room, {
-    phase: 'lobby', money: 200, day: 1, totalScore: 0, reputation: 100,
+    phase: 'lobby', money: room.diff?.startMoney || 200, day: 1, totalScore: 0, reputation: 100,
     inventory: inv, prices, shelves, customers: [], eventLog: [],
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
@@ -600,11 +661,12 @@ io.on('connection', (socket) => {
     socket.emit('msg', { type:'success', text:`💾 Saved to slot ${slotIdx+1}!` });
   });
 
-  socket.on('createRoom', ({ name, saveSlot, save }) => {
+  socket.on('createRoom', ({ name, saveSlot, save, difficulty }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
     // Use save data sent from client (localStorage) - server memory resets on restart/reconnect
     const validSave = (save && typeof save === 'object' && save.day) ? save : null;
-    const room = createRoom(socket.id, playerName, validSave);
+    const validDiff = ['easy','normal','hard'].includes(difficulty) ? difficulty : 'normal';
+    const room = createRoom(socket.id, playerName, validSave, validDiff);
     room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0;
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
@@ -722,8 +784,10 @@ io.on('connection', (socket) => {
       const reqUpg = UPGRADES.find(u => u.id === missingReq);
       socket.emit('msg', { type:'error', text:`Requires "${reqUpg?.name || missingReq}" first!` }); return;
     }
-    if (room.money < upg.cost) { socket.emit('msg', { type:'error', text:`Need $${upg.cost}!` }); return; }
-    room.money -= upg.cost;
+    const diff = room.diff || DIFFICULTY_CONFIGS.normal;
+    const finalCost = Math.round(upg.cost * diff.upgradeCostMult);
+    if (room.money < finalCost) { socket.emit('msg', { type:'error', text:`Need $${finalCost}!` }); return; }
+    room.money -= finalCost;
     room.upgrades.push(uid);
     if (uid === 'shelves') room.capacityBonus += 15;
     // Initialize any newly unlocked products
