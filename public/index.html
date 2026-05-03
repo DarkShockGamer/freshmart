@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1037,14 +1037,12 @@ function leaveRoom() {
 // ── Render All ─────────────────────────────────────
 function renderAll(s) {
   const isGame = s.phase !== 'lobby';
+  const activeSreen = document.querySelector('.screen.active')?.id;
 
-  if (isGame && document.getElementById('screen-lobby').classList.contains('active')) {
+  if (isGame && (activeSreen === 'screen-lobby' || activeSreen === 'screen-saves')) {
     show('game');
-  } else if (!isGame && document.getElementById('screen-game').classList.contains('active')) {
+  } else if (!isGame && activeSreen === 'screen-game') {
     show('lobby');
-  } else if (s.phase === 'lobby') {
-    renderLobby(s);
-    return;
   }
 
   if (s.phase === 'lobby') { renderLobby(s); return; }
@@ -1101,7 +1099,7 @@ function renderHeader(s) {
   document.getElementById('day-pill').textContent = 'Day ' + s.day;
 
   const phEl = document.getElementById('phase-pill');
-  phEl.className = 'phase-pill ' + s.phase; // wait for class to be set before text
+  phEl.className = s.phase; // set just the phase class (CSS targets #phase-pill.playing etc.)
   if (s.phase === 'playing') phEl.textContent = 'OPEN';
   else if (s.phase === 'shop') phEl.textContent = 'SHOP';
   else phEl.textContent = 'LOBBY';
@@ -1183,7 +1181,9 @@ function renderShopBanner(s) {
       bannerText.textContent = `🌙 Shop Phase — Restock & buy upgrades. Only the host can start the next day.`;
     }
     sb.classList.add('active');
-    // nd display is handled inside the isMorning block below
+
+    // Always show Start Day button for host during any shop phase
+    nd.style.display = isHost ? 'inline-block' : 'none';
 
     if (s.isMorning) {
       // Reset dismissed flag when a new morning starts (new day number)
@@ -1192,18 +1192,17 @@ function renderShopBanner(s) {
         _lastMorningDay = s.day;
       }
       if (!_morningDismissed) overlay.style.display = 'flex';
-      document.getElementById('morning-day-num').textContent = s.day;
+      const dayNumEl = document.getElementById('morning-day-num');
+      if (dayNumEl) dayNumEl.textContent = s.day;
       document.getElementById('morning-title').textContent = s.day === 1
         ? '🌅 Good Morning! Welcome to FreshMart'
         : `🌅 Good Morning! Day ${s.day} Ahead`;
       document.getElementById('morning-subtitle').textContent = s.day === 1
         ? 'Prep your store before opening for the first time. Stock up, set prices, then open!'
         : `Day ${s.day - 1} is done. Restock shelves & buy upgrades before opening Day ${s.day}.`;
-      document.getElementById('morning-dismiss-btn').style.display = isHost ? 'inline-block' : 'none';
+      document.getElementById('morning-dismiss-btn').style.display = 'inline-block';
       document.getElementById('morning-waiting').style.display = isHost ? 'none' : 'block';
       document.getElementById('morning-hint').style.display = isHost ? 'block' : 'none';
-      // Also show Start Day in banner for host even during morning
-      nd.style.display = isHost ? 'inline-block' : 'none';
     } else {
       overlay.style.display = 'none';
     }
