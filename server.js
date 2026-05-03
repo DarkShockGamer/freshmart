@@ -232,35 +232,62 @@ const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Assoc
 const rooms = new Map();
 const socketRoom = new Map(); // socketId → roomCode
 
-// ─── Persistent Save File ─────────────────────────────────────────
-const fs = require("fs");
-const SAVE_FILE = path.join(__dirname, "saves.json");
+// ─── Persistent Saves via Upstash Redis (HTTP) ───────────────────
+// Set these two env vars in Railway:
+//   UPSTASH_REDIS_REST_URL   — e.g. https://us1-xxx.upstash.io
+//   UPSTASH_REDIS_REST_TOKEN — your Upstash REST token
+//
+// Falls back to in-memory if env vars are missing (dev mode).
 
-function loadSaveFile() {
-  try {
-    if (fs.existsSync(SAVE_FILE)) {
-      const raw = fs.readFileSync(SAVE_FILE, "utf8");
-      return JSON.parse(raw);
-    }
-  } catch (e) { console.error("Failed to read saves.json:", e); }
-  return {};
-}
+const UPSTASH_URL   = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const USE_REDIS     = !!(UPSTASH_URL && UPSTASH_TOKEN);
 
-function writeSaveFile(data) {
-  try { fs.writeFileSync(SAVE_FILE, JSON.stringify(data, null, 2), "utf8"); }
-  catch (e) { console.error("Failed to write saves.json:", e); }
+if (USE_REDIS) {
+  console.log('💾 Save backend: Upstash Redis');
+} else {
+  console.warn('⚠️  UPSTASH env vars not set — saves will be in-memory only (lost on restart)');
 }
 
 // In-memory cache: { [saveKey]: [save0, save1, save2] }
-let saveStore = loadSaveFile();
+const saveStore = {};
+
+async function redisGet(key) {
+  const res = await fetch(`${UPSTASH_URL}/get/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
+  });
+  const json = await res.json();
+  if (json.result == null) return null;
+  try { return JSON.parse(json.result); } catch { return null; }
+}
+
+async function redisSet(key, value) {
+  await fetch(`${UPSTASH_URL}/set/${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(JSON.stringify(value)),
+  });
+}
+
+// Load a player's saves from Redis into the in-memory cache
+async function loadSavesFromRedis(saveKey) {
+  if (!USE_REDIS) return;
+  try {
+    const data = await redisGet('fm_saves:' + saveKey);
+    if (Array.isArray(data)) saveStore[saveKey] = data;
+  } catch (e) { console.error('Redis GET error:', e); }
+}
 
 function getOrInitSaves(saveKey) {
   if (!saveStore[saveKey]) saveStore[saveKey] = [null, null, null];
   return saveStore[saveKey];
 }
 
-function persistSaves() {
-  writeSaveFile(saveStore);
+// Write a player's saves to Redis (fire-and-forget, errors logged)
+function persistSaves(saveKey) {
+  if (!USE_REDIS) return;
+  const data = saveStore[saveKey] || [null, null, null];
+  redisSet('fm_saves:' + saveKey, data).catch(e => console.error('Redis SET error:', e));
 }
 
 function snapshotRoom(room) {
@@ -520,7 +547,7 @@ function endDay(room) {
   if (room.saveSlot != null && room.saveKey) {
     const saves = getOrInitSaves(room.saveKey);
     saves[room.saveSlot] = snapshotRoom(room);
-    persistSaves();
+    persistSaves(room.saveKey);
     roomLog(room, `💾 Auto-saved to slot ${room.saveSlot + 1}.`);
   }
   emit(room);
@@ -554,9 +581,11 @@ function resetRoom(room) {
 io.on('connection', (socket) => {
 
   // Send the host's save slots using a stable saveKey from the client
-  socket.on('getSaves', ({ saveKey }) => {
+  // Loads from Redis first (in case server restarted and in-memory cache is empty)
+  socket.on('getSaves', async ({ saveKey }) => {
     const key = (saveKey || '').trim().slice(0, 64);
     if (!key) { socket.emit('savesData', [null, null, null]); return; }
+    await loadSavesFromRedis(key);
     const saves = getOrInitSaves(key);
     socket.emit('savesData', saves);
   });
@@ -567,19 +596,20 @@ io.on('connection', (socket) => {
     if (!key || slotIdx < 0 || slotIdx > 2) return;
     const saves = getOrInitSaves(key);
     saves[slotIdx] = null;
-    persistSaves();
+    persistSaves(key);
     socket.emit('savesData', saves);
     socket.emit('msg', { type: 'success', text: `🗑️ Slot ${slotIdx + 1} deleted.` });
   });
 
-  socket.on('createRoom', ({ name, saveSlot, saveKey }) => {
+  socket.on('createRoom', async ({ name, saveSlot, saveKey }) => {
     const playerName = (name||'').trim().slice(0,20) || 'Player 1';
     const key = (saveKey || '').trim().slice(0, 64) || socket.id;
+    await loadSavesFromRedis(key); // ensure cache is warm before reading
     const saves = getOrInitSaves(key);
     const save = (saveSlot != null && saves[saveSlot]) ? saves[saveSlot] : null;
     const room = createRoom(socket.id, playerName, save);
     room.saveSlot = (saveSlot != null && saveSlot >= 0 && saveSlot <= 2) ? saveSlot : 0;
-    room.saveKey  = key; // stable key used for disk persistence
+    room.saveKey  = key;
     socketRoom.set(socket.id, room.code);
     socket.join(room.code);
     socket.emit('roomJoined', { code: room.code, playerId: socket.id });
