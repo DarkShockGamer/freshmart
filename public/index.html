@@ -1000,22 +1000,45 @@ function renderInventory(s) {
 function renderShop(s) {
   const body = document.getElementById('shop-body');
   const isShop = s.phase === 'shop';
-  body.innerHTML = '';
+
   s.products.forEach(p => {
     const maxCap = 30 + (s.capacityBonus||0);
     const cur    = s.inventory[p.id]||0;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="emoji-cell">${p.emoji}</td>
-      <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
-      <td style="font-family:var(--mono);font-size:12px;color:var(--muted)">$${p.cost}/u</td>
-      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}">${cur}/${maxCap}</td>
-      <td><input type="number" class="qty-input" min="1" max="30" value="5"
-            id="qty-${p.id}" ${!isShop?'disabled':''}></td>
-      <td><button class="btn sm ${isShop?'':'secondary'}" ${!isShop?'disabled':''} style="${!isShop?'opacity:.4':''}"
-            onclick="doRestock('${p.id}')">Buy</button></td>
-    `;
-    body.appendChild(tr);
+
+    // Try to reuse existing row to preserve qty input values
+    let tr = body.querySelector(`tr[data-pid="${p.id}"]`);
+    if (!tr) {
+      tr = document.createElement('tr');
+      tr.dataset.pid = p.id;
+      tr.innerHTML = `
+        <td class="emoji-cell">${p.emoji}</td>
+        <td><div class="pname-cell">${p.name}</div><div class="pcat-cell">${p.category}</div></td>
+        <td class="cost-cell" style="font-family:var(--mono);font-size:12px;color:var(--muted)">$${p.cost}/u</td>
+        <td class="stock-cell"></td>
+        <td><input type="number" class="qty-input" min="1" max="30" value="5" id="qty-${p.id}"></td>
+        <td><button class="btn sm restock-btn" onclick="doRestock('${p.id}')">Buy</button></td>
+      `;
+      body.appendChild(tr);
+    }
+
+    // Update only the dynamic parts
+    const stockCell = tr.querySelector('.stock-cell');
+    stockCell.className = 'stock-cell ' + (cur<4?'stock-lo':'stock-ok');
+    stockCell.textContent = cur+'/'+maxCap;
+
+    const qtyInput = tr.querySelector('.qty-input');
+    qtyInput.disabled = !isShop;
+
+    const btn = tr.querySelector('.restock-btn');
+    btn.disabled = !isShop;
+    btn.className = 'btn sm restock-btn ' + (isShop?'':'secondary');
+    btn.style.opacity = isShop ? '' : '0.4';
+    btn.textContent = 'Buy';
+  });
+
+  // Remove rows for products no longer in list (shouldn't happen, but safety)
+  body.querySelectorAll('tr[data-pid]').forEach(tr => {
+    if (!s.products.find(p => p.id === tr.dataset.pid)) tr.remove();
   });
 }
 
@@ -1082,16 +1105,22 @@ function renderSidebar(s) {
     sb.appendChild(row);
   });
 
-  // log
+  // log — diff update to avoid flash on every timer tick
   const log = document.getElementById('log-area');
   const entries = s.eventLog||[];
-  log.innerHTML = '';
-  entries.forEach(e => {
-    const el = document.createElement('div');
-    el.className = 'log-entry';
-    el.textContent = e.msg;
-    log.appendChild(el);
-  });
+  const existingMsgs = [...log.querySelectorAll('.log-entry')].map(el => el.textContent);
+  const newMsgs = entries.map(e => e.msg);
+
+  // Only rebuild if content actually changed
+  if (JSON.stringify(existingMsgs) !== JSON.stringify(newMsgs)) {
+    log.innerHTML = '';
+    entries.forEach(e => {
+      const el = document.createElement('div');
+      el.className = 'log-entry';
+      el.textContent = e.msg;
+      log.appendChild(el);
+    });
+  }
 }
 
 // ── Tab switching ──────────────────────────────────
