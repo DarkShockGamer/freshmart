@@ -97,151 +97,151 @@ const EVENTS = [
 const UPGRADES = [
   // ══════════════ GROCERY BRANCH ══════════════
   {
-    id: 'grocery_l2', name: 'Expanded Grocery', emoji: '🥗', cost: 80, tier: 1, section: 'grocery',
+    id: 'grocery_l2', name: 'Expanded Grocery', emoji: '🥗', cost: 400, tier: 1, section: 'grocery',
     desc: 'Unlock dairy, eggs, cereal & cookies. Adds 4 new food products.',
     requires: [], unlocks: ['grocery_l3'],
   },
   {
-    id: 'grocery_l3', name: 'Deli & Meat Counter', emoji: '🥩', cost: 150, tier: 2, section: 'grocery',
+    id: 'grocery_l3', name: 'Deli & Meat Counter', emoji: '🥩', cost: 900, tier: 2, section: 'grocery',
     desc: 'Unlock chicken, steak, salmon & ice cream. Premium food items.',
     requires: ['grocery_l2'], unlocks: ['grocery_l4'],
   },
   {
-    id: 'grocery_l4', name: 'Gourmet Market', emoji: '🦞', cost: 300, tier: 3, section: 'grocery',
+    id: 'grocery_l4', name: 'Gourmet Market', emoji: '🦞', cost: 2000, tier: 3, section: 'grocery',
     desc: 'Unlock wine, lobster & truffles. Highest-margin food items in the game.',
     requires: ['grocery_l3'], unlocks: [],
   },
 
   // ══════════════ STORE UPGRADES BRANCH ══════════════
   {
-    id: 'shelves', name: 'Better Shelves', emoji: '🗄️', cost: 60, tier: 1, section: 'store',
+    id: 'shelves', name: 'Better Shelves', emoji: '🗄️', cost: 350, tier: 1, section: 'store',
     desc: 'Hold 15 more units of every product.',
     requires: [], unlocks: ['ads', 'fresh', 'smart_restock'],
   },
   {
-    id: 'smart_restock', name: 'Smart Restocking', emoji: '📦', cost: 80, tier: 2, section: 'store',
+    id: 'smart_restock', name: 'Smart Restocking', emoji: '📦', cost: 500, tier: 2, section: 'store',
     desc: 'Unlocks the Fill button — instantly restock any product to full capacity in one click.',
     requires: ['shelves'], unlocks: [],
   },
   {
-    id: 'ads', name: 'Advertising', emoji: '📢', cost: 100, tier: 2, section: 'store',
+    id: 'ads', name: 'Advertising', emoji: '📢', cost: 700, tier: 2, section: 'store',
     desc: '40% more customers arrive each wave.',
     requires: ['shelves'], unlocks: ['loyalty'],
   },
   {
-    id: 'fresh', name: 'Fresh Guarantee', emoji: '✅', cost: 120, tier: 2, section: 'store',
+    id: 'fresh', name: 'Fresh Guarantee', emoji: '✅', cost: 600, tier: 2, section: 'store',
     desc: 'Immune to spoilage events.',
     requires: ['shelves'], unlocks: ['security'],
   },
   {
-    id: 'loyalty', name: 'Loyalty Program', emoji: '💳', cost: 150, tier: 3, section: 'store',
+    id: 'loyalty', name: 'Loyalty Program', emoji: '💳', cost: 1200, tier: 3, section: 'store',
     desc: 'Earn +15% on every sale.',
     requires: ['ads'], unlocks: [],
   },
   {
-    id: 'security', name: 'Security Guard', emoji: '👮', cost: 90, tier: 3, section: 'store',
+    id: 'security', name: 'Security Guard', emoji: '👮', cost: 800, tier: 3, section: 'store',
     desc: 'Auto-catches all shoplifters instantly.',
     requires: ['fresh'], unlocks: [],
   },
 
   // ══════════════ CLOTHING BRANCH ══════════════
   {
-    id: 'clothing_l1', name: 'Clothing Section', emoji: '👕', cost: 120, tier: 1, section: 'clothing',
+    id: 'clothing_l1', name: 'Clothing Section', emoji: '👕', cost: 800, tier: 1, section: 'clothing',
     desc: 'Open a clothing department. Unlock T-shirts, jeans & shoes.',
     requires: [], unlocks: ['clothing_l2'],
   },
   {
-    id: 'clothing_l2', name: 'Fashion Floor', emoji: '👗', cost: 200, tier: 2, section: 'clothing',
+    id: 'clothing_l2', name: 'Fashion Floor', emoji: '👗', cost: 1500, tier: 2, section: 'clothing',
     desc: 'Expand with hats, jackets & dresses. Higher margins.',
     requires: ['clothing_l1'], unlocks: ['clothing_l3'],
   },
   {
-    id: 'clothing_l3', name: 'Luxury Boutique', emoji: '🤵', cost: 350, tier: 3, section: 'clothing',
+    id: 'clothing_l3', name: 'Luxury Boutique', emoji: '🤵', cost: 3000, tier: 3, section: 'clothing',
     desc: 'Unlock suits & watches — the highest-margin clothing items.',
     requires: ['clothing_l2'], unlocks: [],
   },
 
   // ══════════════ ELECTRONICS BRANCH ══════════════
   {
-    id: 'electronics_l1', name: 'Electronics Corner', emoji: '📱', cost: 180, tier: 1, section: 'electronics',
+    id: 'electronics_l1', name: 'Electronics Corner', emoji: '📱', cost: 1200, tier: 1, section: 'electronics',
     desc: 'Open electronics. Unlock phones & headphones.',
     requires: [], unlocks: ['electronics_l2'],
   },
   {
-    id: 'electronics_l2', name: 'Tech Department', emoji: '💻', cost: 280, tier: 2, section: 'electronics',
+    id: 'electronics_l2', name: 'Tech Department', emoji: '💻', cost: 2500, tier: 2, section: 'electronics',
     desc: 'Unlock laptops & tablets. Big-ticket items, big profits.',
     requires: ['electronics_l1'], unlocks: ['electronics_l3'],
   },
   {
-    id: 'electronics_l3', name: 'AV Showroom', emoji: '📺', cost: 400, tier: 3, section: 'electronics',
+    id: 'electronics_l3', name: 'AV Showroom', emoji: '📺', cost: 5000, tier: 3, section: 'electronics',
     desc: 'Unlock TVs & cameras — the highest-value electronics.',
     requires: ['electronics_l2'], unlocks: [],
   },
 
   // ══════════════ AUTO BRANCH ══════════════
   {
-    id: 'auto_l1', name: 'Auto Corner', emoji: '🚗', cost: 100, tier: 1, section: 'auto',
+    id: 'auto_l1', name: 'Auto Corner', emoji: '🚗', cost: 700, tier: 1, section: 'auto',
     desc: 'Open an auto section. Unlock wipers & motor oil.',
     requires: [], unlocks: ['auto_l2'],
   },
   {
-    id: 'auto_l2', name: 'Auto Parts Aisle', emoji: '🔋', cost: 200, tier: 2, section: 'auto',
+    id: 'auto_l2', name: 'Auto Parts Aisle', emoji: '🔋', cost: 1600, tier: 2, section: 'auto',
     desc: 'Unlock car batteries & tires. Serious profit items.',
     requires: ['auto_l1'], unlocks: ['auto_l3'],
   },
   {
-    id: 'auto_l3', name: 'Performance Shop', emoji: '🗺️', cost: 300, tier: 3, section: 'auto',
+    id: 'auto_l3', name: 'Performance Shop', emoji: '🗺️', cost: 3200, tier: 3, section: 'auto',
     desc: 'Unlock GPS units & dash cams. Premium auto accessories.',
     requires: ['auto_l2'], unlocks: [],
   },
 
   // ══════════════ OUTDOORS BRANCH ══════════════
   {
-    id: 'outdoors_l1', name: 'Outdoors & Sporting', emoji: '🏹', cost: 130, tier: 1, section: 'outdoors',
+    id: 'outdoors_l1', name: 'Outdoors & Sporting', emoji: '🏹', cost: 900, tier: 1, section: 'outdoors',
     desc: 'Open outdoors section. Unlock bow & arrow and fishing rods.',
     requires: [], unlocks: ['outdoors_l2'],
   },
   {
-    id: 'outdoors_l2', name: 'Hunting & Camping', emoji: '⛺', cost: 220, tier: 2, section: 'outdoors',
+    id: 'outdoors_l2', name: 'Hunting & Camping', emoji: '⛺', cost: 2000, tier: 2, section: 'outdoors',
     desc: 'Unlock tents & hunting rifles. High-demand items.',
     requires: ['outdoors_l1'], unlocks: ['outdoors_l3'],
   },
   {
-    id: 'outdoors_l3', name: 'Adventure Gear', emoji: '🛶', cost: 380, tier: 3, section: 'outdoors',
+    id: 'outdoors_l3', name: 'Adventure Gear', emoji: '🛶', cost: 4500, tier: 3, section: 'outdoors',
     desc: 'Unlock kayaks & ATVs — the biggest-ticket items in the store.',
     requires: ['outdoors_l2'], unlocks: [],
   },
 
   // ══════════════ CHECKOUT BRANCH ══════════════
   {
-    id: 'checkout_l2', name: 'Second Checkout Lane', emoji: '🏪', cost: 120, tier: 1, section: 'checkout',
+    id: 'checkout_l2', name: 'Second Checkout Lane', emoji: '🏪', cost: 800, tier: 1, section: 'checkout',
     desc: 'Open a 2nd checkout lane. Assign a player or AI worker to it.',
     requires: [], unlocks: ['checkout_l3'],
   },
   {
-    id: 'checkout_l3', name: 'Third Checkout Lane', emoji: '🏬', cost: 250, tier: 2, section: 'checkout',
+    id: 'checkout_l3', name: 'Third Checkout Lane', emoji: '🏬', cost: 2000, tier: 2, section: 'checkout',
     desc: 'Open a 3rd checkout lane. Handle serious rush-hour volume.',
     requires: ['checkout_l2'], unlocks: ['checkout_l4'],
   },
   {
-    id: 'checkout_l4', name: 'Fourth Checkout Lane', emoji: '🏢', cost: 500, tier: 3, section: 'checkout',
+    id: 'checkout_l4', name: 'Fourth Checkout Lane', emoji: '🏢', cost: 4500, tier: 3, section: 'checkout',
     desc: 'Open a 4th lane. Maximum throughput for a booming store.',
     requires: ['checkout_l3'], unlocks: [],
   },
 
   // ══════════════ FURNITURE BRANCH ══════════════
   {
-    id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 110, tier: 1, section: 'furniture',
+    id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 700, tier: 1, section: 'furniture',
     desc: 'Open home goods. Unlock chairs & lamps.',
     requires: [], unlocks: ['furniture_l2'],
   },
   {
-    id: 'furniture_l2', name: 'Furniture Floor', emoji: '🛋️', cost: 230, tier: 2, section: 'furniture',
+    id: 'furniture_l2', name: 'Furniture Floor', emoji: '🛋️', cost: 1800, tier: 2, section: 'furniture',
     desc: 'Unlock sofas & beds. Large-margin home items.',
     requires: ['furniture_l1'], unlocks: ['furniture_l3'],
   },
   {
-    id: 'furniture_l3', name: 'Premium Living', emoji: '🛁', cost: 400, tier: 3, section: 'furniture',
+    id: 'furniture_l3', name: 'Premium Living', emoji: '🛁', cost: 4000, tier: 3, section: 'furniture',
     desc: 'Unlock desks & bathtubs — top-tier home products.',
     requires: ['furniture_l2'], unlocks: [],
   },
@@ -252,11 +252,11 @@ const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Assoc
 
 // ─── AI Worker Types ──────────────────────────────────────────────
 const AI_WORKER_TYPES = [
-  { id: 'rookie',    name: 'Rookie Cashier',   emoji: '🧑‍💼', speed: 1.0, cost: 50,  wage: 5,  desc: 'A new hire. Gets the job done, slowly.' },
-  { id: 'experienced', name: 'Experienced Clerk', emoji: '👩‍💼', speed: 1.5, cost: 100, wage: 10, desc: 'Faster checkout, fewer mistakes.' },
-  { id: 'veteran',   name: 'Veteran Cashier',  emoji: '🧓‍💼', speed: 2.0, cost: 200, wage: 18, desc: 'Blazing fast. Handles rush hour like a pro.' },
-  { id: 'bot',       name: 'Self-Checkout Bot', emoji: '🤖', speed: 2.5, cost: 350, wage: 0,  desc: 'Never takes breaks. Zero wage. Requires Electronics upgrade.' },
-  { id: 'manager',   name: 'Shift Manager',    emoji: '👔', speed: 3.0, cost: 500, wage: 25, desc: 'Serves VIPs for double the speed bonus.' },
+  { id: 'rookie',      name: 'Rookie Cashier',    emoji: '🧑‍💼', speed: 1.0, cost: 400,  wage: 50,  desc: 'A new hire. Gets the job done, slowly.' },
+  { id: 'experienced', name: 'Experienced Clerk',  emoji: '👩‍💼', speed: 1.5, cost: 900,  wage: 100, desc: 'Faster checkout, fewer mistakes.' },
+  { id: 'veteran',     name: 'Veteran Cashier',    emoji: '🧓‍💼', speed: 2.0, cost: 2000, wage: 200, desc: 'Blazing fast. Handles rush hour like a pro.' },
+  { id: 'bot',         name: 'Self-Checkout Bot',  emoji: '🤖',   speed: 2.5, cost: 4000, wage: 0,   desc: 'Never takes breaks. Zero wage. Requires Electronics upgrade.' },
+  { id: 'manager',     name: 'Shift Manager',      emoji: '👔',   speed: 3.0, cost: 6000, wage: 400, desc: 'Serves VIPs for double the speed bonus.' },
 ];
 
 // ─── Difficulty Configs ───────────────────────────────────────────
@@ -265,45 +265,45 @@ const DIFFICULTY_CONFIGS = {
     label: 'Easy',
     emoji: '🌱',
     desc: 'Relaxed store sim — generous starting cash, cheap upgrades, patient customers.',
-    startMoney: 400,            // more starting cash
-    upgradeCostMult: 0.6,       // upgrades 40% cheaper than normal
-    spawnChance: 0.55,          // fewer customers per tick
-    spawnInterval: 3500,        // same interval
-    customerPatience: 1.6,      // 60% more patient
-    theftLoss: 5,               // low theft penalty
-    inspectPenalty: 10,         // low inspection penalty
-    spoilageLoss: 3,            // small spoilage hit
-    repLossUnserved: 3,         // less rep damage
-    rushSpawnMult: 1.5,         // rush hour is gentler
+    startMoney: 400,
+    upgradeCostMult: 0.5,       // easier to afford at new base prices
+    spawnChance: 0.55,
+    spawnInterval: 3500,
+    customerPatience: 1.6,
+    theftLoss: 5,
+    inspectPenalty: 10,
+    spoilageLoss: 3,
+    repLossUnserved: 3,
+    rushSpawnMult: 1.5,
   },
   normal: {
     label: 'Normal',
     emoji: '🏪',
     desc: 'Balanced challenge — manage your budget carefully and react to events.',
-    startMoney: 200,            // current default
-    upgradeCostMult: 1.8,       // upgrades significantly more expensive than old defaults
-    spawnChance: 0.72,          // same as current
+    startMoney: 200,
+    upgradeCostMult: 1.0,       // base costs are already steep — no extra multiplier
+    spawnChance: 0.72,
     spawnInterval: 3500,
-    customerPatience: 1.0,      // baseline patience
-    theftLoss: 25,              // more painful theft
-    inspectPenalty: 40,         // meaningful inspection fine
-    spoilageLoss: 8,            // more spoilage
-    repLossUnserved: 5,         // current rep loss
+    customerPatience: 1.0,
+    theftLoss: 25,
+    inspectPenalty: 40,
+    spoilageLoss: 8,
+    repLossUnserved: 5,
     rushSpawnMult: 2,
   },
   hard: {
     label: 'Hard',
     emoji: '🔥',
     desc: 'Brutal economy — tight cash, impatient customers, punishing events.',
-    startMoney: 100,            // very little starting cash
-    upgradeCostMult: 3.0,       // upgrades nearly 3x normal base cost
-    spawnChance: 0.88,          // customers flood in
-    spawnInterval: 2500,        // faster spawn ticks
-    customerPatience: 0.6,      // customers leave 40% faster
-    theftLoss: 50,              // brutal theft
-    inspectPenalty: 80,         // inspection nearly wipes you
-    spoilageLoss: 15,           // heavy spoilage
-    repLossUnserved: 8,         // rep crumbles fast
+    startMoney: 100,
+    upgradeCostMult: 1.6,       // noticeable but not absurd on top of new base prices
+    spawnChance: 0.88,
+    spawnInterval: 2500,
+    customerPatience: 0.6,
+    theftLoss: 50,
+    inspectPenalty: 80,
+    spoilageLoss: 15,
+    repLossUnserved: 8,
     rushSpawnMult: 2,
   },
 };
