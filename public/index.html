@@ -632,6 +632,7 @@ input::placeholder { color: var(--muted); }
 .lane-chip.busy    { border-color: var(--orange); color: var(--orange); background: var(--orange-lo); }
 .lane-chip.ai      { border-color: var(--blue); color: var(--blue); background: var(--blue-lo); }
 .lane-chip.locked  { border-color: var(--muted); color: var(--muted); background: transparent; opacity: .5; }
+.lane-chip.reserved { border-color: var(--cyan); color: var(--cyan); background: var(--blue-lo); border-style: dashed; }
 
 /* ── Workers Tab ── */
 .workers-section { margin-bottom: 24px; }
@@ -1981,14 +1982,41 @@ function renderHeader(s) {
 function renderPlayers(s) {
   const bar = document.getElementById('players-bar');
   bar.innerHTML = '';
+  const isHost = s.hostId === myId;
+  const lanes = s.checkoutLanes || 1;
+  const cashierRes = {};
+  Object.values(s.players).forEach(p => { if (p.cashierLane) cashierRes[p.cashierLane] = p.id; });
+  const aiLanes = new Set((s.aiWorkers||[]).filter(w=>w.assignedLane).map(w=>w.assignedLane));
+
   for (const p of Object.values(s.players)) {
     const chip = document.createElement('div');
     chip.className = 'pchip' + (p.id === myId ? ' me' : '');
+
+    const cashierBadge = p.cashierLane
+      ? `<span title="Cashier Lane ${p.cashierLane}" style="font-size:11px;background:var(--blue-lo);color:var(--cyan);border:1px solid var(--cyan);border-radius:4px;padding:1px 5px;margin-left:2px">🧑‍💼 L${p.cashierLane}</span>`
+      : '';
+
+    let assignCtrl = '';
+    if (isHost && s.phase === 'playing') {
+      let opts = `<option value="">Off</option>`;
+      for (let i = 1; i <= lanes; i++) {
+        const takenByOther = cashierRes[i] && cashierRes[i] !== p.id;
+        const aiTaken = aiLanes.has(i);
+        if (!takenByOther && !aiTaken) {
+          opts += `<option value="${i}" ${p.cashierLane === i ? 'selected' : ''}>Lane ${i}</option>`;
+        }
+      }
+      assignCtrl = `<select class="lane-select" style="margin-left:4px;font-size:11px;padding:1px 4px" title="Assign cashier lane"
+        onchange="socket.emit('assignCashierLane',{targetId:'${p.id}',lane:this.value?+this.value:null})">${opts}</select>`;
+    }
+
     chip.innerHTML = `
       <div class="dot" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
       <span>${p.name}</span>
       <span class="pscore">$${p.personalScore}</span>
+      ${cashierBadge}
       ${p.id===s.hostId?'<span title="Host" style="font-size:12px">👑</span>':''}
+      ${assignCtrl}
     `;
     bar.appendChild(chip);
   }
@@ -2565,16 +2593,25 @@ const BILL_CLASSES = { 100:'b100', 50:'b50', 20:'b20', 10:'b10', 5:'b5', 1:'b1' 
 function openCheckout(customer) {
   if (checkoutCustomer) return; // already checking out someone
 
-  // In multiplayer, block if all lanes are occupied
+  // In multiplayer, block if all lanes are occupied or all free lanes are reserved by others
   if (roomState) {
     const locks = roomState.checkoutLocks || {};
     const lanes = roomState.checkoutLanes || 1;
     const aiOccupied = (roomState.aiWorkers || []).filter(w => w.assignedLane && w.assignedLane <= lanes).length;
     const playerLocks = Object.keys(locks).filter(pid => pid !== myId && roomState.players[pid]).length;
     const totalOccupied = aiOccupied + playerLocks;
-    if (totalOccupied >= lanes && !locks[myId]) {
-      showToast(`All ${lanes} checkout lane${lanes > 1 ? 's are' : ' is'} busy! Buy more lanes in Upgrades.`, 'error');
-      return;
+    // Check if I have a reserved lane — if so, I can always proceed
+    const myPlayer = roomState.players[myId];
+    const myReserved = myPlayer?.cashierLane || null;
+    if (!myReserved) {
+      // Count lanes reserved by others (not yet active)
+      const cashierRes = {};
+      Object.values(roomState.players).forEach(p => { if (p.cashierLane) cashierRes[p.cashierLane] = p.id; });
+      const spokenFor = Object.entries(cashierRes).filter(([ln, pid]) => pid !== myId && !locks[pid]).length;
+      if (totalOccupied + spokenFor >= lanes && !locks[myId]) {
+        showToast(`All ${lanes} checkout lane${lanes > 1 ? 's are' : ' is'} busy or reserved!`, 'error');
+        return;
+      }
     }
   }
   socket.emit('lockCheckout', { customerId: customer.id });
@@ -3078,19 +3115,37 @@ function renderCheckoutLanesBar(s) {
 
   const lanes = s.checkoutLanes || 1;
   const locks = s.checkoutLocks || {};
-  // Build ordered list: AI workers fill from lane 1, then player locks fill remaining
   const aiWorkers = (s.aiWorkers || []).filter(w => w.assignedLane && w.assignedLane <= lanes)
     .sort((a, b) => a.assignedLane - b.assignedLane);
   const playerLockIds = Object.keys(locks).filter(pid => s.players[pid]);
 
-  // Map lane index to occupant
+  // Build cashier reservations map: laneNum -> player
+  const cashierRes = {};
+  Object.values(s.players).forEach(p => { if (p.cashierLane) cashierRes[p.cashierLane] = p; });
+
+  // Map lane index to occupant (AI first, then active locks, then reservations)
   const laneOccupants = {};
   aiWorkers.forEach(w => { laneOccupants[w.assignedLane] = { type: 'ai', worker: w }; });
-  let playerLaneIdx = 1;
+  // Active player locks fill lanes (prefer their reserved lane)
   playerLockIds.forEach(pid => {
-    while (laneOccupants[playerLaneIdx] && playerLaneIdx <= lanes) playerLaneIdx++;
-    if (playerLaneIdx <= lanes) laneOccupants[playerLaneIdx++] = { type: 'player', pid };
+    const p = s.players[pid];
+    const preferred = p?.cashierLane;
+    if (preferred && !laneOccupants[preferred]) {
+      laneOccupants[preferred] = { type: 'player', pid, active: true };
+    } else {
+      let idx = 1;
+      while (laneOccupants[idx] && idx <= lanes) idx++;
+      if (idx <= lanes) laneOccupants[idx] = { type: 'player', pid, active: true };
+    }
   });
+  // Remaining reservations (not yet active)
+  Object.entries(cashierRes).forEach(([ln, p]) => {
+    if (!laneOccupants[ln]) laneOccupants[ln] = { type: 'reserved', pid: p.id };
+  });
+
+  const myPlayer = s.players[myId];
+  const myLane = myPlayer?.cashierLane || null;
+  const iAmCashier = !!myLane;
 
   for (let i = 1; i <= lanes; i++) {
     const chip = document.createElement('div');
@@ -3099,17 +3154,50 @@ function renderCheckoutLanesBar(s) {
       chip.className = 'lane-chip ai';
       chip.innerHTML = `${occ.worker.emoji} Lane ${i} — ${occ.worker.name}`;
     } else if (occ && occ.type === 'player' && occ.pid === myId) {
-      chip.className = 'lane-chip busy';
-      chip.innerHTML = `🟠 Lane ${i} — You`;
+      chip.className = 'lane-chip busy me';
+      chip.innerHTML = `🟠 Lane ${i} — You (cashier)`;
     } else if (occ && occ.type === 'player') {
       chip.className = 'lane-chip busy';
-      chip.innerHTML = `🟠 Lane ${i} — ${s.players[occ.pid].name}`;
+      chip.innerHTML = `🟠 Lane ${i} — ${s.players[occ.pid]?.name || '?'}`;
+    } else if (occ && occ.type === 'reserved' && occ.pid === myId) {
+      chip.className = 'lane-chip reserved me';
+      chip.innerHTML = `🧑‍💼 Lane ${i} — You (reserved)`;
+    } else if (occ && occ.type === 'reserved') {
+      chip.className = 'lane-chip reserved';
+      chip.innerHTML = `🧑‍💼 Lane ${i} — ${s.players[occ.pid]?.name || '?'} (reserved)`;
     } else {
       chip.className = 'lane-chip free';
       chip.innerHTML = `🟢 Lane ${i} — Open`;
     }
     bar.appendChild(chip);
   }
+
+  // "Be Cashier" / "Leave Cashier" button
+  const btn = document.createElement('button');
+  if (iAmCashier) {
+    btn.className = 'btn xs red';
+    btn.style.cssText = 'margin-left:6px;padding:3px 10px;font-size:11px';
+    btn.textContent = '✕ Leave Lane ' + myLane;
+    btn.onclick = () => socket.emit('setCashierLane', { lane: null });
+  } else {
+    btn.className = 'btn xs';
+    btn.style.cssText = 'margin-left:6px;padding:3px 10px;font-size:11px;background:var(--blue);color:#fff';
+    btn.textContent = '🧑‍💼 Be Cashier';
+    btn.onclick = () => {
+      // Pick first unreserved, non-AI lane
+      const cashierRes2 = {};
+      Object.values(s.players).forEach(p => { if (p.cashierLane) cashierRes2[p.cashierLane] = p.id; });
+      const aiLanes = new Set((s.aiWorkers||[]).filter(w=>w.assignedLane).map(w=>w.assignedLane));
+      for (let i = 1; i <= (s.checkoutLanes||1); i++) {
+        if (!cashierRes2[i] && !aiLanes.has(i)) {
+          socket.emit('setCashierLane', { lane: i });
+          return;
+        }
+      }
+      showToast('All lanes are taken!', 'error');
+    };
+  }
+  bar.appendChild(btn);
 }
 
 // ── Workers Tab ────────────────────────────────────
