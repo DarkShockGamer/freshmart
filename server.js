@@ -797,7 +797,7 @@ function tickScoMachines(room) {
   });
 }
 
-
+function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
@@ -1028,15 +1028,11 @@ io.on('connection', (socket) => {
     roomLog(room, `${m.emoji} Sold ${m.name} for $${refund} (40% refund).`);
     emit(room);
   });
-
-
+  socket.on('hireWorker', ({ typeId }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     const type = AI_WORKER_TYPES.find(t => t.id === typeId);
     if (!type) return;
-    if (type.id === 'bot' && !room.upgrades.includes('electronics_l1')) {
-      socket.emit('msg', { type:'error', text:'Self-Checkout Bot requires Electronics upgrade!' }); return;
-    }
     if (room.money < type.cost) { socket.emit('msg', { type:'error', text:`Need $${type.cost} to hire!` }); return; }
     room.money -= type.cost;
     const w = { uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji, speed: type.speed, wage: type.wage, assignedLane: null };
