@@ -676,6 +676,87 @@ input::placeholder { color: var(--muted); }
 .worker-assigned { font-size: 11px; color: var(--blue); font-weight: 700; }
 .worker-idle { font-size: 11px; color: var(--muted); }
 
+/* ── Stocker Tab ── */
+.stocker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.stocker-card {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .15s;
+}
+.stocker-card.low-shelf { border-color: var(--red); }
+.stocker-card.mid-shelf { border-color: var(--yellow); }
+.stocker-card-header {
+  display: flex; align-items: center; gap: 8px;
+}
+.stocker-emoji { font-size: 22px; }
+.stocker-prod-name { font-size: 13px; font-weight: 700; flex: 1; }
+.stocker-level-row {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+}
+.stocker-level-label {
+  font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; width: 50px; flex-shrink: 0;
+}
+.stocker-bar-bg {
+  flex: 1; height: 8px; background: var(--surf2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border);
+}
+.stocker-bar-fill {
+  height: 100%; border-radius: 4px; transition: width .4s ease;
+}
+.stocker-bar-fill.shelf-full { background: var(--green); }
+.stocker-bar-fill.shelf-mid { background: var(--yellow); }
+.stocker-bar-fill.shelf-low { background: var(--red); }
+.stocker-bar-fill.storage-bar { background: var(--blue); }
+.stocker-count {
+  font-size: 10px; font-family: var(--mono); color: var(--muted); min-width: 40px; text-align: right;
+}
+.stocker-restock-btn {
+  background: var(--green); color: #000; border: none; border-radius: 8px;
+  padding: 7px 0; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s; width: 100%;
+}
+.stocker-restock-btn:hover { opacity: .85; }
+.stocker-restock-btn:disabled { opacity: .35; cursor: not-allowed; }
+.stocker-restock-btn.storage-btn { background: var(--surf2); color: var(--text); border: 1.5px solid var(--border); }
+.stocker-ai-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 10px; color: var(--green); font-weight: 700; opacity: .8;
+}
+.stocker-alert-strip {
+  background: var(--red-lo); border: 1px solid var(--red); border-radius: 8px;
+  padding: 6px 10px; font-size: 11px; font-weight: 700; color: var(--red);
+  margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.stocker-section-header {
+  font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase;
+  padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.stocker-workers-row {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+}
+.stocker-worker-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surf2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+}
+.stocker-worker-chip.active { border-color: var(--green); }
+.stocker-worker-chip .sw-emoji { font-size: 18px; }
+.stocker-worker-chip .sw-name { font-size: 12px; font-weight: 700; }
+.stocker-worker-chip .sw-detail { font-size: 10px; color: var(--muted); }
+.stocker-worker-chip .sw-status { font-size: 10px; color: var(--green); font-weight: 700; }
+
 /* ── Stats Tab ── */
 .stats-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;
@@ -2282,6 +2363,7 @@ input::placeholder { color: var(--muted); }
     <div id="main-panel">
       <div id="tabs">
         <div class="tab active" data-tab="customers" onclick="switchTab('customers')">🧑 Customers</div>
+        <div class="tab" data-tab="stocker" onclick="switchTab('stocker')">📦 Stocker</div>
         <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">📋 Inventory</div>
         <div class="tab" data-tab="shop" onclick="switchTab('shop')">🛍️ Restock</div>
         <div class="tab" data-tab="upgrades" onclick="switchTab('upgrades')">⬆️ Upgrades</div>
@@ -2324,6 +2406,11 @@ input::placeholder { color: var(--muted); }
       </div>
 
       <!-- Inventory -->
+      <!-- Stocker -->
+      <div class="tab-pane" id="pane-stocker">
+        <div id="stocker-pane-content"></div>
+      </div>
+
       <div class="tab-pane" id="pane-inventory">
         <span class="section-label">Stock Levels &amp; Pricing</span>
         <table class="inv-table">
@@ -2339,13 +2426,16 @@ input::placeholder { color: var(--muted); }
 
       <!-- Restock -->
       <div class="tab-pane" id="pane-shop">
-        <span class="section-label">Restock — Only available during Shop Phase</span>
+        <span class="section-label">🚛 Order to Storage — Fills your back-room warehouse (available during Shop Phase)</span>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:8px 12px;background:var(--surf);border-radius:8px;border:1px solid var(--border)">
+          📦 Orders go to <b style="color:var(--blue)">Storage</b> (100 cap). Then move stock from storage → shelves in the <b style="color:var(--green)">📦 Stocker</b> tab during play.
+        </div>
         <table class="inv-table">
           <colgroup>
             <col style="width:40px">
             <col>
             <col style="width:130px">
-            <col style="width:110px">
+            <col style="width:130px">
             <col style="width:80px">
             <col style="width:140px">
           </colgroup>
@@ -2354,7 +2444,7 @@ input::placeholder { color: var(--muted); }
               <th></th>
               <th>Product</th>
               <th style="text-align:center">Cost/unit</th>
-              <th style="text-align:center">Stock</th>
+              <th style="text-align:center">📦 Storage / Shelf</th>
               <th style="text-align:center">Qty</th>
               <th style="text-align:center">Action</th>
             </tr>
@@ -2751,6 +2841,7 @@ function renderAll(s) {
   renderEventBanner(s);
   renderShopBanner(s);
   renderCheckoutLanesBar(s);
+  updateStockerTabBadge(s);
   // Only render the active tab to prevent flicker on every tick
   renderTabContent(_activeTab, s);
   renderSidebar(s);
@@ -3915,16 +4006,18 @@ function renderInventory(s) {
 function renderShop(s) {
   const body = document.getElementById('shop-body');
   const isShop = s.phase === 'shop';
+  const storageCap = s.storageCapacity || 100;
+  const shelfCap = s.shelfCapacity || 30;
   body.innerHTML = '';
   s.products.forEach(p => {
-    const maxCap  = 30 + (s.capacityBonus||0);
-    const cur     = s.inventory[p.id]||0;
-    const space   = maxCap - cur;
-    const isFull  = space <= 0;
-    const sellPrice = s.prices[p.id]||p.basePrice;
-    const profit  = sellPrice - p.cost;
-    const mClass  = profit > 0 ? 'margin-ok' : 'margin-bad';
-    const mSign   = profit >= 0 ? '+' : '';
+    const storageAmt = (s.storage || {})[p.id] || 0;
+    const shelfAmt   = s.inventory[p.id] || 0;
+    const spaceFree  = storageCap - storageAmt;
+    const isFull     = spaceFree <= 0;
+    const sellPrice  = s.prices[p.id] || p.basePrice;
+    const profit     = sellPrice - p.cost;
+    const mClass     = profit > 0 ? 'margin-ok' : 'margin-bad';
+    const mSign      = profit >= 0 ? '+' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="emoji-cell">${p.emoji}</td>
@@ -3936,22 +4029,22 @@ function renderShop(s) {
         <div style="font-family:var(--mono);font-size:13px;font-weight:600">$${p.cost}/u</div>
         <span class="cost-badge ${mClass}" title="Sell price $${sellPrice}">${mSign}$${profit} margin</span>
       </td>
-      <td class="stock-cell ${cur<4?'stock-lo':'stock-ok'}" style="text-align:center;vertical-align:middle">
-        ${cur}/${maxCap}
-        ${isFull ? '<div style="font-size:10px;color:var(--muted)">FULL</div>' : '<div style="font-size:10px;color:var(--muted)">'+space+' free</div>'}
+      <td style="text-align:center;vertical-align:middle;font-family:var(--mono);font-size:12px">
+        <div style="color:var(--blue);font-weight:700">📦 ${storageAmt}/${storageCap}</div>
+        <div style="color:var(--muted);font-size:10px">shelf: ${shelfAmt}/${shelfCap}</div>
       </td>
       <td style="text-align:center;vertical-align:middle">
-        <input type="number" class="qty-input" min="1" max="${Math.max(1,space)}" value="${Math.min(5,Math.max(1,space))}"
+        <input type="number" class="qty-input" min="1" max="${Math.max(1,spaceFree)}" value="${Math.min(10,Math.max(1,spaceFree))}"
               id="qty-${p.id}" ${(!isShop||isFull)?'disabled':''}
-              oninput="clampQty('${p.id}',${space})">
+              oninput="clampQty('${p.id}',${spaceFree})">
       </td>
       <td style="white-space:nowrap;padding:6px 8px;vertical-align:middle;text-align:center">
         <div style="display:inline-flex;gap:5px;align-items:center">
           <button class="btn sm ${(isShop&&!isFull)?'':'secondary'}" ${(!isShop||isFull)?'disabled':''} style="${(!isShop||isFull)?'opacity:.4':''}"
               onclick="doRestock('${p.id}')">
-            ${isFull ? 'Full' : 'Buy'}
+            ${isFull ? '📦 Full' : '🚛 Order'}
           </button>
-          ${(!isFull&&isShop&&space>1&&s.upgrades.includes('smart_restock')) ? `<button class="btn sm orange" title="Fill shelf to capacity (${space} units)" onclick="doRestockFull('${p.id}',${space})">⚡ Fill</button>` : ''}
+          ${(!isFull&&isShop&&spaceFree>1) ? `<button class="btn sm orange" title="Fill storage (${spaceFree} units)" onclick="doRestockFull('${p.id}',${spaceFree})">⚡ Max</button>` : ''}
         </div>
       </td>
     `;
@@ -4150,8 +4243,25 @@ function switchTab(name) {
   if (roomState) renderTabContent(name, roomState);
 }
 
+function updateStockerTabBadge(s) {
+  const tab = document.querySelector('.tab[data-tab="stocker"]');
+  if (!tab) return;
+  if (s.phase !== 'playing') { tab.textContent = '📦 Stocker'; return; }
+  const shelfCap = s.shelfCapacity || 30;
+  const inv = s.inventory || {};
+  const shelves = s.shelves || {};
+  const products = s.products || [];
+  const lowCount = products.filter(p => shelves[p.id] && (inv[p.id]||0) < shelfCap * 0.3).length;
+  if (lowCount > 0) {
+    tab.innerHTML = `📦 Stocker <span style="background:var(--red);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:800;margin-left:3px">${lowCount}</span>`;
+  } else {
+    tab.textContent = '📦 Stocker';
+  }
+}
+
 function renderTabContent(tab, s) {
   if (tab === 'customers')  { renderCustomers(s); renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
+  if (tab === 'stocker')    renderStocker(s);
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
   if (tab === 'upgrades')   renderUpgrades(s);
@@ -4790,16 +4900,19 @@ function renderWorkers(s) {
   const workers = s.aiWorkers || [];
   const types = s.aiWorkerTypes || [];
 
+  const cashierTypes  = types.filter(t => (t.workerType || 'cashier') === 'cashier');
+  const stockerTypes  = types.filter(t => t.workerType === 'stocker');
+  const cashierWorkers = workers.filter(w => (w.workerType || 'cashier') === 'cashier');
+  const stockerWorkers = workers.filter(w => w.workerType === 'stocker');
+
   let html = '';
 
-  // Hire section
+  // ── CASHIER SECTION ──────────────────────────────
   html += `<div class="workers-section">
-    <span class="workers-section-title">Hire AI Workers${!isShop ? ' (available in Shop phase)' : ''}</span>
+    <span class="workers-section-title">🧑‍💼 Hire Cashier AI — Checkout Lanes${!isShop ? ' (shop phase only)' : ''}</span>
     <div class="worker-hire-grid">`;
-
-  types.forEach(t => {
+  cashierTypes.forEach(t => {
     const canAfford = s.money >= t.cost;
-    const disabled = !isShop;
     html += `<div class="worker-hire-card">
       <div class="worker-hire-top">
         <span class="worker-hire-emoji">${t.emoji}</span>
@@ -4813,7 +4926,7 @@ function renderWorkers(s) {
         <span class="worker-hire-cost">$${t.cost} hire</span>
         <span class="worker-hire-wage">${t.wage ? `$${t.wage}/day wage` : 'No wage'}</span>
         <button class="btn xs blue" style="margin-left:auto" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
-          ${disabled || !canAfford ? 'disabled' : ''}>
+          ${!isShop || !canAfford ? 'disabled' : ''}>
           ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
       </div>
@@ -4821,20 +4934,15 @@ function renderWorkers(s) {
   });
   html += `</div></div>`;
 
-  // Roster section
+  // Cashier roster
   html += `<div class="workers-section">
-    <span class="workers-section-title">Your Workforce (${workers.length} hired) — Checkout Lanes: ${lanes}</span>`;
-
-  if (!workers.length) {
-    html += `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
-      <div style="font-size:36px;margin-bottom:8px">🤷</div>
-      <div>No workers hired yet. Hire AI workers above to auto-serve customers!</div>
-    </div>`;
+    <span class="workers-section-title">Cashier Roster (${cashierWorkers.length}) — ${lanes} lane${lanes>1?'s':''} available</span>`;
+  if (!cashierWorkers.length) {
+    html += `<div style="text-align:center;padding:20px;color:var(--muted)"><div style="font-size:28px">🤷</div>No cashiers hired yet.</div>`;
   } else {
     html += `<div class="workers-roster">`;
-    workers.forEach(w => {
+    cashierWorkers.forEach(w => {
       const assigned = w.assignedLane;
-      // Lane options
       let laneOptions = `<option value="">Unassigned</option>`;
       for (let i = 1; i <= lanes; i++) {
         laneOptions += `<option value="${i}" ${assigned === i ? 'selected' : ''}>Lane ${i}</option>`;
@@ -4843,15 +4951,72 @@ function renderWorkers(s) {
         <span class="wemoji">${w.emoji}</span>
         <div class="winfo">
           <div class="wname">${w.name}</div>
-          <div class="wdetail">⚡×${w.speed} speed · ${w.wage ? `$${w.wage}/day` : 'No wage'}</div>
+          <div class="wdetail">⚡×${w.speed} · $${w.wage}/day</div>
         </div>
         <div class="wlane">
-          ${assigned
-            ? `<span class="worker-assigned">Lane ${assigned}</span>`
-            : `<span class="worker-idle">Idle</span>`}
+          ${assigned ? `<span class="worker-assigned">Lane ${assigned}</span>` : `<span class="worker-idle">Idle</span>`}
           <select class="lane-select" onchange="socket.emit('assignWorker',{uid:${w.uid},lane:this.value?+this.value:null})">
             ${laneOptions}
           </select>
+          <button class="btn xs red" onclick="socket.emit('fireWorker',{uid:${w.uid}})">✕ Fire</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // ── STOCKER SECTION ──────────────────────────────
+  html += `<div class="workers-section" style="margin-top:4px">
+    <span class="workers-section-title" style="color:var(--green)">📦 Hire Stocker AI — Auto-Restock Shelves${!isShop ? ' (shop phase only)' : ''}</span>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.6">
+      AI Stockers automatically move products from back-room storage to shelves during the day.<br>
+      They prioritize the most-depleted shelves. Go to the <b style="color:var(--text)">📦 Stocker</b> tab to manually restock during play.
+    </div>
+    <div class="worker-hire-grid">`;
+  stockerTypes.forEach(t => {
+    const canAfford = s.money >= t.cost;
+    html += `<div class="worker-hire-card" style="border-color:var(--green-lo)">
+      <div class="worker-hire-top">
+        <span class="worker-hire-emoji">${t.emoji}</span>
+        <div>
+          <div class="worker-hire-name">${t.name}</div>
+          <div class="worker-hire-speed" style="color:var(--green)">📦 Stocker ×${t.speed} speed</div>
+        </div>
+      </div>
+      <div class="worker-hire-desc">${t.desc}</div>
+      <div class="worker-hire-footer">
+        <span class="worker-hire-cost">$${t.cost} hire</span>
+        <span class="worker-hire-wage">$${t.wage}/day wage</span>
+        <button class="btn xs" style="margin-left:auto;background:var(--green);color:#000" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+          ${!isShop || !canAfford ? 'disabled' : ''}>
+          ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
+        </button>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Stocker roster
+  html += `<div class="workers-section">
+    <span class="workers-section-title" style="color:var(--green)">Stocker Roster (${stockerWorkers.length} hired)</span>`;
+  if (!stockerWorkers.length) {
+    html += `<div style="text-align:center;padding:20px;color:var(--muted)"><div style="font-size:28px">📦</div>No stockers hired. Hire one to auto-restock shelves!</div>`;
+  } else {
+    html += `<div class="workers-roster">`;
+    stockerWorkers.forEach(w => {
+      const lastStocked = w.lastStocked;
+      const recentAction = lastStocked && (Date.now() - lastStocked.at < 10000)
+        ? `<span style="font-size:10px;color:var(--green)">Last stocked: ${lastStocked.emoji} ${lastStocked.product} ×${lastStocked.qty}</span>`
+        : `<span style="font-size:10px;color:var(--muted)">Watching shelves…</span>`;
+      html += `<div class="worker-row" style="border-color:var(--green)">
+        <span class="wemoji">${w.emoji}</span>
+        <div class="winfo">
+          <div class="wname">${w.name} <span style="font-size:10px;background:var(--green-lo);color:var(--green);border:1px solid var(--green);border-radius:4px;padding:1px 5px">STOCKER</span></div>
+          <div class="wdetail">⚡×${w.speed} speed · $${w.wage}/day</div>
+          ${recentAction}
+        </div>
+        <div class="wlane">
           <button class="btn xs red" onclick="socket.emit('fireWorker',{uid:${w.uid}})">✕ Fire</button>
         </div>
       </div>`;
@@ -4865,10 +5030,10 @@ function renderWorkers(s) {
     <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.5px">ℹ️ HOW IT WORKS</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.8">
       • You start with <b style="color:var(--text)">1 checkout lane</b>. Unlock more in the <b style="color:var(--cyan)">Upgrades → Checkouts</b> tree.<br>
-      • In <b style="color:var(--text)">multiplayer</b>, only one player can use the single checkout lane at a time. Buy more lanes!<br>
-      • Assign <b style="color:var(--text)">AI workers</b> to lanes and they'll auto-serve customers every few seconds.<br>
-      • AI workers collect a <b style="color:var(--yellow)">daily wage</b> paid at end of day. Speed-${'>'}profit is your call.<br>
-      • The faster the worker speed, the more customers they handle during rush hour.
+      • Assign <b style="color:var(--text)">AI Cashiers</b> to lanes and they'll auto-serve customers every few seconds.<br>
+      • Hire <b style="color:var(--green)">AI Stockers</b> to automatically move products from storage to shelves during the day.<br>
+      • Or manually restock in the <b style="color:var(--green)">📦 Stocker</b> tab at any time during play.<br>
+      • AI workers collect a <b style="color:var(--yellow)">daily wage</b> paid at end of day.
     </div>
   </div>`;
 
@@ -4928,6 +5093,120 @@ function renderWorkers(s) {
   pane.innerHTML = html;
 }
 
+// ── Stocker Tab ──────────────────────────────────────
+function renderStocker(s) {
+  const pane = document.getElementById('stocker-pane-content');
+  const products = s.products || [];
+  const inv = s.inventory || {};
+  const storage = s.storage || {};
+  const shelves = s.shelves || {};
+  const shelfCap = s.shelfCapacity || 30;
+  const storageCap = s.storageCapacity || 100;
+  const isPlaying = s.phase === 'playing';
+  const isShop = s.phase === 'shop';
+
+  // AI stockers
+  const aiStockers = (s.aiWorkers || []).filter(w => w.workerType === 'stocker');
+
+  // Low shelf products (on-shelf and shelf < 30% of cap)
+  const lowShelf = products.filter(p => shelves[p.id] && (inv[p.id] || 0) < shelfCap * 0.3 && (inv[p.id] || 0) < shelfCap);
+  
+  let html = '';
+
+  // AI stockers status strip
+  if (aiStockers.length > 0) {
+    html += `<div class="stocker-section-header" style="margin-top:0">🤖 AI Stockers On Duty</div>
+    <div class="stocker-workers-row">`;
+    aiStockers.forEach(w => {
+      const lastStocked = w.lastStocked;
+      const statusText = lastStocked && (Date.now() - lastStocked.at < 8000)
+        ? `Last: ${lastStocked.emoji} ${lastStocked.product} ×${lastStocked.qty}`
+        : 'Watching shelves…';
+      html += `<div class="stocker-worker-chip active">
+        <span class="sw-emoji">${w.emoji}</span>
+        <div>
+          <div class="sw-name">${w.name}</div>
+          <div class="sw-detail">⚡×${w.speed} speed · $${w.wage}/day</div>
+          <div class="sw-status">${statusText}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Low stock alert
+  if (lowShelf.length > 0 && isPlaying) {
+    html += `<div class="stocker-alert-strip">⚠️ ${lowShelf.length} shelf${lowShelf.length>1?'s':''} running low — restock now to keep customers happy!</div>`;
+  }
+
+  // Info bar
+  if (isShop) {
+    html += `<div style="background:var(--blue-lo);border:1px solid var(--blue);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--blue);font-weight:700;margin-bottom:12px">
+      🛒 Shop Phase: Use the <b>Restock Shop</b> tab to order products into storage. Then move stock from storage to shelves below.
+    </div>`;
+  } else if (isPlaying) {
+    html += `<div style="background:var(--green-lo);border:1px solid var(--green);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--green);font-weight:700;margin-bottom:12px">
+      📋 Stock products to shelves from your back-room storage. Customers can only buy what's on the shelves!
+    </div>`;
+  }
+
+  // Sort: low stock first, then by product name
+  const sorted = [...products].filter(p => shelves[p.id]).sort((a, b) => {
+    const aRatio = (inv[a.id] || 0) / shelfCap;
+    const bRatio = (inv[b.id] || 0) / shelfCap;
+    return aRatio - bRatio;
+  });
+
+  html += `<div class="stocker-section-header">
+    Shelf Status
+    <span style="font-size:10px;font-weight:600;color:var(--muted)">${shelfCap} max per shelf · ${storageCap} storage cap</span>
+  </div>`;
+  html += `<div class="stocker-grid">`;
+
+  sorted.forEach(p => {
+    const shelfAmt = inv[p.id] || 0;
+    const storageAmt = storage[p.id] || 0;
+    const shelfPct = Math.min(100, Math.round((shelfAmt / shelfCap) * 100));
+    const storagePct = Math.min(100, Math.round((storageAmt / storageCap) * 100));
+    const shelfClass = shelfPct < 25 ? 'low-shelf' : shelfPct < 60 ? 'mid-shelf' : '';
+    const barClass = shelfPct < 25 ? 'shelf-low' : shelfPct < 60 ? 'shelf-mid' : 'shelf-full';
+    const canRestock = storageAmt > 0 && shelfAmt < shelfCap;
+    const batchMove = Math.min(8, shelfCap - shelfAmt, storageAmt);
+
+    html += `<div class="stocker-card ${shelfClass}">
+      <div class="stocker-card-header">
+        <span class="stocker-emoji">${p.emoji}</span>
+        <span class="stocker-prod-name">${p.name}</span>
+      </div>
+      <div class="stocker-level-row">
+        <span class="stocker-level-label">Shelf</span>
+        <div class="stocker-bar-bg"><div class="stocker-bar-fill ${barClass}" style="width:${shelfPct}%"></div></div>
+        <span class="stocker-count">${shelfAmt}/${shelfCap}</span>
+      </div>
+      <div class="stocker-level-row">
+        <span class="stocker-level-label">Storage</span>
+        <div class="stocker-bar-bg"><div class="stocker-bar-fill storage-bar" style="width:${storagePct}%"></div></div>
+        <span class="stocker-count">${storageAmt}/${storageCap}</span>
+      </div>
+      <button class="stocker-restock-btn" onclick="socket.emit('restockShelf',{productId:'${p.id}',qty:8})"
+        ${!canRestock ? 'disabled' : ''}>
+        ${!canRestock ? (storageAmt === 0 ? '❌ No Storage Stock' : '✅ Shelf Full') : `📋 Stock ×${batchMove} to Shelf`}
+      </button>
+    </div>`;
+  });
+
+  html += `</div>`;
+
+  // Products not on shelf
+  const offShelf = products.filter(p => !shelves[p.id]);
+  if (offShelf.length > 0) {
+    html += `<div class="stocker-section-header" style="margin-top:8px">Off Shelf (Toggle in Inventory tab)</div>
+    <div style="font-size:12px;color:var(--muted);padding:6px 0">${offShelf.map(p => `${p.emoji} ${p.name}`).join(' · ')}</div>`;
+  }
+
+  pane.innerHTML = html;
+}
+
 // ── Stats Tab ──────────────────────────────────────
 function renderStats(s) {
   const pane = document.getElementById('stats-pane-content');
@@ -4975,6 +5254,10 @@ function renderStats(s) {
     <div class="stat-card orange">
       <div class="sv">${st.rushHoursTriggered||0}</div>
       <div class="sl">Rush Hours</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv">${st.stockingActions||0}</div>
+      <div class="sl">Stocking Actions</div>
     </div>
     <div class="stat-card">
       <div class="sv">${st.theftsBlocked||0}</div>
