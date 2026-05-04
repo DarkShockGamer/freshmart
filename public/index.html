@@ -3399,15 +3399,15 @@ function _renderAiLaneCard(row, card, laneNum, w, s) {
 
   if (!isActive) {
     card.classList.remove('active-reg');
-    card.querySelector('.register-cust-bar').style.display = 'none';
-    document.getElementById(`reg-unscanned-${w.uid}`).innerHTML = '';
-    document.getElementById(`reg-scanned-${w.uid}`).innerHTML   = '';
-    document.getElementById(`reg-total-${w.uid}`).textContent   = '$0.00';
-    document.getElementById(`reg-receipt-${w.uid}`).innerHTML   = '';
-    document.getElementById(`reg-idle-${w.uid}`).style.display  = '';
-    document.getElementById(`reg-approved-${w.uid}`).classList.remove('show');
+    card.querySelector('.register-cust-bar')?.style && (card.querySelector('.register-cust-bar').style.display = 'none');
+    if (document.getElementById(`reg-unscanned-${w.uid}`)) document.getElementById(`reg-unscanned-${w.uid}`).innerHTML = '';
+    if (document.getElementById(`reg-scanned-${w.uid}`))   document.getElementById(`reg-scanned-${w.uid}`).innerHTML   = '';
+    if (document.getElementById(`reg-total-${w.uid}`))     document.getElementById(`reg-total-${w.uid}`).textContent   = '$0.00';
+    if (document.getElementById(`reg-receipt-${w.uid}`))   document.getElementById(`reg-receipt-${w.uid}`).innerHTML   = '';
+    if (document.getElementById(`reg-idle-${w.uid}`))      document.getElementById(`reg-idle-${w.uid}`).style.display  = '';
+    document.getElementById(`reg-approved-${w.uid}`)?.classList.remove('show');
     const payArea = document.getElementById(`reg-pay-${w.uid}`);
-    payArea.querySelector('.reg-pay-idle').style.display = '';
+    if (payArea) payArea.querySelector('.reg-pay-idle').style.display = '';
     const cardEl = document.getElementById(`reg-card-${w.uid}`);
     if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
     clearTimeout(_regScanTimers[w.uid]);
@@ -3971,7 +3971,7 @@ function switchTab(name) {
 }
 
 function renderTabContent(tab, s) {
-  if (tab === 'customers')  { renderCustomers(s); renderAllRegisters(s); renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
+  if (tab === 'customers')  { renderCustomers(s); try { renderAllRegisters(s); } catch(e) { console.error('renderAllRegisters error:', e); } renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
   if (tab === 'upgrades')   renderUpgrades(s);
