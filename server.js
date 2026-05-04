@@ -496,6 +496,7 @@ function emit(room) {
     difficulty: room.difficulty,
     diffConfig: room.diff,
     checkoutLocked: room.checkoutLocked,
+    checkoutLocks: room.checkoutLocks || {},
     checkoutLanes: getCheckoutLanes(room.upgrades),
     aiWorkers: room.aiWorkers || [],
     aiWorkerTypes: AI_WORKER_TYPES,
@@ -1095,10 +1096,17 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
-    // Player must hold a checkout lock to serve
+    // If player doesn't hold a lock yet (race condition: lockCheckout may not
+    // have arrived before serveCustomer), try to acquire one now.
     if (!room.checkoutLocks[socket.id]) {
-      socket.emit('serveResult', { ok: false, msg: 'You are not at a checkout lane!' });
-      return;
+      const lanes = getCheckoutLanes(room.upgrades);
+      const activeLocks = Object.keys(room.checkoutLocks)
+        .filter(pid => pid !== socket.id && room.players[pid]).length;
+      if (activeLocks >= lanes) {
+        socket.emit('serveResult', { ok: false, msg: `All ${lanes} checkout lane${lanes>1?'s':''} are busy!` });
+        return;
+      }
+      room.checkoutLocks[socket.id] = true;
     }
     const result = serveCustomer(room, cid, socket.id);
     delete room.checkoutLocks[socket.id]; // release after serve
