@@ -743,8 +743,14 @@ function tickAiWorkers(room) {
   const lanes = getCheckoutLanes(room.upgrades);
 
   room.aiWorkers.forEach(w => {
-    if (!w.assignedLane || w.assignedLane > lanes) return;
-    if (!room.customers.length) return;
+    if (!w.assignedLane || w.assignedLane > lanes) {
+      w.currentActivity = null;
+      return;
+    }
+    if (!room.customers.length) {
+      w.currentActivity = null;
+      return;
+    }
 
     // Phase 2: worker already claimed a customer — serve them after display delay
     const claim = room._aiWorkerClaims[w.uid];
@@ -753,21 +759,44 @@ function tickAiWorkers(room) {
         delete room._aiWorkerClaims[w.uid];
         room._aiWorkerCooldowns[w.uid] = now;
         const customer = room.customers.find(c => c.id === claim.customerId);
-        if (customer) serveCustomer(room, customer.id, null, true, w);
+        if (customer) {
+          serveCustomer(room, customer.id, null, true, w);
+        }
+        w.currentActivity = null;
       }
       return; // still in display window
     }
 
     // Phase 1: cooldown check, then claim an unattended customer
     const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
-    if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) return;
+    if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) {
+      // Keep currentActivity null while on cooldown (idle)
+      if (!room._aiWorkerClaims[w.uid]) w.currentActivity = null;
+      return;
+    }
 
     const customer = room.customers.find(c => !c.attendedBy);
-    if (!customer) return;
+    if (!customer) {
+      w.currentActivity = null;
+      return;
+    }
 
     // Claim: mark attendedBy so clients see the overlay immediately
     customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
     room._aiWorkerClaims[w.uid] = { customerId: customer.id, claimedAt: now };
+
+    // Build activity snapshot for client animation (mirrors SCO)
+    const items = customer.wants.map(wt => {
+      const prod = ALL_PRODUCTS.find(p => p.id === wt.id);
+      return { emoji: prod?.emoji || '📦', name: prod?.name || wt.id, qty: wt.qty };
+    });
+    w.currentActivity = {
+      customerEmoji: customer.emoji,
+      customerName: customer.name,
+      items,
+      total: customer.wants.reduce((sum, wt) => sum + (room.prices[wt.id] || 0) * wt.qty, 0),
+      startedAt: now,
+    };
   });
 }
 
@@ -840,6 +869,9 @@ function endDay(room) {
     }
     // Clear activity animations
     room.scoMachines.forEach(m => { m.currentActivity = null; });
+  }
+  if (room.aiWorkers && room.aiWorkers.length > 0) {
+    room.aiWorkers.forEach(w => { w.currentActivity = null; });
   }
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
