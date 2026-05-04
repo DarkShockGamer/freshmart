@@ -582,7 +582,87 @@ input::placeholder { color: var(--muted); }
 #toast.error   { border-color: var(--red);    color: var(--red);    }
 #toast.success { border-color: var(--green);  color: var(--green);  }
 #toast.vip     { border-color: var(--yellow); color: var(--yellow); }
+#toast.info    { border-color: var(--blue);   color: var(--blue);   }
 
+/* ── Checkout lanes status bar ── */
+#checkout-lanes-bar {
+  display: flex; gap: 8px; padding: 6px 16px;
+  background: var(--surf2); border-bottom: 1px solid var(--border);
+  align-items: center; flex-shrink: 0; font-size: 12px;
+}
+.lane-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border); font-size: 11px; font-weight: 700;
+}
+.lane-chip.free    { border-color: var(--green); color: var(--green); background: var(--green-lo); }
+.lane-chip.busy    { border-color: var(--orange); color: var(--orange); background: var(--orange-lo); }
+.lane-chip.ai      { border-color: var(--blue); color: var(--blue); background: var(--blue-lo); }
+.lane-chip.locked  { border-color: var(--muted); color: var(--muted); background: transparent; opacity: .5; }
+
+/* ── Workers Tab ── */
+.workers-section { margin-bottom: 24px; }
+.workers-section-title {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase;
+  padding-bottom: 10px; margin-bottom: 10px;
+  border-bottom: 1px solid var(--border); display: block;
+}
+.worker-hire-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+  margin-bottom: 16px;
+}
+.worker-hire-card {
+  background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 6px;
+}
+.worker-hire-card:hover { border-color: var(--blue); }
+.worker-hire-top { display: flex; align-items: center; gap: 8px; }
+.worker-hire-emoji { font-size: 24px; }
+.worker-hire-name { font-size: 14px; font-weight: 700; }
+.worker-hire-speed { font-size: 11px; color: var(--cyan); font-family: var(--mono); }
+.worker-hire-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.worker-hire-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.worker-hire-cost { font-size: 13px; font-weight: 700; color: var(--green); font-family: var(--mono); }
+.worker-hire-wage { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+
+.workers-roster { display: flex; flex-direction: column; gap: 8px; }
+.worker-row {
+  background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.worker-row .wemoji { font-size: 22px; flex-shrink: 0; }
+.worker-row .winfo { flex: 1; min-width: 0; }
+.worker-row .wname { font-size: 13px; font-weight: 700; }
+.worker-row .wdetail { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.worker-row .wlane { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lane-select { background: var(--surf2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 4px 8px; font-size: 12px; font-family: var(--font); cursor: pointer; outline: none; }
+.lane-select:focus { border-color: var(--blue); }
+.worker-assigned { font-size: 11px; color: var(--blue); font-weight: 700; }
+.worker-idle { font-size: 11px; color: var(--muted); }
+
+/* ── Stats Tab ── */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--surf); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.stat-card .sv { font-size: 26px; font-weight: 800; font-family: var(--mono); color: var(--green); }
+.stat-card .sl { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+.stat-card.red .sv { color: var(--red); }
+.stat-card.blue .sv { color: var(--blue); }
+.stat-card.yellow .sv { color: var(--yellow); }
+.stat-card.orange .sv { color: var(--orange); }
+
+.stats-player-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.stats-player-table th { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; padding: 0 8px 8px; text-align: left; }
+.stats-player-table td { padding: 7px 8px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.stats-player-table tr:hover td { background: var(--surf2); }
 /* ── Save indicator ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .save-spinner {
@@ -1180,6 +1260,9 @@ input::placeholder { color: var(--muted); }
     </div>
   </div>
 
+  <!-- Checkout lanes status bar -->
+  <div id="checkout-lanes-bar" style="display:none"></div>
+
   <!-- Morning overlay — shown at start of each day session -->
   <div id="morning-overlay" style="display:none;position:absolute;inset:0;background:rgba(10,14,20,.93);z-index:800;align-items:center;justify-content:center;flex-direction:column;gap:24px;padding:32px;overflow-y:auto;">
     <div style="font-size:64px;animation:float 3s ease-in-out infinite">🌅</div>
@@ -1218,6 +1301,8 @@ input::placeholder { color: var(--muted); }
         <div class="tab" data-tab="inventory" onclick="switchTab('inventory')">📋 Inventory</div>
         <div class="tab" data-tab="shop" onclick="switchTab('shop')">🛍️ Restock</div>
         <div class="tab" data-tab="upgrades" onclick="switchTab('upgrades')">⬆️ Upgrades</div>
+        <div class="tab" data-tab="workers" onclick="switchTab('workers')">🤖 Workers</div>
+        <div class="tab" data-tab="stats" onclick="switchTab('stats')">📊 Stats</div>
       </div>
 
       <!-- Customers -->
@@ -1274,6 +1359,16 @@ input::placeholder { color: var(--muted); }
       <div class="tab-pane" id="pane-upgrades">
         <span class="section-label">Upgrade Tree — Purchase during Shop Phase</span>
         <div class="upg-tree" id="upg-tree"></div>
+      </div>
+
+      <!-- Workers -->
+      <div class="tab-pane" id="pane-workers">
+        <div id="workers-pane-content"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="tab-pane" id="pane-stats">
+        <div id="stats-pane-content"></div>
       </div>
     </div>
 
@@ -1472,6 +1567,11 @@ socket.on('serveResult', ({ ok, earned, isVip, msg }) => {
   else showToast(msg, 'error');
 });
 
+socket.on('checkoutDenied', ({ reason }) => {
+  showToast(reason, 'error');
+  closeCheckout();
+});
+
 socket.on('msg', ({ type, text }) => showToast(text, type));
 
 socket.on('autoSave', ({ slotIdx, save }) => {
@@ -1621,10 +1721,13 @@ function renderAll(s) {
   renderPlayers(s);
   renderEventBanner(s);
   renderShopBanner(s);
+  renderCheckoutLanesBar(s);
   renderCustomers(s);
   renderInventory(s);
   renderShop(s);
   renderUpgrades(s);
+  renderWorkers(s);
+  renderStats(s);
   renderSidebar(s);
 }
 
@@ -1965,6 +2068,7 @@ function doRestockFull(productId, space) {
 const BRANCH_META = {
   grocery:     { label: '🥗 Grocery',       color: 'var(--green)' },
   store:       { label: '🏪 Store Ops',     color: 'var(--blue)'  },
+  checkout:    { label: '🏧 Checkouts',     color: 'var(--cyan)'  },
   clothing:    { label: '👕 Clothing',      color: 'var(--cyan)'  },
   electronics: { label: '📱 Electronics',  color: 'var(--orange)' },
   auto:        { label: '🚗 Automotive',    color: 'var(--yellow)' },
@@ -2132,6 +2236,15 @@ const BILL_CLASSES = { 100:'b100', 50:'b50', 20:'b20', 10:'b10', 5:'b5', 1:'b1' 
 
 function openCheckout(customer) {
   if (checkoutCustomer) return; // already checking out someone
+
+  // In multiplayer, try to lock the checkout
+  if (roomState && roomState.checkoutLocked && roomState.checkoutLocked !== myId) {
+    const locker = roomState.players[roomState.checkoutLocked];
+    showToast(`${locker?.name || 'Another player'} is at the checkout!`, 'error');
+    return;
+  }
+  socket.emit('lockCheckout');
+
   checkoutCustomer = customer;
   checkoutScanned = [];
   checkoutTotal = 0;
@@ -2595,6 +2708,7 @@ function closeCheckout() {
   cleanupCardDrag();
   checkoutCustomer = null;
   document.getElementById('checkout-overlay').classList.remove('active');
+  socket.emit('releaseCheckout');
 }
 
 function startCoPatienceBar(customer) {
@@ -2619,6 +2733,210 @@ function startCoPatienceBar(customer) {
   }
   tick();
   _coPatienceInterval = setInterval(tick, 500);
+}
+
+// ── Checkout Lanes Bar ─────────────────────────────
+function renderCheckoutLanesBar(s) {
+  const bar = document.getElementById('checkout-lanes-bar');
+  if (s.phase !== 'playing') { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-right:4px">CHECKOUTS</span>';
+
+  const lanes = s.checkoutLanes || 1;
+  for (let i = 1; i <= lanes; i++) {
+    const chip = document.createElement('div');
+    // check if an AI worker is assigned here
+    const aiW = (s.aiWorkers||[]).find(w => w.assignedLane === i);
+    if (aiW) {
+      chip.className = 'lane-chip ai';
+      chip.innerHTML = `${aiW.emoji} Lane ${i} — ${aiW.name}`;
+    } else if (i === 1 && s.checkoutLocked && s.checkoutLocked === myId) {
+      chip.className = 'lane-chip busy';
+      chip.innerHTML = `🟠 Lane ${i} — You`;
+    } else if (i === 1 && s.checkoutLocked && s.players[s.checkoutLocked]) {
+      chip.className = 'lane-chip busy';
+      chip.innerHTML = `🟠 Lane ${i} — ${s.players[s.checkoutLocked].name}`;
+    } else {
+      chip.className = 'lane-chip free';
+      chip.innerHTML = `🟢 Lane ${i} — Open`;
+    }
+    bar.appendChild(chip);
+  }
+}
+
+// ── Workers Tab ────────────────────────────────────
+function renderWorkers(s) {
+  const pane = document.getElementById('workers-pane-content');
+  const lanes = s.checkoutLanes || 1;
+  const isShop = s.phase === 'shop';
+  const workers = s.aiWorkers || [];
+  const types = s.aiWorkerTypes || [];
+
+  let html = '';
+
+  // Hire section
+  html += `<div class="workers-section">
+    <span class="workers-section-title">Hire AI Workers${!isShop ? ' (available in Shop phase)' : ''}</span>
+    <div class="worker-hire-grid">`;
+
+  types.forEach(t => {
+    const canAfford = s.money >= t.cost;
+    const needsElec = t.id === 'bot' && !s.upgrades.includes('electronics_l1');
+    const disabled = !isShop || needsElec;
+    html += `<div class="worker-hire-card">
+      <div class="worker-hire-top">
+        <span class="worker-hire-emoji">${t.emoji}</span>
+        <div>
+          <div class="worker-hire-name">${t.name}</div>
+          <div class="worker-hire-speed">⚡ Speed ×${t.speed}</div>
+        </div>
+      </div>
+      <div class="worker-hire-desc">${t.desc}</div>
+      <div class="worker-hire-footer">
+        <span class="worker-hire-cost">$${t.cost} hire</span>
+        <span class="worker-hire-wage">${t.wage ? `$${t.wage}/day wage` : 'No wage'}</span>
+        <button class="btn xs blue" style="margin-left:auto" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+          ${disabled || !canAfford ? 'disabled' : ''}>
+          ${needsElec ? '🔒 Electronics needed' : !isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
+        </button>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+
+  // Roster section
+  html += `<div class="workers-section">
+    <span class="workers-section-title">Your Workforce (${workers.length} hired) — Checkout Lanes: ${lanes}</span>`;
+
+  if (!workers.length) {
+    html += `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
+      <div style="font-size:36px;margin-bottom:8px">🤷</div>
+      <div>No workers hired yet. Hire AI workers above to auto-serve customers!</div>
+    </div>`;
+  } else {
+    html += `<div class="workers-roster">`;
+    workers.forEach(w => {
+      const assigned = w.assignedLane;
+      // Lane options
+      let laneOptions = `<option value="">Unassigned</option>`;
+      for (let i = 1; i <= lanes; i++) {
+        laneOptions += `<option value="${i}" ${assigned === i ? 'selected' : ''}>Lane ${i}</option>`;
+      }
+      html += `<div class="worker-row">
+        <span class="wemoji">${w.emoji}</span>
+        <div class="winfo">
+          <div class="wname">${w.name}</div>
+          <div class="wdetail">⚡×${w.speed} speed · ${w.wage ? `$${w.wage}/day` : 'No wage'}</div>
+        </div>
+        <div class="wlane">
+          ${assigned
+            ? `<span class="worker-assigned">Lane ${assigned}</span>`
+            : `<span class="worker-idle">Idle</span>`}
+          <select class="lane-select" onchange="socket.emit('assignWorker',{uid:${w.uid},lane:this.value?+this.value:null})">
+            ${laneOptions}
+          </select>
+          <button class="btn xs red" onclick="socket.emit('fireWorker',{uid:${w.uid}})">✕ Fire</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // Info about checkout lanes
+  html += `<div style="background:var(--surf);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:8px">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:.5px">ℹ️ HOW IT WORKS</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.8">
+      • You start with <b style="color:var(--text)">1 checkout lane</b>. Unlock more in the <b style="color:var(--cyan)">Upgrades → Checkouts</b> tree.<br>
+      • In <b style="color:var(--text)">multiplayer</b>, only one player can use the single checkout lane at a time. Buy more lanes!<br>
+      • Assign <b style="color:var(--text)">AI workers</b> to lanes and they'll auto-serve customers every few seconds.<br>
+      • AI workers collect a <b style="color:var(--yellow)">daily wage</b> paid at end of day. Speed-${'>'}profit is your call.<br>
+      • The faster the worker speed, the more customers they handle during rush hour.
+    </div>
+  </div>`;
+
+  pane.innerHTML = html;
+}
+
+// ── Stats Tab ──────────────────────────────────────
+function renderStats(s) {
+  const pane = document.getElementById('stats-pane-content');
+  const st = s.stats || {};
+
+  const served = st.customersServed || 0;
+  const lost = st.customersLost || 0;
+  const total = served + lost;
+  const rate = total ? Math.round((served / total) * 100) : 0;
+
+  let html = `<span class="section-label" style="display:block;margin-bottom:12px">Store Performance Statistics</span>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="sv">$${(st.totalRevenue||0).toLocaleString()}</div>
+      <div class="sl">Total Revenue</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="sv">$${(st.playerRevenue||0).toLocaleString()}</div>
+      <div class="sl">Player Revenue</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="sv">$${(st.aiRevenue||0).toLocaleString()}</div>
+      <div class="sl">AI Worker Revenue</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv">${served}</div>
+      <div class="sl">Customers Served</div>
+    </div>
+    <div class="stat-card red">
+      <div class="sv">${lost}</div>
+      <div class="sl">Customers Lost</div>
+    </div>
+    <div class="stat-card ${rate >= 70 ? '' : 'red'}">
+      <div class="sv">${rate}%</div>
+      <div class="sl">Serve Rate</div>
+    </div>
+    <div class="stat-card yellow">
+      <div class="sv">${st.vipServed||0}</div>
+      <div class="sl">VIPs Served</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv">${st.daysCompleted||0}</div>
+      <div class="sl">Days Completed</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="sv">${st.rushHoursTriggered||0}</div>
+      <div class="sl">Rush Hours</div>
+    </div>
+    <div class="stat-card">
+      <div class="sv">${st.theftsBlocked||0}</div>
+      <div class="sl">Thefts Stopped</div>
+    </div>
+    <div class="stat-card red">
+      <div class="sv">${st.theftsLost||0}</div>
+      <div class="sl">Thefts Got Away</div>
+    </div>
+  </div>`;
+
+  // Per-player breakdown
+  const byPlayer = st.byPlayer || {};
+  const playerEntries = Object.entries(byPlayer).sort((a, b) => b[1].revenue - a[1].revenue);
+  if (playerEntries.length > 0) {
+    html += `<div style="margin-top:8px">
+    <span class="section-label" style="display:block;margin-bottom:8px">Player Breakdown</span>
+    <table class="stats-player-table">
+      <thead><tr><th>Player</th><th>Customers Served</th><th>Revenue Earned</th></tr></thead>
+      <tbody>`;
+    playerEntries.forEach(([pid, data]) => {
+      const me = pid === myId;
+      html += `<tr>
+        <td style="font-weight:700">${data.name || 'Unknown'}${me ? ' <span style="color:var(--green);font-size:10px">(you)</span>' : ''}</td>
+        <td style="font-family:var(--mono)">${data.served}</td>
+        <td style="font-family:var(--mono);color:var(--green)">$${(data.revenue||0).toLocaleString()}</td>
+      </tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+
+  pane.innerHTML = html;
 }
 
 // ── Toast ──────────────────────────────────────────
