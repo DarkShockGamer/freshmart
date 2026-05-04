@@ -1315,7 +1315,7 @@ input::placeholder { color: var(--muted); }
   gap: 6px;
   padding: 14px 22px;
   background: var(--surf);
-  border: 2px solid rgba(16,185,129,.35);
+  border: 2px solid var(--border);
   border-radius: 12px;
 }
 .preg-closed-text {
@@ -1323,6 +1323,7 @@ input::placeholder { color: var(--muted); }
   font-weight: 800;
   letter-spacing: 3px;
   text-transform: uppercase;
+  color: var(--muted);
 }
 .preg-closed-sub {
   font-size: 10px;
@@ -2290,7 +2291,7 @@ input::placeholder { color: var(--muted); }
         </div>
         <div id="customer-grid"></div>
         <!-- Player Registers zone -->
-        <div id="player-registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+        <div id="player-registers-zone" style="margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
           <div class="player-registers-zone-header">
             <span class="player-registers-zone-title">🧑‍💼 Player Registers</span>
             <span class="player-registers-zone-sub" id="player-registers-zone-sub">Players checking out customers</span>
@@ -2298,7 +2299,7 @@ input::placeholder { color: var(--muted); }
           <div id="player-registers-row"></div>
         </div>
         <!-- AI Worker Registers zone -->
-        <div id="registers-zone" style="display:none">
+        <div id="registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
           <div class="registers-zone-header">
             <span class="registers-zone-title">🧑‍💼 Registers</span>
             <span class="registers-zone-sub" id="registers-zone-sub">AI workers checking out customers</span>
@@ -3649,12 +3650,12 @@ function renderPlayerRegisters(s) {
           </div>
         </div>
 
-        <!-- Open overlay — shown when no player has claimed this lane -->
+        <!-- Closed overlay — shown when no player has claimed this lane -->
         <div class="preg-closed-overlay" id="preg-closed-${laneNum}" style="display:none">
           <div class="preg-closed-sign">
-            <span style="font-size:26px">🟢</span>
-            <div class="preg-closed-text" style="color:var(--green);letter-spacing:2px">OPEN</div>
-            <div class="preg-closed-sub">Lane ${laneNum} — anyone can check out here</div>
+            <span style="font-size:26px">🚫</span>
+            <div class="preg-closed-text">CLOSED</div>
+            <div class="preg-closed-sub">Available — not yet claimed</div>
           </div>
         </div>
       `;
