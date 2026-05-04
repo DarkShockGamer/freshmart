@@ -750,6 +750,7 @@ function tickAiWorkers(room) {
     if (!customer) return;
 
     room._aiWorkerCooldowns[w.uid] = now;
+    customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
     const result = serveCustomer(room, customer.id, null, true, w);
     if (!result.ok) return;
     // emit is called by the calling loop, no need to call again
@@ -776,6 +777,7 @@ function tickScoMachines(room) {
     if (!customer) return;
 
     m.lastServeAt = now;
+    customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
     // Build activity snapshot for client animation
     const items = customer.wants.map(w => {
       const prod = ALL_PRODUCTS.find(p => p.id === w.id);
@@ -971,7 +973,7 @@ io.on('connection', (socket) => {
     socket.emit('msg', { type:'success', text:'💾 Game saved!' });
   });
 
-  socket.on('lockCheckout', () => {
+  socket.on('lockCheckout', ({ customerId }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'playing') return;
     if (room.checkoutLocked && room.checkoutLocked !== socket.id) {
@@ -979,13 +981,24 @@ io.on('connection', (socket) => {
       return;
     }
     room.checkoutLocked = socket.id;
+    // Mark the customer as being attended by this player
+    if (customerId != null) {
+      const c = room.customers.find(c => c.id === customerId);
+      const p = room.players[socket.id];
+      if (c) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+    }
     emit(room);
   });
 
   socket.on('releaseCheckout', () => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
-    if (room.checkoutLocked === socket.id) { room.checkoutLocked = null; emit(room); }
+    if (room.checkoutLocked === socket.id) {
+      room.checkoutLocked = null;
+      // Clear attendedBy for any customer this player was attending
+      room.customers.forEach(c => { if (c.attendedBy?.type === 'player') c.attendedBy = null; });
+      emit(room);
+    }
   });
 
   socket.on('buyScoMachine', ({ typeId }) => {
