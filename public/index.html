@@ -697,6 +697,275 @@ input::placeholder { color: var(--muted); }
 .stats-player-table th { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; padding: 0 8px 8px; text-align: left; }
 .stats-player-table td { padding: 7px 8px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
 .stats-player-table tr:hover td { background: var(--surf2); }
+/* ── AI Worker Register Zone ── */
+#registers-zone {
+  margin-bottom: 18px;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 18px;
+}
+.registers-zone-header {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
+}
+.registers-zone-title {
+  font-size: 13px; font-weight: 800; color: var(--orange); letter-spacing: .3px;
+}
+.registers-zone-sub {
+  font-size: 11px; color: var(--muted); font-weight: 600;
+}
+#registers-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+/* ── Register Card (same layout as SCO but worker-themed) ── */
+.register-card {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color .2s, box-shadow .2s;
+  display: flex;
+  flex-direction: column;
+}
+.register-card.active-reg {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 2px rgba(249,115,22,.12);
+}
+
+.register-card-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.reg-worker-emoji { font-size: 18px; }
+.reg-worker-name  { font-size: 12px; font-weight: 800; flex: 1; }
+.reg-worker-speed { font-size: 10px; color: var(--orange); font-family: var(--mono); }
+.reg-lane-badge {
+  background: var(--orange-lo); border: 1px solid var(--orange);
+  color: var(--orange); border-radius: 5px; padding: 1px 7px; font-size: 9px; font-weight: 700;
+}
+
+.register-cust-bar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(249,115,22,.05);
+  flex-shrink: 0;
+}
+.register-card.active-reg .register-cust-bar { display: flex; }
+.reg-cust-emoji { font-size: 16px; }
+.reg-cust-name  { font-size: 10px; font-weight: 800; color: var(--orange); flex: 1; }
+.reg-cust-items { font-size: 9px; color: var(--muted); font-family: var(--mono); }
+
+.register-body {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  flex: 1;
+  min-height: 160px;
+}
+
+/* Conveyor side — orange theme */
+.reg-conveyor {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 22px,
+      rgba(255,255,255,.018) 22px,
+      rgba(255,255,255,.018) 24px
+    ),
+    var(--surf2);
+}
+.reg-belt-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted);
+  text-transform: uppercase; padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.reg-belt-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 8px;
+  min-height: 80px;
+  gap: 0;
+}
+.reg-belt-line {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(249,115,22,.5), transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.register-card.active-reg .reg-belt-line {
+  background: linear-gradient(180deg, transparent, rgba(249,115,22,.85), transparent);
+  box-shadow: 0 0 8px rgba(249,115,22,.4);
+}
+@keyframes regBeltBeam {
+  0%,100% { opacity: .5; box-shadow: 0 0 6px rgba(249,115,22,.4); }
+  50%      { opacity: 1;  box-shadow: 0 0 16px rgba(249,115,22,.9), 0 0 4px #fff; }
+}
+.register-card.active-reg .reg-belt-line {
+  animation: regBeltBeam 1s ease-in-out infinite;
+}
+
+.reg-items-unscanned, .reg-items-scanned {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  min-height: 60px;
+}
+.reg-items-unscanned { justify-content: flex-end; }
+.reg-items-scanned   { justify-content: flex-start; }
+
+.reg-belt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surf);
+  font-size: 10px;
+}
+.reg-belt-item .rbi-emoji { font-size: 18px; line-height: 1; }
+.reg-belt-item .rbi-name  { font-size: 7px; color: var(--muted); font-weight: 700; text-align: center; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reg-belt-item.scanned    { border-color: var(--orange); background: rgba(249,115,22,.1); opacity: .7; }
+
+@keyframes regItemSlide {
+  from { transform: translateX(30px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.reg-belt-item.just-scanned { animation: regItemSlide .25s ease-out; }
+
+@keyframes regScanPop {
+  0%   { box-shadow: 0 0 0 0 rgba(249,115,22,.9); }
+  60%  { box-shadow: 0 0 0 8px rgba(249,115,22,0); }
+  100% { box-shadow: none; }
+}
+.reg-belt-item.scan-flash { animation: regScanPop .35s ease-out; }
+
+.reg-idle-msg {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; color: rgba(249,115,22,.25); font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; pointer-events: none;
+}
+.reg-idle-msg .idle-icon { font-size: 24px; opacity: .3; }
+
+/* Register side — green POS display */
+.reg-register {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.reg-total-display {
+  background: #060d08;
+  border-bottom: 1px solid #1a3020;
+  padding: 8px 10px;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  flex-shrink: 0;
+}
+.reg-total-label  { font-size: 8px; color: #3a6a4a; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px; }
+.reg-total-amount { font-size: 22px; font-weight: 700; color: #00ff88; letter-spacing: 1px; text-shadow: 0 0 10px rgba(0,255,136,.35); transition: color .2s; }
+.reg-items-receipt {
+  font-size: 8px; color: #3a6a4a; margin-top: 4px; line-height: 1.7; text-align: left;
+  max-height: 54px; overflow-y: auto;
+}
+
+.reg-payment-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surf2);
+  position: relative;
+  overflow: hidden;
+}
+
+.reg-pay-idle {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-align: center; text-transform: uppercase;
+}
+.reg-pay-idle-icon { font-size: 22px; opacity: .3; }
+
+.reg-card-vis {
+  width: 100%; max-width: 130px;
+  height: 80px;
+  background: linear-gradient(135deg, #1a237e 0%, #4a148c 50%, #1a237e 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  padding: 8px 10px;
+  position: relative;
+  display: none;
+}
+.register-card.active-reg .reg-card-vis { display: block; }
+.reg-card-vis .reg-card-chip  { width: 20px; height: 14px; background: linear-gradient(135deg,#c9a227,#f5d76e,#c9a227); border-radius: 2px; margin-bottom: 10px; }
+.reg-card-vis .reg-card-num   { font-family: var(--mono); font-size: 8px; color: rgba(255,255,255,.8); letter-spacing: 2px; }
+.reg-card-vis .reg-card-brand { position: absolute; bottom: 6px; right: 8px; font-size: 8px; font-weight: 800; color: rgba(255,255,255,.5); letter-spacing: 1px; }
+
+.reg-swipe-terminal {
+  width: 100%; max-width: 130px;
+  height: 28px;
+  background: #111;
+  border-radius: 5px;
+  border: 1.5px dashed #333;
+  display: none; align-items: center; justify-content: center;
+  font-size: 7px; color: #444; letter-spacing: 1.5px; font-weight: 700;
+  text-transform: uppercase;
+}
+.register-card.active-reg .reg-swipe-terminal { display: flex; }
+
+@keyframes regCardAutoSwipe {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  35%  { transform: translateY(35px) rotate(2deg); opacity: .6; }
+  65%  { transform: translateY(35px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.reg-card-vis.swiping { animation: regCardAutoSwipe .65s ease-in-out forwards; }
+
+.reg-approved {
+  display: none;
+  flex-direction: column; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 800; color: var(--green);
+  letter-spacing: .5px;
+}
+.reg-approved.show { display: flex; }
+.reg-approved-icon { font-size: 28px; }
+
+@keyframes regFlash { from { opacity:1 } to { opacity:0 } }
+.reg-scan-flash {
+  position: absolute; inset: 0;
+  background: rgba(249,115,22,.2);
+  animation: regFlash .4s ease-out forwards;
+  pointer-events: none; border-radius: 7px;
+}
+
 /* ── Self-Checkout Zone ── */
 #sco-zone {
   margin-top: 18px;
@@ -1654,6 +1923,14 @@ input::placeholder { color: var(--muted); }
           <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
         </div>
         <div id="customer-grid"></div>
+        <!-- AI Worker Registers zone -->
+        <div id="registers-zone" style="display:none">
+          <div class="registers-zone-header">
+            <span class="registers-zone-title">🧑‍💼 Registers</span>
+            <span class="registers-zone-sub" id="registers-zone-sub">AI workers checking out customers</span>
+          </div>
+          <div id="registers-row"></div>
+        </div>
         <!-- Self-checkout machines zone -->
         <div id="sco-zone" style="display:none">
           <div class="sco-zone-header">
@@ -2621,7 +2898,255 @@ function renderScoMachines(s) {
   });
 }
 
-// ── Inventory Table ────────────────────────────────
+// ── AI Worker Registers ────────────────────────────
+const _regLastActivity = {};
+const _regScanTimers   = {};
+
+function renderAiRegisters(s) {
+  const zone = document.getElementById('registers-zone');
+  const row  = document.getElementById('registers-row');
+  // Only show workers that are assigned to a lane
+  const workers = (s.aiWorkers || []).filter(w => w.assignedLane);
+
+  if (!workers.length) { zone.style.display = 'none'; return; }
+  zone.style.display = 'block';
+
+  const sub = document.getElementById('registers-zone-sub');
+  const activeCount = workers.filter(w => w.currentActivity).length;
+  sub.textContent = activeCount > 0
+    ? `${activeCount} register${activeCount>1?'s':''} processing customers`
+    : 'Waiting for customers…';
+
+  const isShop = s.phase === 'shop';
+  const existing = new Set([...row.querySelectorAll('.register-card')].map(el => +el.dataset.uid));
+  const incoming  = new Set(workers.map(w => w.uid));
+  existing.forEach(uid => { if (!incoming.has(uid)) { row.querySelector(`[data-uid="${uid}"]`)?.remove(); clearTimeout(_regScanTimers[uid]); } });
+
+  workers.forEach(w => {
+    let card = row.querySelector(`[data-uid="${w.uid}"]`);
+    const act       = w.currentActivity;
+    const isActive  = !!act;
+    const wasActive = !!_regLastActivity[w.uid];
+    const newTxn    = isActive && (!wasActive || act.startedAt !== _regLastActivity[w.uid]?.startedAt);
+
+    // ── Build card skeleton first time ───────────────────
+    if (!card) {
+      card = document.createElement('div');
+      card.dataset.uid = w.uid;
+      card.className   = 'register-card';
+      card.innerHTML   = `
+        <div class="register-card-header">
+          <span class="reg-worker-emoji">${w.emoji}</span>
+          <div style="flex:1;min-width:0">
+            <div class="reg-worker-name">${w.name}</div>
+            <div class="reg-worker-speed">⚡ ×${w.speed} speed</div>
+          </div>
+          <span class="reg-lane-badge">Lane ${w.assignedLane}</span>
+        </div>
+
+        <div class="register-cust-bar">
+          <span class="reg-cust-emoji"></span>
+          <span class="reg-cust-name"></span>
+          <span class="reg-cust-items"></span>
+        </div>
+
+        <div class="register-body">
+          <!-- Conveyor -->
+          <div class="reg-conveyor">
+            <div class="reg-belt-label">🛒 Conveyor Belt</div>
+            <div class="reg-belt-area">
+              <div class="reg-belt-line"></div>
+              <div class="reg-items-unscanned" id="reg-unscanned-${w.uid}"></div>
+              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+              <div class="reg-items-scanned" id="reg-scanned-${w.uid}"></div>
+              <div class="reg-idle-msg" id="reg-idle-${w.uid}">
+                <span class="idle-icon">🧑‍💼</span>
+                READY
+              </div>
+            </div>
+          </div>
+
+          <!-- Register POS -->
+          <div class="reg-register">
+            <div class="reg-total-display">
+              <div class="reg-total-label">Total Due</div>
+              <div class="reg-total-amount" id="reg-total-${w.uid}">$0.00</div>
+              <div class="reg-items-receipt" id="reg-receipt-${w.uid}"></div>
+            </div>
+            <div class="reg-payment-area" id="reg-pay-${w.uid}">
+              <div class="reg-pay-idle">
+                <span class="reg-pay-idle-icon">💳</span>
+                Awaiting<br>payment
+              </div>
+              <div class="reg-card-vis" id="reg-card-${w.uid}">
+                <div class="reg-card-chip"></div>
+                <div class="reg-card-num">•••• ••••</div>
+                <div class="reg-card-brand">VISA</div>
+              </div>
+              <div class="reg-swipe-terminal">▼ SWIPE ▼</div>
+              <div class="reg-approved" id="reg-approved-${w.uid}">
+                <span class="reg-approved-icon">✅</span>
+                APPROVED
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      row.appendChild(card);
+    } else {
+      // Update lane badge if it changed
+      const badge = card.querySelector('.reg-lane-badge');
+      if (badge) badge.textContent = `Lane ${w.assignedLane}`;
+    }
+
+    // ── Idle state ───────────────────────────────────────
+    if (!isActive) {
+      card.classList.remove('active-reg');
+      card.querySelector('.register-cust-bar').style.display = 'none';
+      document.getElementById(`reg-unscanned-${w.uid}`).innerHTML = '';
+      document.getElementById(`reg-scanned-${w.uid}`).innerHTML   = '';
+      document.getElementById(`reg-total-${w.uid}`).textContent   = '$0.00';
+      document.getElementById(`reg-receipt-${w.uid}`).innerHTML   = '';
+      document.getElementById(`reg-idle-${w.uid}`).style.display  = '';
+      document.getElementById(`reg-approved-${w.uid}`).classList.remove('show');
+      const payArea = document.getElementById(`reg-pay-${w.uid}`);
+      payArea.querySelector('.reg-pay-idle').style.display = '';
+      const cardEl = document.getElementById(`reg-card-${w.uid}`);
+      if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
+      clearTimeout(_regScanTimers[w.uid]);
+      _regLastActivity[w.uid] = null;
+      return;
+    }
+
+    // ── Active state ─────────────────────────────────────
+    card.classList.add('active-reg');
+    document.getElementById(`reg-idle-${w.uid}`).style.display = 'none';
+
+    // Customer bar
+    const custBar = card.querySelector('.register-cust-bar');
+    custBar.style.display = 'flex';
+    custBar.querySelector('.reg-cust-emoji').textContent = act.customerEmoji;
+    custBar.querySelector('.reg-cust-name').textContent  = act.customerName;
+    const totalItems = act.items.reduce((t,i)=>t+i.qty,0);
+    custBar.querySelector('.reg-cust-items').textContent = `${totalItems} item${totalItems!==1?'s':''}`;
+
+    if (newTxn) {
+      clearTimeout(_regScanTimers[w.uid]);
+      document.getElementById(`reg-approved-${w.uid}`).classList.remove('show');
+      document.getElementById(`reg-total-${w.uid}`).textContent = '$0.00';
+      document.getElementById(`reg-receipt-${w.uid}`).innerHTML = '';
+
+      const cardEl = document.getElementById(`reg-card-${w.uid}`);
+      if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
+      document.getElementById(`reg-pay-${w.uid}`)?.querySelector('.reg-pay-idle')?.style.setProperty('display', '');
+
+      // Build items on unscanned side
+      const unscannedEl = document.getElementById(`reg-unscanned-${w.uid}`);
+      const scannedEl   = document.getElementById(`reg-scanned-${w.uid}`);
+      unscannedEl.innerHTML = '';
+      scannedEl.innerHTML   = '';
+
+      const chips = [];
+      act.items.forEach(it => {
+        if (it.qty <= 4) {
+          for (let i = 0; i < it.qty; i++) chips.push(it);
+        } else {
+          chips.push({ ...it, displayQty: it.qty });
+        }
+      });
+
+      chips.forEach(it => {
+        const chip = document.createElement('div');
+        chip.className = 'reg-belt-item';
+        chip.innerHTML = `<span class="rbi-emoji">${it.emoji}</span><span class="rbi-name">${it.displayQty ? '×'+it.displayQty+' ' : ''}${it.name||it.id}</span>`;
+        chip.dataset.price = it.price || 0;
+        chip.dataset.qty   = it.displayQty || 1;
+        chip.dataset.name  = it.name || it.id;
+        chip.dataset.emoji = it.emoji;
+        unscannedEl.appendChild(chip);
+      });
+
+      const baseDelay = Math.max(220, Math.round(1100 / (w.speed || 1)));
+      let runningTotal = 0;
+
+      function scanNextRegItem() {
+        const pending = unscannedEl.querySelectorAll('.reg-belt-item:not(.scanned)');
+        if (!pending.length) {
+          // All scanned — show card swipe
+          const payArea = document.getElementById(`reg-pay-${w.uid}`);
+          payArea?.querySelector('.reg-pay-idle')?.style.setProperty('display','none');
+          const cardVis = document.getElementById(`reg-card-${w.uid}`);
+          if (cardVis) cardVis.style.display = 'block';
+          _regScanTimers[w.uid] = setTimeout(() => {
+            const cv = document.getElementById(`reg-card-${w.uid}`);
+            if (cv) {
+              cv.classList.remove('swiping');
+              void cv.offsetWidth;
+              cv.classList.add('swiping');
+            }
+            setTimeout(() => {
+              const cv2 = document.getElementById(`reg-card-${w.uid}`);
+              if (cv2) cv2.style.display = 'none';
+              document.getElementById(`reg-approved-${w.uid}`)?.classList.add('show');
+            }, 700);
+          }, baseDelay * 0.6);
+          return;
+        }
+
+        const chip = pending[0];
+        const scanLine = card.querySelector('.reg-belt-line');
+        if (scanLine) {
+          scanLine.style.background = 'linear-gradient(180deg,transparent,rgba(249,115,22,1),transparent)';
+          setTimeout(() => { if(scanLine) scanLine.style.background=''; }, 200);
+        }
+
+        chip.classList.add('scan-flash', 'scanned');
+        setTimeout(() => chip.classList.remove('scan-flash'), 380);
+
+        const qty = parseInt(chip.dataset.qty) || 1;
+        const price = parseFloat(chip.dataset.price) || 0;
+        runningTotal += price * qty;
+
+        setTimeout(() => {
+          chip.classList.add('just-scanned');
+          scannedEl.appendChild(chip);
+          setTimeout(() => chip.classList.remove('just-scanned'), 300);
+
+          // Update total display
+          const totalEl = document.getElementById(`reg-total-${w.uid}`);
+          if (totalEl) {
+            totalEl.textContent = '$' + runningTotal.toFixed(2);
+            totalEl.classList.add('updated');
+            setTimeout(() => totalEl.classList.remove('updated'), 300);
+          }
+
+          // Add receipt line
+          const receiptEl = document.getElementById(`reg-receipt-${w.uid}`);
+          if (receiptEl) {
+            const line = document.createElement('div');
+            line.textContent = `${chip.dataset.emoji} ${chip.dataset.name}${qty>1?' ×'+qty:''} ........ $${(price*qty).toFixed(2)}`;
+            receiptEl.appendChild(line);
+            receiptEl.scrollTop = receiptEl.scrollHeight;
+          }
+
+          // Flash overlay
+          const flash = document.createElement('div');
+          flash.className = 'reg-scan-flash';
+          card.querySelector('.reg-conveyor').appendChild(flash);
+          setTimeout(() => flash.remove(), 500);
+
+          _regScanTimers[w.uid] = setTimeout(scanNextRegItem, baseDelay * 0.5);
+        }, 120);
+      }
+
+      _regScanTimers[w.uid] = setTimeout(scanNextRegItem, baseDelay * 0.3);
+    }
+
+    _regLastActivity[w.uid] = act;
+  });
+}
+
+
 // Client-side demand weight mirror (matches server logic)
 function clientDemandWeight(price, basePrice) {
   const ratio = price / basePrice;
@@ -2911,7 +3436,7 @@ function switchTab(name) {
 }
 
 function renderTabContent(tab, s) {
-  if (tab === 'customers')  { renderCustomers(s); renderScoMachines(s); }
+  if (tab === 'customers')  { renderCustomers(s); renderAiRegisters(s); renderScoMachines(s); }
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
   if (tab === 'upgrades')   renderUpgrades(s);
