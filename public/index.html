@@ -965,6 +965,292 @@ input::placeholder { color: var(--muted); }
   pointer-events: none; border-radius: 7px;
 }
 
+/* ── Player Registers Zone ── */
+#player-registers-zone {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.player-registers-zone-header {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
+}
+.player-registers-zone-title {
+  font-size: 13px; font-weight: 800; color: var(--green); letter-spacing: .3px;
+}
+.player-registers-zone-sub {
+  font-size: 11px; color: var(--muted); font-weight: 600;
+}
+#player-registers-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+/* Player register card — green theme, mirrors .register-card */
+.preg-card {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  transition: border-color .2s, box-shadow .2s;
+  display: flex;
+  flex-direction: column;
+}
+.preg-card.active-preg {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(16,185,129,.12);
+}
+.preg-card.is-me {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(99,102,241,.10);
+  opacity: .78;
+}
+.preg-card.is-me.active-preg {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(99,102,241,.18);
+}
+
+.preg-card-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.preg-player-dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; color: #000; flex-shrink: 0;
+}
+.preg-player-name { font-size: 12px; font-weight: 800; flex: 1; }
+.preg-player-sub  { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.preg-lane-badge {
+  background: var(--green-lo); border: 1px solid var(--green);
+  color: var(--green); border-radius: 5px; padding: 1px 7px; font-size: 9px; font-weight: 700;
+}
+.preg-me-badge {
+  background: var(--blue-lo); border: 1px solid var(--blue);
+  color: var(--blue); border-radius: 5px; padding: 1px 7px; font-size: 9px; font-weight: 700;
+  margin-left: 4px;
+}
+
+.preg-cust-bar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
+  background: rgba(16,185,129,.05);
+  flex-shrink: 0;
+}
+.preg-card.active-preg .preg-cust-bar { display: flex; }
+.preg-cust-emoji { font-size: 16px; }
+.preg-cust-name  { font-size: 10px; font-weight: 800; color: var(--green); flex: 1; }
+.preg-cust-items { font-size: 9px; color: var(--muted); font-family: var(--mono); }
+
+.preg-body {
+  display: grid;
+  grid-template-columns: 1fr 160px;
+  flex: 1;
+  min-height: 160px;
+}
+
+/* Conveyor side — green theme */
+.preg-conveyor {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 22px,
+      rgba(255,255,255,.018) 22px,
+      rgba(255,255,255,.018) 24px
+    ),
+    var(--surf2);
+}
+.preg-belt-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted);
+  text-transform: uppercase; padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.preg-belt-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 8px;
+  min-height: 80px;
+  gap: 0;
+}
+.preg-belt-line {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(16,185,129,.5), transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.preg-card.active-preg .preg-belt-line {
+  background: linear-gradient(180deg, transparent, rgba(16,185,129,.85), transparent);
+  box-shadow: 0 0 8px rgba(16,185,129,.4);
+}
+@keyframes pregBeltBeam {
+  0%,100% { opacity: .5; box-shadow: 0 0 6px rgba(16,185,129,.4); }
+  50%      { opacity: 1;  box-shadow: 0 0 16px rgba(16,185,129,.9), 0 0 4px #fff; }
+}
+.preg-card.active-preg .preg-belt-line {
+  animation: pregBeltBeam 1s ease-in-out infinite;
+}
+
+.preg-items-unscanned, .preg-items-scanned {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  min-height: 60px;
+}
+.preg-items-unscanned { justify-content: flex-end; }
+.preg-items-scanned   { justify-content: flex-start; }
+
+.preg-belt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surf);
+  font-size: 10px;
+}
+.preg-belt-item .prbi-emoji { font-size: 18px; line-height: 1; }
+.preg-belt-item .prbi-name  { font-size: 7px; color: var(--muted); font-weight: 700; text-align: center; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preg-belt-item.scanned { border-color: var(--green); background: rgba(16,185,129,.1); opacity: .7; }
+
+@keyframes pregItemSlide {
+  from { transform: translateX(30px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.preg-belt-item.just-scanned { animation: pregItemSlide .25s ease-out; }
+
+@keyframes pregScanPop {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.9); }
+  60%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+  100% { box-shadow: none; }
+}
+.preg-belt-item.scan-flash { animation: pregScanPop .35s ease-out; }
+
+.preg-idle-msg {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; color: rgba(16,185,129,.25); font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; pointer-events: none;
+}
+.preg-idle-msg .preg-idle-icon { font-size: 24px; opacity: .3; }
+
+/* Register POS side */
+.preg-register {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.preg-total-display {
+  background: #060d08;
+  border-bottom: 1px solid #1a3020;
+  padding: 8px 10px;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  flex-shrink: 0;
+}
+.preg-total-label  { font-size: 8px; color: #3a6a4a; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px; }
+.preg-total-amount { font-size: 22px; font-weight: 700; color: #00ff88; letter-spacing: 1px; text-shadow: 0 0 10px rgba(0,255,136,.35); transition: color .2s; }
+.preg-items-receipt {
+  font-size: 8px; color: #3a6a4a; margin-top: 4px; line-height: 1.7; text-align: left;
+  max-height: 54px; overflow-y: auto;
+}
+
+.preg-payment-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surf2);
+  position: relative;
+  overflow: hidden;
+}
+
+.preg-pay-idle {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  text-align: center; text-transform: uppercase;
+}
+.preg-pay-idle-icon { font-size: 22px; opacity: .3; }
+
+.preg-card-vis {
+  width: 100%; max-width: 130px;
+  height: 80px;
+  background: linear-gradient(135deg, #1a237e 0%, #4a148c 50%, #1a237e 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  padding: 8px 10px;
+  position: relative;
+  display: none;
+}
+.preg-card.active-preg .preg-card-vis { display: block; }
+.preg-card-vis .preg-card-chip  { width: 20px; height: 14px; background: linear-gradient(135deg,#c9a227,#f5d76e,#c9a227); border-radius: 2px; margin-bottom: 10px; }
+.preg-card-vis .preg-card-num   { font-family: var(--mono); font-size: 8px; color: rgba(255,255,255,.8); letter-spacing: 2px; }
+.preg-card-vis .preg-card-brand { position: absolute; bottom: 6px; right: 8px; font-size: 8px; font-weight: 800; color: rgba(255,255,255,.5); letter-spacing: 1px; }
+
+.preg-swipe-terminal {
+  width: 100%; max-width: 130px;
+  height: 28px;
+  background: #111;
+  border-radius: 5px;
+  border: 1.5px dashed #333;
+  display: none; align-items: center; justify-content: center;
+  font-size: 7px; color: #444; letter-spacing: 1.5px; font-weight: 700;
+  text-transform: uppercase;
+}
+.preg-card.active-preg .preg-swipe-terminal { display: flex; }
+
+@keyframes pregCardAutoSwipe {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  35%  { transform: translateY(35px) rotate(2deg); opacity: .6; }
+  65%  { transform: translateY(35px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.preg-card-vis.swiping { animation: pregCardAutoSwipe .65s ease-in-out forwards; }
+
+.preg-approved {
+  display: none;
+  flex-direction: column; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 800; color: var(--green);
+  letter-spacing: .5px;
+}
+.preg-approved.show { display: flex; }
+.preg-approved-icon { font-size: 28px; }
+
+@keyframes pregFlash { from { opacity:1 } to { opacity:0 } }
+.preg-scan-flash {
+  position: absolute; inset: 0;
+  background: rgba(16,185,129,.2);
+  animation: pregFlash .4s ease-out forwards;
+  pointer-events: none; border-radius: 7px;
+}
+
 /* ── Self-Checkout Zone ── */
 #sco-zone {
   margin-top: 18px;
@@ -1922,6 +2208,14 @@ input::placeholder { color: var(--muted); }
           <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
         </div>
         <div id="customer-grid"></div>
+        <!-- Player Registers zone -->
+        <div id="player-registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+          <div class="player-registers-zone-header">
+            <span class="player-registers-zone-title">🧑‍💼 Player Registers</span>
+            <span class="player-registers-zone-sub" id="player-registers-zone-sub">Players checking out customers</span>
+          </div>
+          <div id="player-registers-row"></div>
+        </div>
         <!-- AI Worker Registers zone -->
         <div id="registers-zone" style="display:none">
           <div class="registers-zone-header">
@@ -3146,7 +3440,310 @@ function renderAiRegisters(s) {
 }
 
 
-// Client-side demand weight mirror (matches server logic)
+// ── Player Registers ──────────────────────────────
+// Track activity per player for animation continuity
+const _pregLastActivity = {};   // pid → { customer, items, startedAt }
+const _pregScanTimers   = {};   // pid → timeout handle
+
+function renderPlayerRegisters(s) {
+  const zone = document.getElementById('player-registers-zone');
+  const row  = document.getElementById('player-registers-row');
+
+  // Build list of players who have an active checkout lock
+  const locks = s.checkoutLocks || {};
+  const activePlayers = Object.values(s.players).filter(p => locks[p.id]);
+
+  if (!activePlayers.length) {
+    zone.style.display = 'none';
+    // Clear timers for players who left checkout
+    Object.keys(_pregScanTimers).forEach(pid => {
+      clearTimeout(_pregScanTimers[pid]);
+      delete _pregScanTimers[pid];
+      delete _pregLastActivity[pid];
+    });
+    return;
+  }
+
+  zone.style.display = 'block';
+
+  const sub = document.getElementById('player-registers-zone-sub');
+  const activeCount = activePlayers.filter(p => s.playerCheckoutActivity?.[p.id]).length;
+  sub.textContent = activeCount > 0
+    ? `${activeCount} player${activeCount > 1 ? 's' : ''} checking out customers`
+    : 'Players in checkout…';
+
+  // Remove cards for players who left
+  const incoming = new Set(activePlayers.map(p => p.id));
+  [...row.querySelectorAll('.preg-card')].forEach(card => {
+    const pid = card.dataset.pid;
+    if (!incoming.has(pid)) {
+      clearTimeout(_pregScanTimers[pid]);
+      delete _pregScanTimers[pid];
+      delete _pregLastActivity[pid];
+      card.remove();
+    }
+  });
+
+  activePlayers.forEach(p => {
+    const isMe = p.id === myId;
+    const act  = s.playerCheckoutActivity?.[p.id] || null;  // { customerEmoji, customerName, items, total, startedAt }
+    const isActive  = !!act;
+    const wasActive = !!_pregLastActivity[p.id];
+    const newTxn    = isActive && (!wasActive || act.startedAt !== _pregLastActivity[p.id]?.startedAt);
+
+    let card = row.querySelector(`[data-pid="${p.id}"]`);
+
+    // ── Build card skeleton first time ─────────────────
+    if (!card) {
+      card = document.createElement('div');
+      card.dataset.pid = p.id;
+      card.className   = 'preg-card' + (isMe ? ' is-me' : '');
+
+      const laneNum = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
+      card.innerHTML = `
+        <div class="preg-card-header">
+          <div class="preg-player-dot" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div class="preg-player-name">${p.name}</div>
+            <div class="preg-player-sub">Player cashier</div>
+          </div>
+          <span class="preg-lane-badge preg-lane-badge-${p.id}">${laneNum}</span>
+          ${isMe ? '<span class="preg-me-badge">YOU</span>' : ''}
+        </div>
+
+        <div class="preg-cust-bar">
+          <span class="preg-cust-emoji"></span>
+          <span class="preg-cust-name"></span>
+          <span class="preg-cust-items"></span>
+        </div>
+
+        <div class="preg-body">
+          <!-- Conveyor -->
+          <div class="preg-conveyor">
+            <div class="preg-belt-label">🛒 Conveyor Belt</div>
+            <div class="preg-belt-area">
+              <div class="preg-belt-line"></div>
+              <div class="preg-items-unscanned" id="preg-unscanned-${p.id}"></div>
+              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+              <div class="preg-items-scanned" id="preg-scanned-${p.id}"></div>
+              <div class="preg-idle-msg" id="preg-idle-${p.id}">
+                <span class="preg-idle-icon">🧑‍💼</span>
+                READY
+              </div>
+            </div>
+          </div>
+
+          <!-- Register POS -->
+          <div class="preg-register">
+            <div class="preg-total-display">
+              <div class="preg-total-label">Total Due</div>
+              <div class="preg-total-amount" id="preg-total-${p.id}">$0.00</div>
+              <div class="preg-items-receipt" id="preg-receipt-${p.id}"></div>
+            </div>
+            <div class="preg-payment-area" id="preg-pay-${p.id}">
+              <div class="preg-pay-idle">
+                <span class="preg-pay-idle-icon">💳</span>
+                Awaiting<br>payment
+              </div>
+              <div class="preg-card-vis" id="preg-cardvis-${p.id}">
+                <div class="preg-card-chip"></div>
+                <div class="preg-card-num">•••• ••••</div>
+                <div class="preg-card-brand">VISA</div>
+              </div>
+              <div class="preg-swipe-terminal">▼ SWIPE ▼</div>
+              <div class="preg-approved" id="preg-approved-${p.id}">
+                <span class="preg-approved-icon">✅</span>
+                APPROVED
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      row.appendChild(card);
+    } else {
+      // Update lane badge if lane changed
+      const badge = card.querySelector(`.preg-lane-badge-${p.id}`);
+      if (badge) badge.textContent = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
+    }
+
+    // ── Idle state ─────────────────────────────────────
+    if (!isActive) {
+      card.classList.remove('active-preg');
+      card.querySelector('.preg-cust-bar').style.display = 'none';
+      const unscannedEl = document.getElementById(`preg-unscanned-${p.id}`);
+      const scannedEl   = document.getElementById(`preg-scanned-${p.id}`);
+      if (unscannedEl) unscannedEl.innerHTML = '';
+      if (scannedEl)   scannedEl.innerHTML   = '';
+      const totalEl = document.getElementById(`preg-total-${p.id}`);
+      if (totalEl) totalEl.textContent = '$0.00';
+      const receiptEl = document.getElementById(`preg-receipt-${p.id}`);
+      if (receiptEl) receiptEl.innerHTML = '';
+      const idleEl = document.getElementById(`preg-idle-${p.id}`);
+      if (idleEl) idleEl.style.display = '';
+      const approvedEl = document.getElementById(`preg-approved-${p.id}`);
+      if (approvedEl) approvedEl.classList.remove('show');
+      const payArea = document.getElementById(`preg-pay-${p.id}`);
+      if (payArea) {
+        const idleDiv = payArea.querySelector('.preg-pay-idle');
+        if (idleDiv) idleDiv.style.display = '';
+      }
+      const cardVis = document.getElementById(`preg-cardvis-${p.id}`);
+      if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
+      clearTimeout(_pregScanTimers[p.id]);
+      _pregLastActivity[p.id] = null;
+      return;
+    }
+
+    // ── Active state ────────────────────────────────────
+    card.classList.add('active-preg');
+    const idleEl = document.getElementById(`preg-idle-${p.id}`);
+    if (idleEl) idleEl.style.display = 'none';
+
+    // Customer bar
+    const custBar = card.querySelector('.preg-cust-bar');
+    custBar.style.display = 'flex';
+    custBar.querySelector('.preg-cust-emoji').textContent = act.customerEmoji;
+    custBar.querySelector('.preg-cust-name').textContent  = act.customerName;
+    const totalItems = act.items.reduce((t, i) => t + i.qty, 0);
+    custBar.querySelector('.preg-cust-items').textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
+
+    if (newTxn) {
+      clearTimeout(_pregScanTimers[p.id]);
+      const approvedEl = document.getElementById(`preg-approved-${p.id}`);
+      if (approvedEl) approvedEl.classList.remove('show');
+      const totalEl = document.getElementById(`preg-total-${p.id}`);
+      if (totalEl) totalEl.textContent = '$0.00';
+      const receiptEl = document.getElementById(`preg-receipt-${p.id}`);
+      if (receiptEl) receiptEl.innerHTML = '';
+
+      const cardVis = document.getElementById(`preg-cardvis-${p.id}`);
+      if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
+      const payArea = document.getElementById(`preg-pay-${p.id}`);
+      if (payArea) {
+        const idleDiv = payArea.querySelector('.preg-pay-idle');
+        if (idleDiv) idleDiv.style.display = '';
+      }
+
+      // Build items on unscanned side
+      const unscannedEl = document.getElementById(`preg-unscanned-${p.id}`);
+      const scannedEl   = document.getElementById(`preg-scanned-${p.id}`);
+      if (unscannedEl) unscannedEl.innerHTML = '';
+      if (scannedEl)   scannedEl.innerHTML   = '';
+
+      const chips = [];
+      act.items.forEach(it => {
+        if (it.qty <= 4) {
+          for (let i = 0; i < it.qty; i++) chips.push(it);
+        } else {
+          chips.push({ ...it, displayQty: it.qty });
+        }
+      });
+
+      chips.forEach(it => {
+        const chip = document.createElement('div');
+        chip.className = 'preg-belt-item';
+        chip.innerHTML = `<span class="prbi-emoji">${it.emoji}</span><span class="prbi-name">${it.displayQty ? '×' + it.displayQty + ' ' : ''}${it.name || it.id}</span>`;
+        chip.dataset.price = it.price || 0;
+        chip.dataset.qty   = it.displayQty || 1;
+        chip.dataset.name  = it.name || it.id;
+        chip.dataset.emoji = it.emoji;
+        if (unscannedEl) unscannedEl.appendChild(chip);
+      });
+
+      // Scan speed: roughly match how fast the player is scanning
+      // Use a fixed display speed so observers see smooth progress
+      const baseDelay = 600;
+      let runningTotal = 0;
+
+      function scanNextPregItem() {
+        const unEl = document.getElementById(`preg-unscanned-${p.id}`);
+        const scEl = document.getElementById(`preg-scanned-${p.id}`);
+        if (!unEl || !scEl) return;
+        const pending = unEl.querySelectorAll('.preg-belt-item:not(.scanned)');
+        if (!pending.length) {
+          // All scanned — show card swipe
+          const paArea = document.getElementById(`preg-pay-${p.id}`);
+          if (paArea) {
+            const idleDiv = paArea.querySelector('.preg-pay-idle');
+            if (idleDiv) idleDiv.style.display = 'none';
+          }
+          const cv = document.getElementById(`preg-cardvis-${p.id}`);
+          if (cv) cv.style.display = 'block';
+          _pregScanTimers[p.id] = setTimeout(() => {
+            const cv2 = document.getElementById(`preg-cardvis-${p.id}`);
+            if (cv2) {
+              cv2.classList.remove('swiping');
+              void cv2.offsetWidth;
+              cv2.classList.add('swiping');
+            }
+            setTimeout(() => {
+              const cv3 = document.getElementById(`preg-cardvis-${p.id}`);
+              if (cv3) cv3.style.display = 'none';
+              const appEl = document.getElementById(`preg-approved-${p.id}`);
+              if (appEl) appEl.classList.add('show');
+            }, 700);
+          }, baseDelay * 0.6);
+          return;
+        }
+
+        const chip = pending[0];
+        const cardEl = document.querySelector(`[data-pid="${p.id}"]`);
+        if (cardEl) {
+          const scanLine = cardEl.querySelector('.preg-belt-line');
+          if (scanLine) {
+            scanLine.style.background = 'linear-gradient(180deg,transparent,rgba(16,185,129,1),transparent)';
+            setTimeout(() => { if (scanLine) scanLine.style.background = ''; }, 200);
+          }
+        }
+
+        chip.classList.add('scan-flash', 'scanned');
+        setTimeout(() => chip.classList.remove('scan-flash'), 380);
+
+        const qty   = parseInt(chip.dataset.qty)   || 1;
+        const price = parseFloat(chip.dataset.price) || 0;
+        runningTotal += price * qty;
+
+        setTimeout(() => {
+          chip.classList.add('just-scanned');
+          if (scEl) scEl.appendChild(chip);
+          setTimeout(() => chip.classList.remove('just-scanned'), 300);
+
+          const totEl = document.getElementById(`preg-total-${p.id}`);
+          if (totEl) {
+            totEl.textContent = '$' + runningTotal.toFixed(2);
+            totEl.classList.add('updated');
+            setTimeout(() => totEl.classList.remove('updated'), 300);
+          }
+
+          const recEl = document.getElementById(`preg-receipt-${p.id}`);
+          if (recEl) {
+            const line = document.createElement('div');
+            line.textContent = `${chip.dataset.emoji} ${chip.dataset.name}${qty > 1 ? ' ×' + qty : ''} ........ $${(price * qty).toFixed(2)}`;
+            recEl.appendChild(line);
+            recEl.scrollTop = recEl.scrollHeight;
+          }
+
+          // Flash overlay on the conveyor
+          const cEl = document.querySelector(`[data-pid="${p.id}"]`);
+          if (cEl) {
+            const flash = document.createElement('div');
+            flash.className = 'preg-scan-flash';
+            const conv = cEl.querySelector('.preg-conveyor');
+            if (conv) { conv.appendChild(flash); setTimeout(() => flash.remove(), 500); }
+          }
+
+          _pregScanTimers[p.id] = setTimeout(scanNextPregItem, baseDelay * 0.5);
+        }, 120);
+      }
+
+      _pregScanTimers[p.id] = setTimeout(scanNextPregItem, baseDelay * 0.3);
+    }
+
+    _pregLastActivity[p.id] = act;
+  });
+}
+
+
 function clientDemandWeight(price, basePrice) {
   const ratio = price / basePrice;
   if (ratio <= 1) return 1;
@@ -3435,7 +4032,7 @@ function switchTab(name) {
 }
 
 function renderTabContent(tab, s) {
-  if (tab === 'customers')  { renderCustomers(s); renderAiRegisters(s); renderScoMachines(s); }
+  if (tab === 'customers')  { renderCustomers(s); renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
   if (tab === 'upgrades')   renderUpgrades(s);
