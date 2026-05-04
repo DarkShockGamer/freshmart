@@ -745,8 +745,8 @@ function tickAiWorkers(room) {
     const lastServe = room._aiWorkerCooldowns[w.uid] || 0;
     if (now - lastServe < cooldown) return;
 
-    // Pick first customer
-    const customer = room.customers[0];
+    // Pick first unattended customer
+    const customer = room.customers.find(c => !c.attendedBy);
     if (!customer) return;
 
     room._aiWorkerCooldowns[w.uid] = now;
@@ -773,7 +773,7 @@ function tickScoMachines(room) {
     const lastServe = m.lastServeAt || 0;
     if (now - lastServe < cooldown) return;
 
-    const customer = room.customers[0];
+    const customer = room.customers.find(c => !c.attendedBy);
     if (!customer) return;
 
     m.lastServeAt = now;
@@ -803,7 +803,7 @@ function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
-  room.checkoutLocked = null;
+  room.checkoutLocked = null; room.checkoutLocks = {};
   room._aiWorkerCooldowns = {};
   if (room.stats) room.stats.daysCompleted = (room.stats.daysCompleted||0) + 1;
 
@@ -876,7 +876,7 @@ function resetRoom(room) {
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, players,
-    checkoutLocked: null, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
+    checkoutLocked: null, checkoutLocks: {}, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
     scoMachines: [], nextScoId: 1,
     stats: {
       customersServed: 0, customersLost: 0, totalRevenue: 0, aiRevenue: 0, playerRevenue: 0,
@@ -976,16 +976,29 @@ io.on('connection', (socket) => {
   socket.on('lockCheckout', ({ customerId }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'playing') return;
-    if (room.checkoutLocked && room.checkoutLocked !== socket.id) {
-      socket.emit('checkoutDenied', { reason: `${room.players[room.checkoutLocked]?.name || 'Another player'} is already at checkout!` });
+    if (!room.checkoutLocks) room.checkoutLocks = {};
+    const lanes = getCheckoutLanes(room.upgrades);
+    // If this player already has a lock, just update the customer
+    if (room.checkoutLocks[socket.id]) {
+      if (customerId != null) {
+        const c = room.customers.find(c => c.id === customerId);
+        const p = room.players[socket.id];
+        if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+      }
+      emit(room); return;
+    }
+    // Count how many OTHER players currently hold a checkout lock
+    const activeLocks = Object.keys(room.checkoutLocks)
+      .filter(pid => pid !== socket.id && room.players[pid]).length;
+    if (activeLocks >= lanes) {
+      socket.emit('checkoutDenied', { reason: `All ${lanes} checkout lane${lanes>1?'s':''} are busy! Buy more lanes in Upgrades.` });
       return;
     }
-    room.checkoutLocked = socket.id;
-    // Mark the customer as being attended by this player
+    room.checkoutLocks[socket.id] = true;
     if (customerId != null) {
       const c = room.customers.find(c => c.id === customerId);
       const p = room.players[socket.id];
-      if (c) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+      if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
     }
     emit(room);
   });
@@ -993,9 +1006,9 @@ io.on('connection', (socket) => {
   socket.on('releaseCheckout', () => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
-    if (room.checkoutLocked === socket.id) {
-      room.checkoutLocked = null;
-      // Clear attendedBy for any customer this player was attending
+    if (!room.checkoutLocks) room.checkoutLocks = {};
+    if (room.checkoutLocks[socket.id]) {
+      delete room.checkoutLocks[socket.id];
       room.customers.forEach(c => { if (c.attendedBy?.type === 'player') c.attendedBy = null; });
       emit(room);
     }
@@ -1081,13 +1094,14 @@ io.on('connection', (socket) => {
   socket.on('serveCustomer', (cid) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
-    // Only allow if this player holds the checkout lock (or no one does for solo)
-    if (room.checkoutLocked && room.checkoutLocked !== socket.id) {
-      socket.emit('serveResult', { ok: false, msg: 'Checkout is occupied!' });
+    if (!room.checkoutLocks) room.checkoutLocks = {};
+    // Player must hold a checkout lock to serve
+    if (!room.checkoutLocks[socket.id]) {
+      socket.emit('serveResult', { ok: false, msg: 'You are not at a checkout lane!' });
       return;
     }
     const result = serveCustomer(room, cid, socket.id);
-    room.checkoutLocked = null; // always release after serve
+    delete room.checkoutLocks[socket.id]; // release after serve
     socket.emit('serveResult', result);
     if (result.ok) emit(room);
   });
