@@ -1251,111 +1251,6 @@ input::placeholder { color: var(--muted); }
   pointer-events: none; border-radius: 7px;
 }
 
-/* ── Unified Lane Register Card ── */
-.lreg-card {
-  background: var(--surf);
-  border: 1.5px solid var(--border);
-  border-radius: 16px;
-  overflow: hidden;
-  position: relative;
-  transition: border-color .2s, box-shadow .2s;
-  display: flex;
-  flex-direction: column;
-}
-.lreg-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 12px;
-  background: var(--surf2);
-  flex-shrink: 0;
-}
-.lreg-card.lreg-active .lreg-belt-line {
-  animation: lregBeltBeam 1s ease-in-out infinite;
-}
-@keyframes lregBeltBeam {
-  0%,100% { opacity: .5; }
-  50%      { opacity: 1; }
-}
-.lreg-cust-bar {
-  display: none;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.lreg-cust-emoji { font-size: 16px; }
-.lreg-cust-name  { font-size: 10px; font-weight: 800; flex: 1; }
-.lreg-cust-items { font-size: 9px; color: var(--muted); font-family: var(--mono); }
-.lreg-swipe-terminal { display: none; }
-.lreg-approved   { display: none; }
-.lreg-approved.show { display: flex !important; }
-
-/* Belt items inside unified lane cards */
-.lreg-belt-item {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 1px; padding: 4px 6px; border-radius: 8px;
-  border: 1px solid var(--border); background: var(--surf); font-size: 10px;
-}
-.lreg-belt-item .lrbi-emoji { font-size: 18px; line-height: 1; }
-.lreg-belt-item .lrbi-name  { font-size: 7px; color: var(--muted); font-weight: 700; text-align: center; max-width: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lreg-belt-item.scanned { opacity: .7; }
-@keyframes lregItemSlide { from { transform:translateX(30px); opacity:0; } to { transform:translateX(0); opacity:1; } }
-.lreg-belt-item.just-scanned { animation: lregItemSlide .25s ease-out; }
-@keyframes lregScanPop { 0% { box-shadow:0 0 0 0 rgba(16,185,129,.9); } 60% { box-shadow:0 0 0 8px rgba(16,185,129,0); } 100% { box-shadow:none; } }
-.lreg-belt-item.scan-flash { animation: lregScanPop .35s ease-out; }
-
-/* Scan flash overlay */
-.lreg-scan-flash {
-  position: absolute; inset: 0;
-  animation: lregFlash .4s ease-out forwards;
-  pointer-events: none; border-radius: 7px;
-  background: rgba(16,185,129,.2);
-}
-@keyframes lregFlash { from { opacity:1 } to { opacity:0 } }
-
-/* Card vis swipe animation */
-@keyframes lregCardSwipe {
-  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
-  35%  { transform: translateY(35px) rotate(2deg); opacity: .6; }
-  65%  { transform: translateY(35px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-#all-registers-row .lreg-card [id^="lreg-cardvis-"].swiping { animation: lregCardSwipe .65s ease-in-out forwards; }
-
-/* ── Off / unclaimed lane card ── */
-.lane-card-off {
-  opacity: .42;
-  filter: grayscale(.7);
-  pointer-events: none;
-}
-.lane-card-off .reg-total-amount,
-.lane-card-off .preg-total-amount {
-  color: #3a4a3a !important;
-  text-shadow: none !important;
-}
-.lane-off-overlay {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px;
-  background: rgba(10,14,20,.38);
-  border-radius: 14px;
-  z-index: 10;
-  pointer-events: none;
-}
-.lane-off-icon { font-size: 28px; opacity: .35; }
-.lane-off-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; opacity: .6; }
-
-/* ── Player register card — is-me dim ── */
-.preg-card.is-me {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(99,102,241,.10);
-  opacity: .78;
-}
-.preg-card.is-me.active-preg {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(99,102,241,.18);
-}
-
 /* ── Self-Checkout Zone ── */
 #sco-zone {
   margin-top: 18px;
@@ -2313,13 +2208,21 @@ input::placeholder { color: var(--muted); }
           <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
         </div>
         <div id="customer-grid"></div>
-        <!-- Unified Registers zone — one card per checkout lane -->
-        <div id="all-registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
-          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px">
-            <span style="font-size:13px;font-weight:800;color:var(--text);letter-spacing:.3px">🏧 Checkout Registers</span>
-            <span style="font-size:11px;color:var(--muted);font-weight:600" id="all-registers-sub"></span>
+        <!-- Player Registers zone -->
+        <div id="player-registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+          <div class="player-registers-zone-header">
+            <span class="player-registers-zone-title">🧑‍💼 Player Registers</span>
+            <span class="player-registers-zone-sub" id="player-registers-zone-sub">Players checking out customers</span>
           </div>
-          <div id="all-registers-row" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px"></div>
+          <div id="player-registers-row"></div>
+        </div>
+        <!-- AI Worker Registers zone -->
+        <div id="registers-zone" style="display:none">
+          <div class="registers-zone-header">
+            <span class="registers-zone-title">🧑‍💼 Registers</span>
+            <span class="registers-zone-sub" id="registers-zone-sub">AI workers checking out customers</span>
+          </div>
+          <div id="registers-row"></div>
         </div>
         <!-- Self-checkout machines zone -->
         <div id="sco-zone" style="display:none">
@@ -3288,372 +3191,557 @@ function renderScoMachines(s) {
   });
 }
 
-// ── Unified Lane Registers (players + AI workers, one card per lane) ──
-const _regLastActivity  = {};   // 'ai-{uid}' or 'p-{pid}' → activity
-const _regScanTimers    = {};   // same keys → timeout handle
-const _pregLastActivity = {};   // kept for compat (unused directly now)
-const _pregScanTimers   = {};
+// ── AI Worker Registers ────────────────────────────
+const _regLastActivity = {};
+const _regScanTimers   = {};
 
-// ---- helper: animate belt items for any card ----
-function _animateLaneScan(cardKey, card, act, conveyorClass, beltLineClass,
-                           unscannedId, scannedId, totalId, receiptId,
-                           payAreaId, cardVisId, approvedId, accentColor, baseDelay) {
-  clearTimeout(_regScanTimers[cardKey]);
-  const approvedEl = document.getElementById(approvedId);
-  if (approvedEl) approvedEl.classList.remove('show');
-  const totalEl = document.getElementById(totalId);
-  if (totalEl) totalEl.textContent = '$0.00';
-  const receiptEl = document.getElementById(receiptId);
-  if (receiptEl) receiptEl.innerHTML = '';
-  const cardVis = document.getElementById(cardVisId);
-  if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
-  const payArea = document.getElementById(payAreaId);
-  if (payArea) { const idleDiv = payArea.querySelector('.lreg-pay-idle'); if (idleDiv) idleDiv.style.display = ''; }
+function renderAiRegisters(s) {
+  const zone = document.getElementById('registers-zone');
+  const row  = document.getElementById('registers-row');
+  // Only show workers that are assigned to a lane
+  const workers = (s.aiWorkers || []).filter(w => w.assignedLane);
 
-  const unscannedEl = document.getElementById(unscannedId);
-  const scannedEl   = document.getElementById(scannedId);
-  if (!unscannedEl || !scannedEl) return;
-  unscannedEl.innerHTML = '';
-  scannedEl.innerHTML   = '';
-
-  const chips = [];
-  act.items.forEach(it => {
-    if (it.qty <= 4) { for (let i = 0; i < it.qty; i++) chips.push(it); }
-    else chips.push({ ...it, displayQty: it.qty });
-  });
-  chips.forEach(it => {
-    const chip = document.createElement('div');
-    chip.className = 'lreg-belt-item';
-    chip.innerHTML = `<span class="lrbi-emoji">${it.emoji}</span><span class="lrbi-name">${it.displayQty ? '×' + it.displayQty + ' ' : ''}${it.name || it.id}</span>`;
-    chip.dataset.price = it.price || 0;
-    chip.dataset.qty   = it.displayQty || 1;
-    chip.dataset.name  = it.name || it.id;
-    chip.dataset.emoji = it.emoji;
-    unscannedEl.appendChild(chip);
-  });
-
-  let runningTotal = 0;
-  function scanNext() {
-    const unEl = document.getElementById(unscannedId);
-    const scEl = document.getElementById(scannedId);
-    if (!unEl || !scEl) return;
-    const pending = unEl.querySelectorAll('.lreg-belt-item:not(.scanned)');
-    if (!pending.length) {
-      const paArea = document.getElementById(payAreaId);
-      if (paArea) { const idleDiv = paArea.querySelector('.lreg-pay-idle'); if (idleDiv) idleDiv.style.display = 'none'; }
-      const cv = document.getElementById(cardVisId);
-      if (cv) cv.style.display = 'block';
-      _regScanTimers[cardKey] = setTimeout(() => {
-        const cv2 = document.getElementById(cardVisId);
-        if (cv2) { cv2.classList.remove('swiping'); void cv2.offsetWidth; cv2.classList.add('swiping'); }
-        setTimeout(() => {
-          const cv3 = document.getElementById(cardVisId);
-          if (cv3) cv3.style.display = 'none';
-          const appEl2 = document.getElementById(approvedId);
-          if (appEl2) appEl2.classList.add('show');
-        }, 700);
-      }, baseDelay * 0.6);
-      return;
-    }
-    const chip = pending[0];
-    const scanLine = card.querySelector('.' + beltLineClass);
-    if (scanLine) {
-      scanLine.style.background = `linear-gradient(180deg,transparent,${accentColor},transparent)`;
-      setTimeout(() => { if (scanLine) scanLine.style.background = ''; }, 200);
-    }
-    chip.classList.add('scan-flash', 'scanned');
-    setTimeout(() => chip.classList.remove('scan-flash'), 380);
-    const qty   = parseInt(chip.dataset.qty)   || 1;
-    const price = parseFloat(chip.dataset.price) || 0;
-    runningTotal += price * qty;
-    setTimeout(() => {
-      chip.classList.add('just-scanned');
-      if (scEl) scEl.appendChild(chip);
-      setTimeout(() => chip.classList.remove('just-scanned'), 300);
-      const totEl = document.getElementById(totalId);
-      if (totEl) { totEl.textContent = '$' + runningTotal.toFixed(2); totEl.classList.add('updated'); setTimeout(() => totEl.classList.remove('updated'), 300); }
-      const recEl = document.getElementById(receiptId);
-      if (recEl) { const line = document.createElement('div'); line.textContent = `${chip.dataset.emoji} ${chip.dataset.name}${qty > 1 ? ' ×' + qty : ''} ........ $${(price * qty).toFixed(2)}`; recEl.appendChild(line); recEl.scrollTop = recEl.scrollHeight; }
-      const conv = card.querySelector('.' + conveyorClass);
-      if (conv) { const fl = document.createElement('div'); fl.className = 'lreg-scan-flash'; fl.style.setProperty('--lreg-accent', accentColor); conv.appendChild(fl); setTimeout(() => fl.remove(), 500); }
-      _regScanTimers[cardKey] = setTimeout(scanNext, baseDelay * 0.5);
-    }, 120);
-  }
-  _regScanTimers[cardKey] = setTimeout(scanNext, baseDelay * 0.3);
-}
-
-// ---- idle helpers ----
-function _idleLaneCard(cardKey, card, unscannedId, scannedId, totalId, receiptId, idleId, approvedId, cardVisId, payAreaId) {
-  clearTimeout(_regScanTimers[cardKey]);
-  _regLastActivity[cardKey] = null;
-  card.classList.remove('lreg-active');
-  const custBar = card.querySelector('.lreg-cust-bar'); if (custBar) custBar.style.display = 'none';
-  const unEl = document.getElementById(unscannedId); if (unEl) unEl.innerHTML = '';
-  const scEl = document.getElementById(scannedId);   if (scEl) scEl.innerHTML = '';
-  const totEl = document.getElementById(totalId);    if (totEl) totEl.textContent = '$0.00';
-  const recEl = document.getElementById(receiptId);  if (recEl) recEl.innerHTML = '';
-  const idleEl = document.getElementById(idleId);    if (idleEl) idleEl.style.display = '';
-  const appEl  = document.getElementById(approvedId); if (appEl) appEl.classList.remove('show');
-  const payArea = document.getElementById(payAreaId);
-  if (payArea) { const idleDiv = payArea.querySelector('.lreg-pay-idle'); if (idleDiv) idleDiv.style.display = ''; }
-  const cv = document.getElementById(cardVisId); if (cv) { cv.classList.remove('swiping'); cv.style.display = 'none'; }
-}
-
-// ---- build shared card HTML for a lane ----
-function _buildLaneCardHTML(laneNum, headerHTML, idleMsgHTML, accentColor, cardKey) {
-  return `
-    <div class="lreg-header" style="border-bottom:1px solid var(--border)">
-      ${headerHTML}
-    </div>
-    <div class="lreg-cust-bar" style="display:none;background:${accentColor}18">
-      <span class="lreg-cust-emoji"></span>
-      <span class="lreg-cust-name" style="color:${accentColor}"></span>
-      <span class="lreg-cust-items"></span>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 160px;flex:1;min-height:160px">
-      <div class="lreg-conveyor" style="border-right:1px solid var(--border);display:flex;flex-direction:column;position:relative;overflow:hidden;background:repeating-linear-gradient(90deg,transparent 0px,transparent 22px,rgba(255,255,255,.018) 22px,rgba(255,255,255,.018) 24px),var(--surf2)">
-        <div style="font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;padding:6px 10px 4px;border-bottom:1px solid var(--border);flex-shrink:0">🛒 Conveyor Belt</div>
-        <div style="flex:1;display:flex;align-items:center;position:relative;padding:8px;min-height:80px;gap:0">
-          <div class="lreg-belt-line" style="position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(180deg,transparent,${accentColor}88,transparent);transform:translateX(-50%);pointer-events:none;z-index:2"></div>
-          <div class="lreg-items-unscanned" id="lreg-unscanned-${cardKey}" style="flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px;min-height:60px;justify-content:flex-end"></div>
-          <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
-          <div class="lreg-items-scanned" id="lreg-scanned-${cardKey}" style="flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:4px;min-height:60px;justify-content:flex-start"></div>
-          <div class="lreg-idle-msg" id="lreg-idle-${cardKey}" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:${accentColor}44;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;pointer-events:none">
-            ${idleMsgHTML}
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;flex-direction:column;overflow:hidden">
-        <div style="background:#060d08;border-bottom:1px solid #1a3020;padding:8px 10px;text-align:right;font-family:'Courier New',monospace;flex-shrink:0">
-          <div style="font-size:8px;color:#3a6a4a;letter-spacing:2px;text-transform:uppercase;margin-bottom:2px">Total Due</div>
-          <div id="lreg-total-${cardKey}" style="font-size:22px;font-weight:700;color:#00ff88;letter-spacing:1px;text-shadow:0 0 10px rgba(0,255,136,.35);transition:color .2s">$0.00</div>
-          <div id="lreg-receipt-${cardKey}" style="font-size:8px;color:#3a6a4a;margin-top:4px;line-height:1.7;text-align:left;max-height:54px;overflow-y:auto"></div>
-        </div>
-        <div id="lreg-pay-${cardKey}" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;background:var(--surf2);position:relative;overflow:hidden">
-          <div class="lreg-pay-idle" style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:1px;text-align:center;text-transform:uppercase">
-            <span style="font-size:22px;opacity:.3">💳</span>
-            Awaiting<br>payment
-          </div>
-          <div id="lreg-cardvis-${cardKey}" style="width:100%;max-width:130px;height:80px;background:linear-gradient(135deg,#1a237e 0%,#4a148c 50%,#1a237e 100%);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.5);padding:8px 10px;position:relative;display:none">
-            <div style="width:20px;height:14px;background:linear-gradient(135deg,#c9a227,#f5d76e,#c9a227);border-radius:2px;margin-bottom:10px"></div>
-            <div style="font-family:var(--mono);font-size:8px;color:rgba(255,255,255,.8);letter-spacing:2px">•••• ••••</div>
-            <div style="position:absolute;bottom:6px;right:8px;font-size:8px;font-weight:800;color:rgba(255,255,255,.5);letter-spacing:1px">VISA</div>
-          </div>
-          <div style="width:100%;max-width:130px;height:28px;background:#111;border-radius:5px;border:1.5px dashed #333;display:none;align-items:center;justify-content:center;font-size:7px;color:#444;letter-spacing:1.5px;font-weight:700;text-transform:uppercase" class="lreg-swipe-terminal">▼ SWIPE ▼</div>
-          <div id="lreg-approved-${cardKey}" style="display:none;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:800;color:var(--green);letter-spacing:.5px" class="lreg-approved">
-            <span style="font-size:28px">✅</span>APPROVED
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="lane-off-overlay" id="lreg-offoverlay-${cardKey}" style="display:none">
-      <span class="lane-off-icon">🔒</span>
-      <span class="lane-off-label">Lane Offline</span>
-    </div>
-  `;
-}
-
-function renderAiRegisters(s) { /* no-op — replaced by renderAllLaneRegisters */ }
-function renderPlayerRegisters(s) { /* no-op — replaced by renderAllLaneRegisters */ }
-
-function renderAllLaneRegisters(s) {
-  const zone = document.getElementById('all-registers-zone');
-  const row  = document.getElementById('all-registers-row');
-  const totalLanes = s.checkoutLanes || 1;
-
-  // Always show the register zone during playing phase
-  if (s.phase !== 'playing') { zone.style.display = 'none'; return; }
+  if (!workers.length) { zone.style.display = 'none'; return; }
   zone.style.display = 'block';
 
-  // Build lookup maps
-  const cashierByLane  = {};  // laneNum → player object
-  const aiByLane       = {};  // laneNum → worker object
-  const locks          = s.checkoutLocks || {};
-  const playerActivity = s.playerCheckoutActivity || {};
+  const sub = document.getElementById('registers-zone-sub');
+  const activeCount = workers.filter(w => w.currentActivity).length;
+  sub.textContent = activeCount > 0
+    ? `${activeCount} register${activeCount>1?'s':''} processing customers`
+    : 'Waiting for customers…';
 
-  Object.values(s.players).forEach(p => { if (p.cashierLane) cashierByLane[p.cashierLane] = p; });
-  (s.aiWorkers || []).forEach(w => { if (w.assignedLane && w.assignedLane <= totalLanes) aiByLane[w.assignedLane] = w; });
+  const isShop = s.phase === 'shop';
+  const existing = new Set([...row.querySelectorAll('.register-card')].map(el => +el.dataset.uid));
+  const incoming  = new Set(workers.map(w => w.uid));
+  existing.forEach(uid => { if (!incoming.has(uid)) { row.querySelector(`[data-uid="${uid}"]`)?.remove(); clearTimeout(_regScanTimers[uid]); } });
 
-  // Count active lanes for subtitle
-  let activeCount = 0;
-  for (let ln = 1; ln <= totalLanes; ln++) {
-    const p = cashierByLane[ln];
-    const w = aiByLane[ln];
-    if ((p && locks[p.id]) || (w && w.currentActivity)) activeCount++;
+  workers.forEach(w => {
+    let card = row.querySelector(`[data-uid="${w.uid}"]`);
+    const act       = w.currentActivity;
+    const isActive  = !!act;
+    const wasActive = !!_regLastActivity[w.uid];
+    const newTxn    = isActive && (!wasActive || act.startedAt !== _regLastActivity[w.uid]?.startedAt);
+
+    // ── Build card skeleton first time ───────────────────
+    if (!card) {
+      card = document.createElement('div');
+      card.dataset.uid = w.uid;
+      card.className   = 'register-card';
+      card.innerHTML   = `
+        <div class="register-card-header">
+          <span class="reg-worker-emoji">${w.emoji}</span>
+          <div style="flex:1;min-width:0">
+            <div class="reg-worker-name">${w.name}</div>
+            <div class="reg-worker-speed">⚡ ×${w.speed} speed</div>
+          </div>
+          <span class="reg-lane-badge">Lane ${w.assignedLane}</span>
+        </div>
+
+        <div class="register-cust-bar">
+          <span class="reg-cust-emoji"></span>
+          <span class="reg-cust-name"></span>
+          <span class="reg-cust-items"></span>
+        </div>
+
+        <div class="register-body">
+          <!-- Conveyor -->
+          <div class="reg-conveyor">
+            <div class="reg-belt-label">🛒 Conveyor Belt</div>
+            <div class="reg-belt-area">
+              <div class="reg-belt-line"></div>
+              <div class="reg-items-unscanned" id="reg-unscanned-${w.uid}"></div>
+              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+              <div class="reg-items-scanned" id="reg-scanned-${w.uid}"></div>
+              <div class="reg-idle-msg" id="reg-idle-${w.uid}">
+                <span class="idle-icon">🧑‍💼</span>
+                READY
+              </div>
+            </div>
+          </div>
+
+          <!-- Register POS -->
+          <div class="reg-register">
+            <div class="reg-total-display">
+              <div class="reg-total-label">Total Due</div>
+              <div class="reg-total-amount" id="reg-total-${w.uid}">$0.00</div>
+              <div class="reg-items-receipt" id="reg-receipt-${w.uid}"></div>
+            </div>
+            <div class="reg-payment-area" id="reg-pay-${w.uid}">
+              <div class="reg-pay-idle">
+                <span class="reg-pay-idle-icon">💳</span>
+                Awaiting<br>payment
+              </div>
+              <div class="reg-card-vis" id="reg-card-${w.uid}">
+                <div class="reg-card-chip"></div>
+                <div class="reg-card-num">•••• ••••</div>
+                <div class="reg-card-brand">VISA</div>
+              </div>
+              <div class="reg-swipe-terminal">▼ SWIPE ▼</div>
+              <div class="reg-approved" id="reg-approved-${w.uid}">
+                <span class="reg-approved-icon">✅</span>
+                APPROVED
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      row.appendChild(card);
+    } else {
+      // Update lane badge if it changed
+      const badge = card.querySelector('.reg-lane-badge');
+      if (badge) badge.textContent = `Lane ${w.assignedLane}`;
+    }
+
+    // ── Idle state ───────────────────────────────────────
+    if (!isActive) {
+      card.classList.remove('active-reg');
+      card.querySelector('.register-cust-bar').style.display = 'none';
+      document.getElementById(`reg-unscanned-${w.uid}`).innerHTML = '';
+      document.getElementById(`reg-scanned-${w.uid}`).innerHTML   = '';
+      document.getElementById(`reg-total-${w.uid}`).textContent   = '$0.00';
+      document.getElementById(`reg-receipt-${w.uid}`).innerHTML   = '';
+      document.getElementById(`reg-idle-${w.uid}`).style.display  = '';
+      document.getElementById(`reg-approved-${w.uid}`).classList.remove('show');
+      const payArea = document.getElementById(`reg-pay-${w.uid}`);
+      payArea.querySelector('.reg-pay-idle').style.display = '';
+      const cardEl = document.getElementById(`reg-card-${w.uid}`);
+      if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
+      clearTimeout(_regScanTimers[w.uid]);
+      _regLastActivity[w.uid] = null;
+      return;
+    }
+
+    // ── Active state ─────────────────────────────────────
+    card.classList.add('active-reg');
+    document.getElementById(`reg-idle-${w.uid}`).style.display = 'none';
+
+    // Customer bar
+    const custBar = card.querySelector('.register-cust-bar');
+    custBar.style.display = 'flex';
+    custBar.querySelector('.reg-cust-emoji').textContent = act.customerEmoji;
+    custBar.querySelector('.reg-cust-name').textContent  = act.customerName;
+    const totalItems = act.items.reduce((t,i)=>t+i.qty,0);
+    custBar.querySelector('.reg-cust-items').textContent = `${totalItems} item${totalItems!==1?'s':''}`;
+
+    if (newTxn) {
+      clearTimeout(_regScanTimers[w.uid]);
+      document.getElementById(`reg-approved-${w.uid}`).classList.remove('show');
+      document.getElementById(`reg-total-${w.uid}`).textContent = '$0.00';
+      document.getElementById(`reg-receipt-${w.uid}`).innerHTML = '';
+
+      const cardEl = document.getElementById(`reg-card-${w.uid}`);
+      if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
+      document.getElementById(`reg-pay-${w.uid}`)?.querySelector('.reg-pay-idle')?.style.setProperty('display', '');
+
+      // Build items on unscanned side
+      const unscannedEl = document.getElementById(`reg-unscanned-${w.uid}`);
+      const scannedEl   = document.getElementById(`reg-scanned-${w.uid}`);
+      unscannedEl.innerHTML = '';
+      scannedEl.innerHTML   = '';
+
+      const chips = [];
+      act.items.forEach(it => {
+        if (it.qty <= 4) {
+          for (let i = 0; i < it.qty; i++) chips.push(it);
+        } else {
+          chips.push({ ...it, displayQty: it.qty });
+        }
+      });
+
+      chips.forEach(it => {
+        const chip = document.createElement('div');
+        chip.className = 'reg-belt-item';
+        chip.innerHTML = `<span class="rbi-emoji">${it.emoji}</span><span class="rbi-name">${it.displayQty ? '×'+it.displayQty+' ' : ''}${it.name||it.id}</span>`;
+        chip.dataset.price = it.price || 0;
+        chip.dataset.qty   = it.displayQty || 1;
+        chip.dataset.name  = it.name || it.id;
+        chip.dataset.emoji = it.emoji;
+        unscannedEl.appendChild(chip);
+      });
+
+      const baseDelay = Math.max(220, Math.round(1100 / (w.speed || 1)));
+      let runningTotal = 0;
+
+      function scanNextRegItem() {
+        const pending = unscannedEl.querySelectorAll('.reg-belt-item:not(.scanned)');
+        if (!pending.length) {
+          // All scanned — show card swipe
+          const payArea = document.getElementById(`reg-pay-${w.uid}`);
+          payArea?.querySelector('.reg-pay-idle')?.style.setProperty('display','none');
+          const cardVis = document.getElementById(`reg-card-${w.uid}`);
+          if (cardVis) cardVis.style.display = 'block';
+          _regScanTimers[w.uid] = setTimeout(() => {
+            const cv = document.getElementById(`reg-card-${w.uid}`);
+            if (cv) {
+              cv.classList.remove('swiping');
+              void cv.offsetWidth;
+              cv.classList.add('swiping');
+            }
+            setTimeout(() => {
+              const cv2 = document.getElementById(`reg-card-${w.uid}`);
+              if (cv2) cv2.style.display = 'none';
+              document.getElementById(`reg-approved-${w.uid}`)?.classList.add('show');
+            }, 700);
+          }, baseDelay * 0.6);
+          return;
+        }
+
+        const chip = pending[0];
+        const scanLine = card.querySelector('.reg-belt-line');
+        if (scanLine) {
+          scanLine.style.background = 'linear-gradient(180deg,transparent,rgba(249,115,22,1),transparent)';
+          setTimeout(() => { if(scanLine) scanLine.style.background=''; }, 200);
+        }
+
+        chip.classList.add('scan-flash', 'scanned');
+        setTimeout(() => chip.classList.remove('scan-flash'), 380);
+
+        const qty = parseInt(chip.dataset.qty) || 1;
+        const price = parseFloat(chip.dataset.price) || 0;
+        runningTotal += price * qty;
+
+        setTimeout(() => {
+          chip.classList.add('just-scanned');
+          scannedEl.appendChild(chip);
+          setTimeout(() => chip.classList.remove('just-scanned'), 300);
+
+          // Update total display
+          const totalEl = document.getElementById(`reg-total-${w.uid}`);
+          if (totalEl) {
+            totalEl.textContent = '$' + runningTotal.toFixed(2);
+            totalEl.classList.add('updated');
+            setTimeout(() => totalEl.classList.remove('updated'), 300);
+          }
+
+          // Add receipt line
+          const receiptEl = document.getElementById(`reg-receipt-${w.uid}`);
+          if (receiptEl) {
+            const line = document.createElement('div');
+            line.textContent = `${chip.dataset.emoji} ${chip.dataset.name}${qty>1?' ×'+qty:''} ........ $${(price*qty).toFixed(2)}`;
+            receiptEl.appendChild(line);
+            receiptEl.scrollTop = receiptEl.scrollHeight;
+          }
+
+          // Flash overlay
+          const flash = document.createElement('div');
+          flash.className = 'reg-scan-flash';
+          card.querySelector('.reg-conveyor').appendChild(flash);
+          setTimeout(() => flash.remove(), 500);
+
+          _regScanTimers[w.uid] = setTimeout(scanNextRegItem, baseDelay * 0.5);
+        }, 120);
+      }
+
+      _regScanTimers[w.uid] = setTimeout(scanNextRegItem, baseDelay * 0.3);
+    }
+
+    _regLastActivity[w.uid] = act;
+  });
+}
+
+
+// ── Player Registers ──────────────────────────────
+// Track activity per player for animation continuity
+const _pregLastActivity = {};   // pid → { customer, items, startedAt }
+const _pregScanTimers   = {};   // pid → timeout handle
+
+function renderPlayerRegisters(s) {
+  const zone = document.getElementById('player-registers-zone');
+  const row  = document.getElementById('player-registers-row');
+
+  // Build list of players who have an active checkout lock
+  const locks = s.checkoutLocks || {};
+  const activePlayers = Object.values(s.players).filter(p => locks[p.id]);
+
+  if (!activePlayers.length) {
+    zone.style.display = 'none';
+    // Clear timers for players who left checkout
+    Object.keys(_pregScanTimers).forEach(pid => {
+      clearTimeout(_pregScanTimers[pid]);
+      delete _pregScanTimers[pid];
+      delete _pregLastActivity[pid];
+    });
+    return;
   }
-  document.getElementById('all-registers-sub').textContent =
-    activeCount > 0 ? `${activeCount} lane${activeCount > 1 ? 's' : ''} active` : 'All lanes standing by';
 
-  // Remove cards for lanes that no longer exist
-  [...row.querySelectorAll('.lreg-card')].forEach(card => {
-    if (parseInt(card.dataset.lane) > totalLanes) {
-      const key = card.dataset.cardkey;
-      clearTimeout(_regScanTimers[key]);
-      delete _regLastActivity[key];
+  zone.style.display = 'block';
+
+  const sub = document.getElementById('player-registers-zone-sub');
+  const activeCount = activePlayers.filter(p => s.playerCheckoutActivity?.[p.id]).length;
+  sub.textContent = activeCount > 0
+    ? `${activeCount} player${activeCount > 1 ? 's' : ''} checking out customers`
+    : 'Players in checkout…';
+
+  // Remove cards for players who left
+  const incoming = new Set(activePlayers.map(p => p.id));
+  [...row.querySelectorAll('.preg-card')].forEach(card => {
+    const pid = card.dataset.pid;
+    if (!incoming.has(pid)) {
+      clearTimeout(_pregScanTimers[pid]);
+      delete _pregScanTimers[pid];
+      delete _pregLastActivity[pid];
       card.remove();
     }
   });
 
-  for (let laneNum = 1; laneNum <= totalLanes; laneNum++) {
-    const player = cashierByLane[laneNum] || null;
-    const worker = aiByLane[laneNum] || null;
+  activePlayers.forEach(p => {
+    const isMe = p.id === myId;
+    const act  = s.playerCheckoutActivity?.[p.id] || null;  // { customerEmoji, customerName, items, total, startedAt }
+    const isActive  = !!act;
+    const wasActive = !!_pregLastActivity[p.id];
+    const newTxn    = isActive && (!wasActive || act.startedAt !== _pregLastActivity[p.id]?.startedAt);
 
-    // Determine card type for this lane
-    // Priority: player > AI worker > off
-    const cardType = player ? 'player' : worker ? 'ai' : 'off';
-    const cardKey  = player ? `p-${player.id}` : worker ? `ai-${worker.uid}` : `off-${laneNum}`;
+    let card = row.querySelector(`[data-pid="${p.id}"]`);
 
-    let card = row.querySelector(`[data-lane="${laneNum}"]`);
-
-    // If the card exists but the type/occupant changed, remove and rebuild
-    if (card && card.dataset.cardkey !== cardKey) {
-      const oldKey = card.dataset.cardkey;
-      clearTimeout(_regScanTimers[oldKey]);
-      delete _regLastActivity[oldKey];
-      card.remove();
-      card = null;
-    }
-
-    // ── Build skeleton ─────────────────────────────────
+    // ── Build card skeleton first time ─────────────────
     if (!card) {
       card = document.createElement('div');
-      card.dataset.lane    = laneNum;
-      card.dataset.cardkey = cardKey;
-      card.dataset.type    = cardType;
+      card.dataset.pid = p.id;
+      card.className   = 'preg-card' + (isMe ? ' is-me' : '');
 
-      if (cardType === 'off') {
-        card.className = 'lreg-card register-card lane-card-off';
-        card.innerHTML = _buildLaneCardHTML(laneNum,
-          `<div style="font-size:16px;opacity:.3">🏧</div>
-           <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800;color:var(--muted)">Lane ${laneNum}</div><div style="font-size:10px;color:var(--muted)">Unassigned</div></div>
-           <span style="background:var(--surf2);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:1px 7px;font-size:9px;font-weight:700">OFFLINE</span>`,
-          '<span style="font-size:24px;opacity:.2">🏧</span>OFFLINE', 'rgba(100,116,139,1)', cardKey);
-        card.style.opacity = '.38';
-        card.style.filter = 'grayscale(.8)';
+      const laneNum = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
+      card.innerHTML = `
+        <div class="preg-card-header">
+          <div class="preg-player-dot" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
+          <div style="flex:1;min-width:0">
+            <div class="preg-player-name">${p.name}</div>
+            <div class="preg-player-sub">Player cashier</div>
+          </div>
+          <span class="preg-lane-badge preg-lane-badge-${p.id}">${laneNum}</span>
+          ${isMe ? '<span class="preg-me-badge">YOU</span>' : ''}
+        </div>
 
-      } else if (cardType === 'ai') {
-        card.className = 'lreg-card register-card';
-        const w = worker;
-        card.innerHTML = _buildLaneCardHTML(laneNum,
-          `<span style="font-size:18px">${w.emoji}</span>
-           <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800">${w.name}</div><div style="font-size:10px;color:var(--orange);font-family:var(--mono)">⚡ ×${w.speed} speed</div></div>
-           <span style="background:var(--orange-lo);border:1px solid var(--orange);color:var(--orange);border-radius:5px;padding:1px 7px;font-size:9px;font-weight:700">Lane ${laneNum}</span>`,
-          `<span style="font-size:24px;opacity:.3">${w.emoji}</span>READY`, 'rgba(249,115,22,1)', cardKey);
+        <div class="preg-cust-bar">
+          <span class="preg-cust-emoji"></span>
+          <span class="preg-cust-name"></span>
+          <span class="preg-cust-items"></span>
+        </div>
 
-      } else { // player
-        const p = player;
-        const isMe = p.id === myId;
-        card.className = 'lreg-card register-card preg-card' + (isMe ? ' is-me' : '');
-        card.style.borderColor = p.color;
-        card.style.boxShadow   = `0 0 0 2px ${p.color}22`;
-        card.innerHTML = _buildLaneCardHTML(laneNum,
-          `<div style="width:22px;height:22px;border-radius:50%;background:${p.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#000;flex-shrink:0">${p.name[0].toUpperCase()}</div>
-           <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800">${p.name}</div><div style="font-size:10px;color:var(--muted)">Player cashier</div></div>
-           <span style="background:var(--green-lo);border:1px solid var(--green);color:var(--green);border-radius:5px;padding:1px 7px;font-size:9px;font-weight:700">Lane ${laneNum}</span>
-           ${isMe ? '<span style="background:var(--blue-lo);border:1px solid var(--blue);color:var(--blue);border-radius:5px;padding:1px 7px;font-size:9px;font-weight:700;margin-left:4px">YOU</span>' : ''}`,
-          `<span style="font-size:24px;opacity:.3">🧑‍💼</span>IDLE`, 'rgba(16,185,129,1)', cardKey);
-      }
+        <div class="preg-body">
+          <!-- Conveyor -->
+          <div class="preg-conveyor">
+            <div class="preg-belt-label">🛒 Conveyor Belt</div>
+            <div class="preg-belt-area">
+              <div class="preg-belt-line"></div>
+              <div class="preg-items-unscanned" id="preg-unscanned-${p.id}"></div>
+              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+              <div class="preg-items-scanned" id="preg-scanned-${p.id}"></div>
+              <div class="preg-idle-msg" id="preg-idle-${p.id}">
+                <span class="preg-idle-icon">🧑‍💼</span>
+                READY
+              </div>
+            </div>
+          </div>
 
+          <!-- Register POS -->
+          <div class="preg-register">
+            <div class="preg-total-display">
+              <div class="preg-total-label">Total Due</div>
+              <div class="preg-total-amount" id="preg-total-${p.id}">$0.00</div>
+              <div class="preg-items-receipt" id="preg-receipt-${p.id}"></div>
+            </div>
+            <div class="preg-payment-area" id="preg-pay-${p.id}">
+              <div class="preg-pay-idle">
+                <span class="preg-pay-idle-icon">💳</span>
+                Awaiting<br>payment
+              </div>
+              <div class="preg-card-vis" id="preg-cardvis-${p.id}">
+                <div class="preg-card-chip"></div>
+                <div class="preg-card-num">•••• ••••</div>
+                <div class="preg-card-brand">VISA</div>
+              </div>
+              <div class="preg-swipe-terminal">▼ SWIPE ▼</div>
+              <div class="preg-approved" id="preg-approved-${p.id}">
+                <span class="preg-approved-icon">✅</span>
+                APPROVED
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
       row.appendChild(card);
+    } else {
+      // Update lane badge if lane changed
+      const badge = card.querySelector(`.preg-lane-badge-${p.id}`);
+      if (badge) badge.textContent = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
     }
 
-    // ── Update dynamic state ────────────────────────────
-    if (cardType === 'off') continue; // nothing to animate
-
-    const unscannedId = `lreg-unscanned-${cardKey}`;
-    const scannedId   = `lreg-scanned-${cardKey}`;
-    const totalId     = `lreg-total-${cardKey}`;
-    const receiptId   = `lreg-receipt-${cardKey}`;
-    const idleId      = `lreg-idle-${cardKey}`;
-    const approvedId  = `lreg-approved-${cardKey}`;
-    const cardVisId   = `lreg-cardvis-${cardKey}`;
-    const payAreaId   = `lreg-pay-${cardKey}`;
-
-    // Determine activity
-    let act = null;
-    let accentColor = 'rgba(16,185,129,1)';
-    if (cardType === 'ai') {
-      act = worker.currentActivity || null;
-      accentColor = 'rgba(249,115,22,1)';
-    } else if (cardType === 'player') {
-      // Player is "active" if they hold a checkout lock AND have activity broadcast
-      const isLocked = !!locks[player.id];
-      act = isLocked ? (playerActivity[player.id] || null) : null;
-      accentColor = 'rgba(16,185,129,1)';
-    }
-
-    const isActive  = !!act;
-    const wasActive = !!_regLastActivity[cardKey];
-    const newTxn    = isActive && (!wasActive || act.startedAt !== _regLastActivity[cardKey]?.startedAt);
-
-    // Show/hide swipe terminal (CSS class toggle mirrors old approach)
-    const swipeTerm = card.querySelector('.lreg-swipe-terminal');
-
+    // ── Idle state ─────────────────────────────────────
     if (!isActive) {
-      // For players: show as idle (standing at register, not serving)
-      card.classList.remove('lreg-active');
-      // Update belt line color for idle
-      const beltLine = card.querySelector('.lreg-belt-line');
-      if (beltLine) beltLine.style.animation = '';
-
-      const custBar = card.querySelector('.lreg-cust-bar');
-      if (custBar) custBar.style.display = 'none';
-      if (swipeTerm) swipeTerm.style.display = 'none';
-
-      if (wasActive) {
-        _idleLaneCard(cardKey, card, unscannedId, scannedId, totalId, receiptId, idleId, approvedId, cardVisId, payAreaId);
+      card.classList.remove('active-preg');
+      card.querySelector('.preg-cust-bar').style.display = 'none';
+      const unscannedEl = document.getElementById(`preg-unscanned-${p.id}`);
+      const scannedEl   = document.getElementById(`preg-scanned-${p.id}`);
+      if (unscannedEl) unscannedEl.innerHTML = '';
+      if (scannedEl)   scannedEl.innerHTML   = '';
+      const totalEl = document.getElementById(`preg-total-${p.id}`);
+      if (totalEl) totalEl.textContent = '$0.00';
+      const receiptEl = document.getElementById(`preg-receipt-${p.id}`);
+      if (receiptEl) receiptEl.innerHTML = '';
+      const idleEl = document.getElementById(`preg-idle-${p.id}`);
+      if (idleEl) idleEl.style.display = '';
+      const approvedEl = document.getElementById(`preg-approved-${p.id}`);
+      if (approvedEl) approvedEl.classList.remove('show');
+      const payArea = document.getElementById(`preg-pay-${p.id}`);
+      if (payArea) {
+        const idleDiv = payArea.querySelector('.preg-pay-idle');
+        if (idleDiv) idleDiv.style.display = '';
       }
-      _regLastActivity[cardKey] = null;
-
-      // For player cards: show "idle at register" state — person is there but not scanning
-      if (cardType === 'player') {
-        const idleEl = document.getElementById(idleId);
-        if (idleEl) {
-          const p = player;
-          const isLocked = !!locks[p.id];
-          idleEl.innerHTML = isLocked
-            ? `<span style="font-size:24px">${p.name[0]}</span><span style="font-size:9px;font-weight:700;letter-spacing:1px;color:rgba(16,185,129,.6)">READY</span>`
-            : `<span style="font-size:24px;opacity:.3">🧑‍💼</span><span>IDLE</span>`;
-          idleEl.style.display = '';
-        }
-      }
-      continue;
+      const cardVis = document.getElementById(`preg-cardvis-${p.id}`);
+      if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
+      clearTimeout(_pregScanTimers[p.id]);
+      _pregLastActivity[p.id] = null;
+      return;
     }
 
-    // Active — animate
-    card.classList.add('lreg-active');
-    const beltLine = card.querySelector('.lreg-belt-line');
-    if (beltLine) {
-      beltLine.style.background = `linear-gradient(180deg,transparent,${accentColor},transparent)`;
-      beltLine.style.boxShadow  = `0 0 8px ${accentColor}66`;
-    }
-
-    const idleEl = document.getElementById(idleId);
+    // ── Active state ────────────────────────────────────
+    card.classList.add('active-preg');
+    const idleEl = document.getElementById(`preg-idle-${p.id}`);
     if (idleEl) idleEl.style.display = 'none';
-    if (swipeTerm) swipeTerm.style.display = 'flex';
 
-    const custBar = card.querySelector('.lreg-cust-bar');
-    if (custBar) {
-      custBar.style.display = 'flex';
-      custBar.querySelector('.lreg-cust-emoji').textContent = act.customerEmoji;
-      const nameEl = custBar.querySelector('.lreg-cust-name');
-      if (nameEl) { nameEl.textContent = act.customerName; nameEl.style.color = accentColor; }
-      const totalItems = act.items.reduce((t, i) => t + i.qty, 0);
-      custBar.querySelector('.lreg-cust-items').textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
-    }
+    // Customer bar
+    const custBar = card.querySelector('.preg-cust-bar');
+    custBar.style.display = 'flex';
+    custBar.querySelector('.preg-cust-emoji').textContent = act.customerEmoji;
+    custBar.querySelector('.preg-cust-name').textContent  = act.customerName;
+    const totalItems = act.items.reduce((t, i) => t + i.qty, 0);
+    custBar.querySelector('.preg-cust-items').textContent = `${totalItems} item${totalItems !== 1 ? 's' : ''}`;
 
     if (newTxn) {
-      const speed = cardType === 'ai' ? (worker.speed || 1) : 1;
-      const baseDelay = Math.max(220, Math.round(1100 / speed));
-      _animateLaneScan(cardKey, card, act, 'lreg-conveyor', 'lreg-belt-line',
-        unscannedId, scannedId, totalId, receiptId, payAreaId, cardVisId, approvedId,
-        accentColor, baseDelay);
+      clearTimeout(_pregScanTimers[p.id]);
+      const approvedEl = document.getElementById(`preg-approved-${p.id}`);
+      if (approvedEl) approvedEl.classList.remove('show');
+      const totalEl = document.getElementById(`preg-total-${p.id}`);
+      if (totalEl) totalEl.textContent = '$0.00';
+      const receiptEl = document.getElementById(`preg-receipt-${p.id}`);
+      if (receiptEl) receiptEl.innerHTML = '';
+
+      const cardVis = document.getElementById(`preg-cardvis-${p.id}`);
+      if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
+      const payArea = document.getElementById(`preg-pay-${p.id}`);
+      if (payArea) {
+        const idleDiv = payArea.querySelector('.preg-pay-idle');
+        if (idleDiv) idleDiv.style.display = '';
+      }
+
+      // Build items on unscanned side
+      const unscannedEl = document.getElementById(`preg-unscanned-${p.id}`);
+      const scannedEl   = document.getElementById(`preg-scanned-${p.id}`);
+      if (unscannedEl) unscannedEl.innerHTML = '';
+      if (scannedEl)   scannedEl.innerHTML   = '';
+
+      const chips = [];
+      act.items.forEach(it => {
+        if (it.qty <= 4) {
+          for (let i = 0; i < it.qty; i++) chips.push(it);
+        } else {
+          chips.push({ ...it, displayQty: it.qty });
+        }
+      });
+
+      chips.forEach(it => {
+        const chip = document.createElement('div');
+        chip.className = 'preg-belt-item';
+        chip.innerHTML = `<span class="prbi-emoji">${it.emoji}</span><span class="prbi-name">${it.displayQty ? '×' + it.displayQty + ' ' : ''}${it.name || it.id}</span>`;
+        chip.dataset.price = it.price || 0;
+        chip.dataset.qty   = it.displayQty || 1;
+        chip.dataset.name  = it.name || it.id;
+        chip.dataset.emoji = it.emoji;
+        if (unscannedEl) unscannedEl.appendChild(chip);
+      });
+
+      // Scan speed: roughly match how fast the player is scanning
+      // Use a fixed display speed so observers see smooth progress
+      const baseDelay = 600;
+      let runningTotal = 0;
+
+      function scanNextPregItem() {
+        const unEl = document.getElementById(`preg-unscanned-${p.id}`);
+        const scEl = document.getElementById(`preg-scanned-${p.id}`);
+        if (!unEl || !scEl) return;
+        const pending = unEl.querySelectorAll('.preg-belt-item:not(.scanned)');
+        if (!pending.length) {
+          // All scanned — show card swipe
+          const paArea = document.getElementById(`preg-pay-${p.id}`);
+          if (paArea) {
+            const idleDiv = paArea.querySelector('.preg-pay-idle');
+            if (idleDiv) idleDiv.style.display = 'none';
+          }
+          const cv = document.getElementById(`preg-cardvis-${p.id}`);
+          if (cv) cv.style.display = 'block';
+          _pregScanTimers[p.id] = setTimeout(() => {
+            const cv2 = document.getElementById(`preg-cardvis-${p.id}`);
+            if (cv2) {
+              cv2.classList.remove('swiping');
+              void cv2.offsetWidth;
+              cv2.classList.add('swiping');
+            }
+            setTimeout(() => {
+              const cv3 = document.getElementById(`preg-cardvis-${p.id}`);
+              if (cv3) cv3.style.display = 'none';
+              const appEl = document.getElementById(`preg-approved-${p.id}`);
+              if (appEl) appEl.classList.add('show');
+            }, 700);
+          }, baseDelay * 0.6);
+          return;
+        }
+
+        const chip = pending[0];
+        const cardEl = document.querySelector(`[data-pid="${p.id}"]`);
+        if (cardEl) {
+          const scanLine = cardEl.querySelector('.preg-belt-line');
+          if (scanLine) {
+            scanLine.style.background = 'linear-gradient(180deg,transparent,rgba(16,185,129,1),transparent)';
+            setTimeout(() => { if (scanLine) scanLine.style.background = ''; }, 200);
+          }
+        }
+
+        chip.classList.add('scan-flash', 'scanned');
+        setTimeout(() => chip.classList.remove('scan-flash'), 380);
+
+        const qty   = parseInt(chip.dataset.qty)   || 1;
+        const price = parseFloat(chip.dataset.price) || 0;
+        runningTotal += price * qty;
+
+        setTimeout(() => {
+          chip.classList.add('just-scanned');
+          if (scEl) scEl.appendChild(chip);
+          setTimeout(() => chip.classList.remove('just-scanned'), 300);
+
+          const totEl = document.getElementById(`preg-total-${p.id}`);
+          if (totEl) {
+            totEl.textContent = '$' + runningTotal.toFixed(2);
+            totEl.classList.add('updated');
+            setTimeout(() => totEl.classList.remove('updated'), 300);
+          }
+
+          const recEl = document.getElementById(`preg-receipt-${p.id}`);
+          if (recEl) {
+            const line = document.createElement('div');
+            line.textContent = `${chip.dataset.emoji} ${chip.dataset.name}${qty > 1 ? ' ×' + qty : ''} ........ $${(price * qty).toFixed(2)}`;
+            recEl.appendChild(line);
+            recEl.scrollTop = recEl.scrollHeight;
+          }
+
+          // Flash overlay on the conveyor
+          const cEl = document.querySelector(`[data-pid="${p.id}"]`);
+          if (cEl) {
+            const flash = document.createElement('div');
+            flash.className = 'preg-scan-flash';
+            const conv = cEl.querySelector('.preg-conveyor');
+            if (conv) { conv.appendChild(flash); setTimeout(() => flash.remove(), 500); }
+          }
+
+          _pregScanTimers[p.id] = setTimeout(scanNextPregItem, baseDelay * 0.5);
+        }, 120);
+      }
+
+      _pregScanTimers[p.id] = setTimeout(scanNextPregItem, baseDelay * 0.3);
     }
 
-    _regLastActivity[cardKey] = act;
-  }
+    _pregLastActivity[p.id] = act;
+  });
 }
-
 
 
 function clientDemandWeight(price, basePrice) {
@@ -3944,7 +4032,7 @@ function switchTab(name) {
 }
 
 function renderTabContent(tab, s) {
-  if (tab === 'customers')  { renderCustomers(s); renderAllLaneRegisters(s); renderScoMachines(s); }
+  if (tab === 'customers')  { renderCustomers(s); renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
   if (tab === 'upgrades')   renderUpgrades(s);
