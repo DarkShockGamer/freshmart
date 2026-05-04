@@ -3325,8 +3325,9 @@ function renderStats(s) {
     <table class="stats-player-table">
       <thead><tr><th>Player</th><th>Customers Served</th><th>Revenue Earned</th></tr></thead>
       <tbody>`;
-    playerEntries.forEach(([pid, data]) => {
-      const me = pid === myId;
+    playerEntries.forEach(([nameKey, data]) => {
+      const myName = roomState?.players?.[myId]?.name || '';
+      const me = myName && nameKey === myName.toLowerCase();
       html += `<tr>
         <td style="font-weight:700">${data.name || 'Unknown'}${me ? ' <span style="color:var(--green);font-size:10px">(you)</span>' : ''}</td>
         <td style="font-family:var(--mono)">${data.served}</td>
