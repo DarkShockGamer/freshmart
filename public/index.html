@@ -809,17 +809,25 @@ input::placeholder { color: var(--muted); }
   border-radius: 12px;
   border: 1.5px solid var(--border);
   background: var(--surf);
-  transition: transform .12s, border-color .12s, box-shadow .12s;
+  transition: border-color .12s, box-shadow .12s;
   user-select: none;
   position: relative;
+  touch-action: none;
 }
-.belt-item:hover {
-  border-color: var(--green);
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 6px 20px rgba(16,185,129,.2);
+.belt-item:hover { border-color: var(--green); box-shadow: 0 6px 20px rgba(16,185,129,.2); }
+.belt-item.is-dragging { opacity: .35; border-color: var(--green); pointer-events: none; }
+/* Floating ghost while dragging */
+.belt-ghost {
+  position: fixed; pointer-events: none; z-index: 9999; opacity: .92;
+  border-radius: 12px; border: 2px solid var(--green); background: var(--surf);
+  box-shadow: 0 12px 32px rgba(0,0,0,.5); padding: 8px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  transform: scale(1.08); transition: box-shadow .1s;
 }
-.belt-item:active { cursor: grabbing; transform: scale(.96); }
-.belt-item.dragging { opacity: .5; border-color: var(--green); cursor: grabbing; }
+.belt-ghost.over-scanner {
+  border-color: #00ff88;
+  box-shadow: 0 0 0 4px rgba(0,255,136,.35), 0 12px 32px rgba(0,0,0,.5);
+}
 .belt-item .bi-emoji { font-size: 24px; line-height: 1; }
 .belt-item .bi-name  { font-size: 9px; font-weight: 700; color: var(--muted); text-align: center; max-width: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .belt-item .bi-price { font-size: 10px; font-family: var(--mono); font-weight: 700; color: var(--green); }
@@ -853,7 +861,35 @@ input::placeholder { color: var(--muted); }
   box-shadow: 0 0 16px rgba(16,185,129,.6);
 }
 
-/* Scanner zone label */
+/* Card ghost while dragging */
+.card-ghost {
+  position: fixed; pointer-events: none; z-index: 9999;
+  width: 200px; height: 126px;
+  background: linear-gradient(135deg, #1a237e 0%, #4a148c 50%, #1a237e 100%);
+  border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.6);
+  opacity: .88; transform: scale(1.05);
+  border: 2px solid transparent; transition: border-color .1s, box-shadow .1s;
+}
+.card-ghost.over-terminal {
+  border-color: var(--green);
+  box-shadow: 0 0 0 4px rgba(16,185,129,.4), 0 12px 32px rgba(0,0,0,.6);
+}
+/* Make swipe terminal larger and more obvious */
+.swipe-terminal {
+  width: 100%; max-width: 220px; height: 56px; background: #111; border-radius: 10px;
+  border: 2px dashed #444; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.swipe-terminal.drag-over {
+  border-color: var(--green); background: rgba(16,185,129,.12);
+  box-shadow: 0 0 0 3px rgba(16,185,129,.25);
+}
+.swipe-terminal::after {
+  content: '▼  SWIPE CARD HERE  ▼';
+  font-size: 9px; color: #555; letter-spacing: 2px; font-weight: 700;
+  pointer-events: none;
+}
 #co-scan-hint {
   text-align: center;
   font-size: 11px;
@@ -977,20 +1013,6 @@ input::placeholder { color: var(--muted); }
 }
 .card-visual.swiping { animation: cardSwipe .6s ease-in-out; }
 
-.swipe-terminal {
-  width: 160px; height: 40px; background: #111; border-radius: 8px;
-  border: 2px dashed #444; position: relative; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  transition: border-color .2s, background .2s;
-}
-.swipe-terminal.drag-over {
-  border-color: var(--green); background: rgba(16,185,129,.1);
-}
-.swipe-terminal::after {
-  content: 'SWIPE CARD HERE';
-  font-size: 9px; color: #555; letter-spacing: 2px; font-weight: 700;
-  pointer-events: none;
-}
 
 #co-card-hint { font-size: 12px; color: var(--muted); text-align: center; }
 
@@ -1354,20 +1376,14 @@ input::placeholder { color: var(--muted); }
           <!-- CARD UI -->
           <div id="co-card-ui">
             <div id="co-card-hint">Customer is ready to pay by card</div>
-            <div class="card-visual" id="co-card-vis"
-              draggable="true"
-              ondragstart="onCardDragStart(event)"
-              ondragend="onCardDragEnd(event)">
+            <div class="card-visual" id="co-card-vis">
               <div class="chip"></div>
               <div class="card-num">•••• •••• •••• ••••</div>
               <div class="card-tap">📶</div>
               <div class="card-brand">VISA</div>
             </div>
-            <div class="swipe-terminal" id="co-swipe-terminal"
-              ondragover="event.preventDefault()"
-              ondrop="onCardDropSwipe(event)">
-            </div>
-            <div id="co-card-hint-sub" style="font-size:11px;color:var(--muted);text-align:center">Drag card onto the reader to swipe →</div>
+            <div class="swipe-terminal" id="co-swipe-terminal"></div>
+            <div id="co-card-hint-sub" style="font-size:11px;color:var(--muted);text-align:center">Hold and drag the card down onto the reader</div>
             <div id="co-approved">
               <div class="ap-icon">✅</div>
               <div class="ap-text">APPROVED</div>
@@ -2149,108 +2165,135 @@ function openCheckout(customer) {
   document.getElementById('checkout-overlay').classList.add('active');
 }
 
+// ── Pointer-based drag state ───────────────────────
+let _activeDrag = null; // { el, ghost, offsetX, offsetY, id, prod, price, qty }
+let _activeCardDrag = null; // { ghost }
+
 function buildConveyor(customer) {
   const unscanned = document.getElementById('co-unscanned-side');
   const scanned   = document.getElementById('co-scanned-side');
   unscanned.innerHTML = '';
-  // keep scanned label
   scanned.innerHTML = '<div style="font-size:10px;color:rgba(16,185,129,.3);font-weight:700;letter-spacing:1px;writing-mode:vertical-rl;padding:8px 4px">SCANNED</div>';
 
-  // Make scanned side a drop target
-  scanned.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-  scanned.ondrop = (e) => {
-    e.preventDefault();
-    const itemKey = e.dataTransfer.getData('text/plain');
-    dropScanItem(itemKey);
-  };
-  // Also allow dropping on the belt line
-  const beltLine = document.getElementById('co-belt-line');
-  beltLine.ondragover = (e) => { e.preventDefault(); };
-  beltLine.ondrop = (e) => {
-    e.preventDefault();
-    const itemKey = e.dataTransfer.getData('text/plain');
-    dropScanItem(itemKey);
-  };
-
   customer.wants.forEach(w => {
-    const prod = roomState?.products?.find(p => p.id === w.id);
+    const prod  = roomState?.products?.find(p => p.id === w.id);
     const price = roomState?.prices?.[w.id] || prod?.basePrice || 0;
-
     const showIndividual = w.qty <= 5;
     if (showIndividual) {
       for (let i = 0; i < w.qty; i++) {
-        const chip = makeBeltItem(w.id, prod, price, 1, false, i);
-        unscanned.appendChild(chip);
+        unscanned.appendChild(makeBeltItem(w.id, prod, price, 1, false));
       }
     } else {
-      const chip = makeBeltItem(w.id, prod, price, w.qty, false, 0);
-      unscanned.appendChild(chip);
+      unscanned.appendChild(makeBeltItem(w.id, prod, price, w.qty, false));
     }
   });
 }
 
-function dropScanItem(itemKey) {
-  const el = document.querySelector(`#co-unscanned-side .belt-item[data-key="${itemKey}"]:not(.scanned)`);
-  if (!el) return;
-  const id   = el.dataset.id;
-  const qty  = parseInt(el.dataset.qty);
-  const price = parseFloat(el.dataset.price);
-  const prod = roomState?.products?.find(p => p.id === id);
-  scanItem(el, id, prod, price, qty);
-}
-
-function makeBeltItem(id, prod, price, qty, scanned, idx) {
+function makeBeltItem(id, prod, price, qty, isScanned) {
   const el = document.createElement('div');
-  const key = id + '_' + idx + '_' + Math.random().toString(36).slice(2,6);
-  el.className = 'belt-item' + (scanned ? ' scanned' : '');
-  el.dataset.id  = id;
-  el.dataset.qty = qty;
+  el.className = 'belt-item' + (isScanned ? ' scanned' : '');
+  el.dataset.id    = id;
+  el.dataset.qty   = qty;
   el.dataset.price = price;
-  el.dataset.key = key;
   el.innerHTML = `
     <span class="bi-emoji">${prod?.emoji || '📦'}</span>
     <span class="bi-name">${prod?.name || id}</span>
     <span class="bi-price">$${price}</span>
     ${qty > 1 ? `<span class="bi-qty-badge">×${qty}</span>` : ''}
   `;
-  if (!scanned) {
-    el.draggable = true;
-    el.addEventListener('dragstart', (e) => {
-      if (el.classList.contains('scanned')) { e.preventDefault(); return; }
-      el.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', key);
-      document.getElementById('co-belt').classList.add('drag-active');
-    });
-    el.addEventListener('dragend', () => {
-      el.classList.remove('dragging');
-      document.getElementById('co-belt').classList.remove('drag-active');
-    });
+  if (!isScanned) {
+    el.addEventListener('pointerdown', (e) => startBeltDrag(e, el, id, prod, price, qty));
   }
   return el;
 }
 
+function startBeltDrag(e, el, id, prod, price, qty) {
+  if (el.classList.contains('scanned') || _activeDrag) return;
+  e.preventDefault();
+
+  const rect = el.getBoundingClientRect();
+  const offsetX = e.clientX - rect.left;
+  const offsetY = e.clientY - rect.top;
+
+  // Create ghost clone
+  const ghost = document.createElement('div');
+  ghost.className = 'belt-ghost';
+  ghost.innerHTML = el.innerHTML;
+  ghost.style.width  = rect.width  + 'px';
+  ghost.style.left   = (e.clientX - offsetX) + 'px';
+  ghost.style.top    = (e.clientY - offsetY) + 'px';
+  document.body.appendChild(ghost);
+
+  el.classList.add('is-dragging');
+  document.getElementById('co-belt').classList.add('drag-active');
+
+  _activeDrag = { el, ghost, offsetX, offsetY, id, prod, price, qty };
+
+  el.setPointerCapture(e.pointerId);
+  el.addEventListener('pointermove', onBeltPointerMove);
+  el.addEventListener('pointerup',   onBeltPointerUp);
+  el.addEventListener('pointercancel', onBeltPointerUp);
+}
+
+function onBeltPointerMove(e) {
+  if (!_activeDrag) return;
+  const { ghost, offsetX, offsetY } = _activeDrag;
+  ghost.style.left = (e.clientX - offsetX) + 'px';
+  ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+  // Check overlap with scanner line
+  const scanLine = document.getElementById('co-belt-line');
+  const lineRect  = scanLine.getBoundingClientRect();
+  const ghostRect = ghost.getBoundingClientRect();
+
+  // Trigger scan when ghost's right edge passes the scanner line's center
+  const lineCenter = lineRect.left + lineRect.width / 2;
+  const overScanner = ghostRect.right > lineCenter && ghostRect.left < lineRect.right + 60;
+  ghost.classList.toggle('over-scanner', overScanner);
+
+  if (overScanner) {
+    finishBeltScan();
+  }
+}
+
+function onBeltPointerUp(e) {
+  if (!_activeDrag) return;
+  cleanupBeltDrag();
+}
+
+function finishBeltScan() {
+  if (!_activeDrag) return;
+  const { el, id, prod, price, qty } = _activeDrag;
+  cleanupBeltDrag();
+  scanItem(el, id, prod, price, qty);
+}
+
+function cleanupBeltDrag() {
+  if (!_activeDrag) return;
+  const { el, ghost } = _activeDrag;
+  el.removeEventListener('pointermove', onBeltPointerMove);
+  el.removeEventListener('pointerup',   onBeltPointerUp);
+  el.removeEventListener('pointercancel', onBeltPointerUp);
+  el.classList.remove('is-dragging');
+  ghost.remove();
+  document.getElementById('co-belt').classList.remove('drag-active');
+  _activeDrag = null;
+}
+
 function scanItem(el, id, prod, price, qty) {
   if (el.classList.contains('scanned')) return;
-
-  // Flash
   el.classList.add('scanned', 'flash');
-  el.draggable = false;
   setTimeout(() => el.classList.remove('flash'), 400);
 
-  // Move to scanned side after short delay
   setTimeout(() => {
     el.remove();
-    const scannedSide = document.getElementById('co-scanned-side');
-    const scannedEl = makeBeltItem(id, prod, price, qty, true, 0);
-    scannedSide.appendChild(scannedEl);
+    const scannedEl = makeBeltItem(id, prod, price, qty, true);
+    document.getElementById('co-scanned-side').appendChild(scannedEl);
   }, 280);
 
-  // Add to total
   const lineTotal = price * qty;
   checkoutScanned.push({ id, name: prod?.name || id, emoji: prod?.emoji || '📦', price, qty, lineTotal });
   checkoutTotal += lineTotal;
-
   updateRegisterDisplay();
   checkAllScanned();
 }
@@ -2260,10 +2303,11 @@ function checkoutScanAll() {
   let delay = 0;
   items.forEach(el => {
     setTimeout(() => {
-      const id = el.dataset.id;
-      const qty = parseInt(el.dataset.qty);
+      if (el.classList.contains('scanned')) return;
+      const id    = el.dataset.id;
+      const qty   = parseInt(el.dataset.qty);
       const price = parseFloat(el.dataset.price);
-      const prod = roomState?.products?.find(p => p.id === id);
+      const prod  = roomState?.products?.find(p => p.id === id);
       scanItem(el, id, prod, price, qty);
     }, delay);
     delay += 180;
@@ -2419,37 +2463,102 @@ function showChange(change) {
 function setupCardPayment() {
   document.getElementById('co-approved').classList.remove('show');
   document.getElementById('co-card-hint-sub').style.display = 'block';
-  document.getElementById('co-card-hint-sub').textContent = 'Drag the card onto the reader to swipe →';
+  document.getElementById('co-card-hint-sub').textContent = 'Hold and drag the card down onto the reader';
   const cardVis = document.getElementById('co-card-vis');
   cardVis.style.display = 'block';
   cardVis.classList.remove('swiping');
+  cardVis.style.transform = '';
+  cardVis.style.cursor = 'grab';
   const brands = ['VISA','MC','AMEX','DISC'];
   cardVis.querySelector('.card-brand').textContent = brands[Math.floor(Math.random()*brands.length)];
   checkoutCardApproved = false;
+
+  // Attach pointer-based drag
+  cardVis.addEventListener('pointerdown', startCardDrag, { once: true });
 }
 
-function onCardDragStart(e) {
-  if (checkoutCardApproved) { e.preventDefault(); return; }
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', 'card');
-  document.getElementById('co-swipe-terminal').classList.add('drag-over');
-}
-
-function onCardDragEnd(e) {
-  document.getElementById('co-swipe-terminal').classList.remove('drag-over');
-}
-
-function onCardDropSwipe(e) {
+function startCardDrag(e) {
+  if (checkoutCardApproved || _activeCardDrag) return;
   e.preventDefault();
-  document.getElementById('co-swipe-terminal').classList.remove('drag-over');
-  if (e.dataTransfer.getData('text/plain') === 'card') doCardSwipe();
+
+  const cardVis = document.getElementById('co-card-vis');
+  const rect    = cardVis.getBoundingClientRect();
+  const offsetX = e.clientX - rect.left;
+  const offsetY = e.clientY - rect.top;
+
+  // Ghost card
+  const ghost = document.createElement('div');
+  ghost.className = 'card-ghost';
+  ghost.style.left   = (e.clientX - offsetX) + 'px';
+  ghost.style.top    = (e.clientY - offsetY) + 'px';
+  ghost.style.width  = rect.width  + 'px';
+  ghost.style.height = rect.height + 'px';
+  document.body.appendChild(ghost);
+
+  cardVis.style.opacity = '0.35';
+  cardVis.style.cursor  = 'grabbing';
+  _activeCardDrag = { ghost, offsetX, offsetY };
+
+  cardVis.setPointerCapture(e.pointerId);
+  cardVis.addEventListener('pointermove', onCardPointerMove);
+  cardVis.addEventListener('pointerup',   onCardPointerUp);
+  cardVis.addEventListener('pointercancel', onCardPointerUp);
+}
+
+function onCardPointerMove(e) {
+  if (!_activeCardDrag) return;
+  const { ghost, offsetX, offsetY } = _activeCardDrag;
+  ghost.style.left = (e.clientX - offsetX) + 'px';
+  ghost.style.top  = (e.clientY - offsetY) + 'px';
+
+  // Check if ANY part of ghost overlaps the terminal
+  const terminal  = document.getElementById('co-swipe-terminal');
+  const termRect  = terminal.getBoundingClientRect();
+  const ghostRect = ghost.getBoundingClientRect();
+
+  const overlaps = !(ghostRect.right  < termRect.left  ||
+                     ghostRect.left   > termRect.right ||
+                     ghostRect.bottom < termRect.top   ||
+                     ghostRect.top    > termRect.bottom);
+
+  ghost.classList.toggle('over-terminal', overlaps);
+  terminal.classList.toggle('drag-over', overlaps);
+
+  if (overlaps) {
+    finishCardSwipe();
+  }
+}
+
+function onCardPointerUp(e) {
+  cleanupCardDrag();
+}
+
+function finishCardSwipe() {
+  cleanupCardDrag();
+  doCardSwipe();
+}
+
+function cleanupCardDrag() {
+  if (!_activeCardDrag) return;
+  const { ghost } = _activeCardDrag;
+  const cardVis = document.getElementById('co-card-vis');
+  if (cardVis) {
+    cardVis.removeEventListener('pointermove', onCardPointerMove);
+    cardVis.removeEventListener('pointerup',   onCardPointerUp);
+    cardVis.removeEventListener('pointercancel', onCardPointerUp);
+    cardVis.style.opacity = '';
+    cardVis.style.cursor  = 'grab';
+  }
+  document.getElementById('co-swipe-terminal')?.classList.remove('drag-over');
+  ghost.remove();
+  _activeCardDrag = null;
 }
 
 function doCardSwipe() {
   if (checkoutCardApproved) return;
   const cardEl = document.getElementById('co-card-vis');
   cardEl.classList.remove('swiping');
-  void cardEl.offsetWidth; // reflow
+  void cardEl.offsetWidth;
   cardEl.classList.add('swiping');
 
   setTimeout(() => {
@@ -2461,7 +2570,6 @@ function doCardSwipe() {
     cardEl.style.display = 'none';
     document.getElementById('co-approved').classList.add('show');
     document.getElementById('co-card-hint-sub').style.display = 'none';
-
     checkoutCanComplete = true;
     document.getElementById('co-complete-btn').textContent = '✅ Complete Transaction';
     document.getElementById('co-complete-btn').classList.add('visible');
@@ -2483,6 +2591,8 @@ function abandonCheckout() {
 
 function closeCheckout() {
   clearInterval(_coPatienceInterval);
+  cleanupBeltDrag();
+  cleanupCardDrag();
   checkoutCustomer = null;
   document.getElementById('checkout-overlay').classList.remove('active');
 }
