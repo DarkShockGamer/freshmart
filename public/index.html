@@ -655,69 +655,369 @@ input::placeholder { color: var(--muted); }
 .saves-actions { display: flex; gap: 12px; }
 .saves-actions .btn { min-width: 140px; }
 
-/* ══════════════════════════════════════
-   DIFFICULTY SCREEN
-══════════════════════════════════════ */
-#screen-difficulty {
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  padding: 40px 20px;
-  background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(239,68,68,.06) 0%, transparent 70%);
-}
-
-.diff-header { text-align: center; }
-.diff-header h2 { font-size: 26px; font-weight: 800; }
-.diff-header p  { color: var(--muted); font-size: 14px; margin-top: 6px; }
-
-.diff-cards {
-  display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
-  width: 100%; max-width: 820px;
-}
-
-.diff-card {
-  flex: 1; min-width: 220px; max-width: 260px;
-  background: var(--surf); border: 2px solid var(--border);
-  border-radius: 18px; padding: 28px 22px;
-  display: flex; flex-direction: column; gap: 12px;
-  cursor: pointer; transition: border-color .2s, transform .1s, box-shadow .15s;
-  position: relative;
-}
-.diff-card:hover { transform: translateY(-3px); }
-.diff-card.selected.easy  { border-color: var(--green); box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
-.diff-card.selected.normal{ border-color: var(--blue);  box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
-.diff-card.selected.hard  { border-color: var(--red);   box-shadow: 0 0 0 3px rgba(239,68,68,.2); }
-.diff-card:hover.easy  { border-color: var(--green); }
-.diff-card:hover.normal{ border-color: var(--blue); }
-.diff-card:hover.hard  { border-color: var(--red); }
-
-.diff-emoji { font-size: 44px; line-height: 1; }
-.diff-name  { font-size: 20px; font-weight: 800; }
-.diff-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; }
-.diff-stats { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
-.diff-stat  { display: flex; justify-content: space-between; font-size: 11px; font-family: var(--mono); }
-.diff-stat .ds-label { color: var(--muted); }
-.diff-stat .ds-val   { font-weight: 700; }
-.ds-val.good { color: var(--green); }
-.ds-val.ok   { color: var(--yellow); }
-.ds-val.bad  { color: var(--red); }
-
-.diff-badge {
-  position: absolute; top: 12px; right: 12px;
-  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
-}
-.diff-badge.easy   { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
-.diff-badge.normal { background: var(--blue-lo);  color: var(--blue);  border: 1px solid var(--blue); }
-.diff-badge.hard   { background: var(--red-lo);   color: var(--red);   border: 1px solid var(--red); }
-
-.diff-actions { display: flex; gap: 12px; }
-.diff-actions .btn { min-width: 140px; }
-
 /* ── Responsive ── */
 @media (max-width: 700px) {
   #game-body { grid-template-columns: 1fr; }
   #sidebar { display: none; }
 }
+
+/* ══════════════════════════════════════
+   CHECKOUT OVERLAY
+══════════════════════════════════════ */
+#checkout-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(5,8,14,.92);
+  z-index: 900;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+#checkout-overlay.active { display: flex; }
+
+#checkout-modal {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 22px;
+  width: 100%;
+  max-width: 920px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6);
+}
+
+/* ── Checkout header ── */
+#co-header {
+  background: var(--surf2);
+  border-bottom: 1.5px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+#co-customer-emoji { font-size: 32px; }
+#co-customer-info { flex: 1; }
+#co-customer-name { font-size: 16px; font-weight: 800; }
+#co-customer-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+#co-patience-wrap {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--muted);
+}
+#co-patience-bar-bg {
+  width: 120px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+}
+#co-patience-bar { height: 100%; border-radius: 4px; transition: width .9s linear, background .3s; }
+
+/* ── Checkout body ── */
+#co-body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Conveyor ── */
+#co-conveyor-panel {
+  display: flex;
+  flex-direction: column;
+  border-right: 1.5px solid var(--border);
+  overflow: hidden;
+}
+
+#co-conveyor-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--muted);
+  text-transform: uppercase; padding: 10px 16px 6px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: linear-gradient(90deg, rgba(16,185,129,.04) 0%, transparent 100%);
+}
+
+/* Belt area */
+#co-belt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 28px,
+      rgba(255,255,255,.025) 28px,
+      rgba(255,255,255,.025) 30px
+    ),
+    var(--surf2);
+  padding: 20px 16px;
+}
+
+/* Scanner line in center of belt */
+#co-belt::after {
+  content: '◀ SCAN HERE ▶';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  color: rgba(16,185,129,.3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+#co-belt-line {
+  position: absolute;
+  left: 50%;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(16,185,129,.4), transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+/* Two sides */
+#co-belt-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  position: relative;
+}
+#co-unscanned-side, #co-scanned-side {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  min-height: 80px;
+}
+#co-unscanned-side { justify-content: flex-end; align-items: center; }
+#co-scanned-side   { justify-content: flex-start; align-items: center; }
+
+/* Item on belt */
+.belt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surf);
+  transition: transform .12s, border-color .12s, box-shadow .12s;
+  user-select: none;
+  position: relative;
+}
+.belt-item:hover {
+  border-color: var(--green);
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(16,185,129,.2);
+}
+.belt-item:active { transform: scale(.96); }
+.belt-item .bi-emoji { font-size: 24px; line-height: 1; }
+.belt-item .bi-name  { font-size: 9px; font-weight: 700; color: var(--muted); text-align: center; max-width: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.belt-item .bi-price { font-size: 10px; font-family: var(--mono); font-weight: 700; color: var(--green); }
+.belt-item .bi-qty-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--orange); color: #000;
+  border-radius: 50%; width: 18px; height: 18px;
+  font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.belt-item.scanned {
+  border-color: var(--green);
+  background: var(--green-lo);
+  cursor: default;
+  opacity: .7;
+}
+.belt-item.scanned:hover { transform: none; box-shadow: none; }
+
+/* Scanner flash */
+@keyframes scanFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(16,185,129,.8); }
+  50%  { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+  100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+}
+.belt-item.flash { animation: scanFlash .35s ease-out; }
+
+/* Scanner zone label */
+#co-scan-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Register panel ── */
+#co-register {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+  gap: 12px;
+}
+#co-register::-webkit-scrollbar { width: 4px; }
+#co-register::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Running total display */
+#co-total-display {
+  background: #000;
+  border: 1.5px solid #333;
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: right;
+  font-family: 'Courier New', monospace;
+}
+#co-total-label { font-size: 10px; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+#co-total-amount { font-size: 36px; font-weight: 700; color: #00ff88; letter-spacing: 2px; text-shadow: 0 0 12px rgba(0,255,136,.4); }
+#co-items-list { font-size: 11px; color: #666; margin-top: 8px; line-height: 1.8; text-align: left; max-height: 80px; overflow-y: auto; }
+
+/* Payment section */
+#co-payment-section { display: none; flex-direction: column; gap: 10px; }
+#co-payment-section.visible { display: flex; }
+
+#co-payment-method {
+  display: flex; gap: 8px;
+}
+.pay-method-btn {
+  flex: 1; padding: 12px 8px; border-radius: 12px;
+  border: 2px solid var(--border); background: var(--surf2);
+  color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  text-align: center;
+}
+.pay-method-btn:hover { border-color: var(--blue); }
+.pay-method-btn.selected { border-color: var(--blue); background: var(--blue-lo); color: var(--blue); }
+
+/* Cash payment UI */
+#co-cash-ui { display: none; flex-direction: column; gap: 10px; }
+#co-cash-ui.visible { display: flex; }
+
+#co-cash-tendered {
+  background: #000; border: 1.5px solid #333; border-radius: 10px;
+  padding: 10px 14px; font-family: 'Courier New', monospace;
+  font-size: 22px; color: #ffdd44; text-align: right; letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(255,221,68,.4);
+}
+
+#co-bills-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+#co-customer-bills { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.bill-chip {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; padding: 6px 14px;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .1s, box-shadow .1s;
+  font-family: var(--mono);
+  user-select: none;
+}
+.bill-chip:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.3); }
+.bill-chip:active { transform: translateY(0); }
+.bill-chip.b1   { background: #d4f0d4; color: #1a4a1a; border-color: #8bc88b; }
+.bill-chip.b5   { background: #d4e4f0; color: #1a2a4a; border-color: #7aabcf; }
+.bill-chip.b10  { background: #f0e8d4; color: #4a3a1a; border-color: #d4b87a; }
+.bill-chip.b20  { background: #e8f0d4; color: #2a4a1a; border-color: #9ac87a; }
+.bill-chip.b50  { background: #f0d4d4; color: #4a1a1a; border-color: #cf7a7a; }
+.bill-chip.b100 { background: #e8d4f0; color: #3a1a4a; border-color: #b47acf; }
+.bill-chip.bused { opacity: .3; cursor: default; text-decoration: line-through; }
+
+#co-change-display {
+  background: var(--surf2); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+  display: none;
+}
+#co-change-display.show { display: block; }
+#co-change-label { font-size: 10px; color: var(--muted); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+#co-change-amount { font-size: 22px; font-weight: 800; color: var(--yellow); font-family: var(--mono); margin-top: 2px; }
+#co-change-bills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.change-bill { background: var(--yellow-lo); border: 1px solid var(--yellow); color: var(--yellow); border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 700; font-family: var(--mono); }
+
+/* Card swipe UI */
+#co-card-ui { display: none; flex-direction: column; gap: 12px; align-items: center; }
+#co-card-ui.visible { display: flex; }
+
+.card-visual {
+  width: 200px; height: 126px;
+  background: linear-gradient(135deg, #1a237e 0%, #4a148c 50%, #1a237e 100%);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  padding: 16px 20px;
+  position: relative;
+  cursor: pointer;
+  transition: transform .15s;
+  user-select: none;
+}
+.card-visual:hover { transform: scale(1.04); }
+.card-visual .chip { width: 32px; height: 24px; background: linear-gradient(135deg,#c9a227,#f5d76e,#c9a227); border-radius: 4px; margin-bottom: 18px; }
+.card-visual .card-num { font-family: var(--mono); font-size: 13px; color: rgba(255,255,255,.9); letter-spacing: 4px; }
+.card-visual .card-tap { position: absolute; top: 12px; right: 16px; font-size: 22px; color: rgba(255,255,255,.6); }
+.card-visual .card-brand { position: absolute; bottom: 12px; right: 16px; font-size: 10px; font-weight: 800; color: rgba(255,255,255,.5); letter-spacing: 1px; }
+
+@keyframes cardSwipe {
+  0%   { transform: translateX(0); }
+  30%  { transform: translateX(60px) rotate(3deg); }
+  70%  { transform: translateX(-200px) rotate(-2deg); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.card-visual.swiping { animation: cardSwipe .6s ease-in-out; }
+
+.swipe-terminal {
+  width: 160px; height: 16px; background: #111; border-radius: 4px;
+  border: 2px solid #333; position: relative; overflow: hidden;
+}
+.swipe-terminal::after {
+  content: 'SWIPE CARD';
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #555; letter-spacing: 2px; font-weight: 700;
+}
+
+#co-card-hint { font-size: 12px; color: var(--muted); text-align: center; }
+
+@keyframes approved {
+  0%   { transform: scale(.8); opacity: 0; }
+  60%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+#co-approved {
+  display: none; flex-direction: column; align-items: center; gap: 6px;
+  animation: approved .4s ease-out;
+}
+#co-approved.show { display: flex; }
+#co-approved .ap-icon { font-size: 48px; }
+#co-approved .ap-text { font-size: 16px; font-weight: 800; color: var(--green); }
+
+/* Complete transaction button */
+#co-complete-btn {
+  width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 800;
+  border: none; cursor: pointer; transition: opacity .15s, transform .1s;
+  background: var(--green); color: #000; display: none; margin-top: 4px;
+}
+#co-complete-btn.visible { display: block; }
+#co-complete-btn:hover { opacity: .88; transform: translateY(-1px); }
+#co-complete-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* Scan-all button */
+#co-scan-all-btn {
+  width: 100%; padding: 9px; border-radius: 9px; font-size: 12px; font-weight: 700;
+  border: 1.5px solid var(--border); cursor: pointer; background: var(--surf2); color: var(--muted);
+  transition: border-color .15s, color .15s;
+}
+#co-scan-all-btn:hover { border-color: var(--green); color: var(--green); }
+
+#co-abandon-btn {
+  width: 100%; padding: 9px; border-radius: 9px; font-size: 12px;
+  border: 1.5px solid var(--border); cursor: pointer; background: transparent; color: var(--red);
+  font-weight: 700; transition: border-color .15s;
+}
+#co-abandon-btn:hover { border-color: var(--red); }
 </style>
 </head>
 <body>
@@ -761,19 +1061,6 @@ input::placeholder { color: var(--muted); }
   <div class="saves-actions">
     <button class="btn blue" id="saves-confirm-btn" onclick="confirmSaveSelection()" disabled>▶ Open Lobby</button>
     <button class="btn secondary" onclick="show('title')">← Back</button>
-  </div>
-</div>
-
-<!-- ══════════════ DIFFICULTY SCREEN ══════════════ -->
-<div id="screen-difficulty" class="screen">
-  <div class="diff-header">
-    <h2>⚔️ Choose Difficulty</h2>
-    <p>How hard do you want your store life to be?</p>
-  </div>
-  <div class="diff-cards" id="diff-cards-container"></div>
-  <div class="diff-actions">
-    <button class="btn blue" id="diff-confirm-btn" onclick="confirmDifficulty()" disabled>▶ Open Lobby</button>
-    <button class="btn secondary" onclick="show('saves')">← Back</button>
   </div>
 </div>
 
@@ -834,7 +1121,6 @@ input::placeholder { color: var(--muted); }
     <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">TIME</span><span class="hv" id="h-time">2:00</span></div>
     <div id="day-pill">Day 1</div>
     <div id="phase-pill" class="lobby">LOBBY</div>
-    <div id="diff-pill" style="border-radius:20px;padding:3px 12px;font-size:11px;font-weight:700;letter-spacing:.5px;border:1px solid var(--border);color:var(--muted);display:none"></div>
     <div id="header-right">
       <button class="btn secondary xs" onclick="leaveRoom()">← Leave</button>
     </div>
@@ -982,6 +1268,101 @@ input::placeholder { color: var(--muted); }
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- ══════════════ CHECKOUT OVERLAY ══════════════ -->
+<div id="checkout-overlay">
+  <div id="checkout-modal">
+
+    <!-- Header: customer info + patience bar -->
+    <div id="co-header">
+      <div id="co-customer-emoji">🧑</div>
+      <div id="co-customer-info">
+        <div id="co-customer-name">Customer</div>
+        <div id="co-customer-sub">Waiting to be checked out</div>
+      </div>
+      <div id="co-patience-wrap">
+        ⏳ <div id="co-patience-bar-bg"><div id="co-patience-bar" style="width:100%;background:var(--green)"></div></div>
+        <span id="co-patience-text"></span>
+      </div>
+    </div>
+
+    <!-- Body: conveyor + register -->
+    <div id="co-body">
+
+      <!-- Left: Conveyor belt -->
+      <div id="co-conveyor-panel">
+        <div id="co-conveyor-label">🛒 Conveyor Belt — Click items to scan</div>
+        <div id="co-belt">
+          <div id="co-belt-line"></div>
+          <div id="co-belt-row">
+            <div id="co-unscanned-side"></div>
+            <div style="width:2px;background:var(--border);align-self:stretch;flex-shrink:0"></div>
+            <div id="co-scanned-side">
+              <div style="font-size:10px;color:rgba(16,185,129,.3);font-weight:700;letter-spacing:1px;writing-mode:vertical-rl;padding:8px 4px">SCANNED</div>
+            </div>
+          </div>
+        </div>
+        <div id="co-scan-hint">Click an item on the left to scan it → items move right once scanned</div>
+      </div>
+
+      <!-- Right: Register -->
+      <div id="co-register">
+
+        <!-- Total display (like a POS screen) -->
+        <div id="co-total-display">
+          <div id="co-total-label">Total Due</div>
+          <div id="co-total-amount">$0.00</div>
+          <div id="co-items-list"></div>
+        </div>
+
+        <!-- Scan-all shortcut -->
+        <button id="co-scan-all-btn" onclick="checkoutScanAll()">⚡ Scan All Items</button>
+
+        <!-- Payment section — shown after all items scanned -->
+        <div id="co-payment-section">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Payment Method</div>
+          <div id="co-payment-method">
+            <div class="pay-method-btn" id="pay-cash-btn" onclick="selectPayMethod('cash')">💵 Cash</div>
+            <div class="pay-method-btn" id="pay-card-btn" onclick="selectPayMethod('card')">💳 Card</div>
+          </div>
+
+          <!-- CASH UI -->
+          <div id="co-cash-ui">
+            <div id="co-bills-label">Customer hands you:</div>
+            <div id="co-customer-bills"></div>
+            <div id="co-cash-tendered">$0.00</div>
+            <div id="co-change-display">
+              <div id="co-change-label">💰 Change to give back</div>
+              <div id="co-change-amount">$0.00</div>
+              <div id="co-change-bills"></div>
+            </div>
+          </div>
+
+          <!-- CARD UI -->
+          <div id="co-card-ui">
+            <div id="co-card-hint">Customer is ready to pay by card</div>
+            <div class="card-visual" id="co-card-vis" onclick="doCardSwipe()">
+              <div class="chip"></div>
+              <div class="card-num">•••• •••• •••• ••••</div>
+              <div class="card-tap">📶</div>
+              <div class="card-brand">VISA</div>
+            </div>
+            <div class="swipe-terminal"></div>
+            <div id="co-card-hint-sub" style="font-size:11px;color:var(--muted);text-align:center">Click card to swipe →</div>
+            <div id="co-approved">
+              <div class="ap-icon">✅</div>
+              <div class="ap-text">APPROVED</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Complete button -->
+        <button id="co-complete-btn" onclick="completeCheckout()">✅ Complete Transaction</button>
+        <button id="co-abandon-btn" onclick="abandonCheckout()">✕ Send Back to Queue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────
 const socket = io();
@@ -991,7 +1372,6 @@ let myRoomCode = null;
 let pendingCreateName = '';
 let selectedSaveSlot = null;   // null = new game, 0/1/2 = slot index
 let savesData = [null, null, null];
-let selectedDifficulty = 'normal';
 
 // ── localStorage save helpers ──────────────────────
 const LS_KEY = 'fm_saves';
@@ -1158,86 +1538,7 @@ function deleteSave(e, slotIdx) {
 function confirmSaveSelection() {
   if (selectedSaveSlot === null) return;
   const save = savesData[selectedSaveSlot] || null;
-  if (save) {
-    // Continuing a save — no difficulty pick, use saved difficulty or default normal
-    selectedDifficulty = save.difficulty || 'normal';
-    socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save, difficulty: selectedDifficulty });
-  } else {
-    // New game — pick difficulty
-    renderDifficultyScreen();
-    show('difficulty');
-  }
-}
-
-// ── Difficulty Screen ──────────────────────────────
-const DIFF_DATA = {
-  easy: {
-    label: 'Easy', emoji: '🌱', cssClass: 'easy',
-    desc: 'Relaxed store sim. Generous cash, cheap upgrades, and patient customers.',
-    stats: [
-      { label: 'Starting Cash',  val: '$400',    cls: 'good' },
-      { label: 'Upgrade Costs',  val: '−40%',    cls: 'good' },
-      { label: 'Customers',      val: 'Few & patient', cls: 'good' },
-      { label: 'Events',         val: 'Lenient', cls: 'good' },
-    ],
-  },
-  normal: {
-    label: 'Normal', emoji: '🏪', cssClass: 'normal',
-    desc: 'Balanced challenge. Manage budget carefully and react to events.',
-    stats: [
-      { label: 'Starting Cash',  val: '$200',    cls: 'ok' },
-      { label: 'Upgrade Costs',  val: 'Steep',   cls: 'ok' },
-      { label: 'Customers',      val: 'Moderate', cls: 'ok' },
-      { label: 'Events',         val: 'Painful', cls: 'ok' },
-    ],
-  },
-  hard: {
-    label: 'Hard', emoji: '🔥', cssClass: 'hard',
-    desc: 'Brutal economy. Tight cash, impatient customers, punishing events.',
-    stats: [
-      { label: 'Starting Cash',  val: '$100',    cls: 'bad' },
-      { label: 'Upgrade Costs',  val: '3× Base', cls: 'bad' },
-      { label: 'Customers',      val: 'Flood & impatient', cls: 'bad' },
-      { label: 'Events',         val: 'Devastating', cls: 'bad' },
-    ],
-  },
-};
-
-function renderDifficultyScreen() {
-  const container = document.getElementById('diff-cards-container');
-  container.innerHTML = '';
-  selectedDifficulty = 'normal';
-  document.getElementById('diff-confirm-btn').disabled = true;
-
-  Object.entries(DIFF_DATA).forEach(([key, d]) => {
-    const card = document.createElement('div');
-    card.className = `diff-card ${d.cssClass}`;
-    card.dataset.diff = key;
-    card.onclick = () => selectDifficulty(key);
-    card.innerHTML = `
-      <div class="diff-badge ${d.cssClass}">${d.label.toUpperCase()}</div>
-      <div class="diff-emoji">${d.emoji}</div>
-      <div class="diff-name">${d.label}</div>
-      <div class="diff-desc">${d.desc}</div>
-      <div class="diff-stats">
-        ${d.stats.map(s => `<div class="diff-stat"><span class="ds-label">${s.label}</span><span class="ds-val ${s.cls}">${s.val}</span></div>`).join('')}
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function selectDifficulty(key) {
-  document.querySelectorAll('.diff-card').forEach(el => el.classList.remove('selected'));
-  const el = document.querySelector(`.diff-card[data-diff="${key}"]`);
-  if (el) el.classList.add('selected');
-  selectedDifficulty = key;
-  document.getElementById('diff-confirm-btn').disabled = false;
-}
-
-function confirmDifficulty() {
-  if (!selectedDifficulty || selectedSaveSlot === null) return;
-  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save: null, difficulty: selectedDifficulty });
+  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save });
 }
 
 function handleJoin() {
@@ -1336,19 +1637,6 @@ function renderHeader(s) {
   if (s.phase === 'playing') phEl.textContent = 'OPEN';
   else if (s.phase === 'shop') phEl.textContent = 'SHOP';
   else phEl.textContent = 'LOBBY';
-
-  // Difficulty pill
-  const dpEl = document.getElementById('diff-pill');
-  if (s.difficulty) {
-    const diffEmoji = { easy: '🌱', normal: '🏪', hard: '🔥' }[s.difficulty] || '';
-    const diffColor = { easy: 'var(--green)', normal: 'var(--blue)', hard: 'var(--red)' }[s.difficulty] || 'var(--muted)';
-    dpEl.style.display = 'block';
-    dpEl.textContent = `${diffEmoji} ${s.difficulty.toUpperCase()}`;
-    dpEl.style.borderColor = diffColor;
-    dpEl.style.color = diffColor;
-  } else {
-    dpEl.style.display = 'none';
-  }
 
   // Removed incorrect 'phEl.className' reassignment
 
@@ -1492,7 +1780,7 @@ function renderCustomers(s) {
       card = document.createElement('div');
       card.className = 'ccard' + (c.isVip ? ' vip' : '') + (pct < 25 ? ' urgent' : '');
       card.dataset.id = c.id;
-      card.onclick = () => socket.emit('serveCustomer', c.id);
+      card.onclick = () => openCheckout(c);
 
       const wantsHtml = c.wants.map(w => {
         const prod = s.products.find(p => p.id === w.id);
@@ -1508,7 +1796,7 @@ function renderCustomers(s) {
           </div>
         </div>
         <div class="cwants">${wantsHtml}</div>
-        <div class="serve-label">▶ CLICK TO SERVE</div>
+        <div class="serve-label">🛒 CLICK TO CHECKOUT</div>
         <div class="pbar ${barClass}" style="width:${pct}%"></div>
       `;
       grid.appendChild(card);
@@ -1692,9 +1980,7 @@ function renderUpgrades(s) {
       upgrades.forEach(u => {
         const owned = s.upgrades.includes(u.id);
         const reqsMet = u.requires.every(r => s.upgrades.includes(r));
-        const diffMult = (s.diffConfig && s.diffConfig.upgradeCostMult) || 1;
-        const adjCost = Math.round(u.cost * diffMult);
-        const canAfford = s.money >= adjCost;
+        const canAfford = s.money >= u.cost;
         const available = isShop && reqsMet && !owned;
 
         const card = document.createElement('div');
@@ -1726,16 +2012,12 @@ function renderUpgrades(s) {
           <div class="upg-footer">
             ${owned
               ? `<span class="upg-owned-badge">✅ Owned</span>`
-              : (() => {
-                  const diffMult = (s.diffConfig && s.diffConfig.upgradeCostMult) || 1;
-                  const adjCost = Math.round(u.cost * diffMult);
-                  return `<span class="upg-cost">$${adjCost}</span>
-                   <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
-                     onclick="socket.emit('buyUpgrade','${u.id}')"
-                     ${!available || !canAfford ? 'disabled' : ''}>
-                     ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${adjCost}` : 'Purchase'}
-                   </button>`;
-                })()
+              : `<span class="upg-cost">$${u.cost}</span>
+                 <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
+                   onclick="socket.emit('buyUpgrade','${u.id}')"
+                   ${!available || !canAfford ? 'disabled' : ''}>
+                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${u.cost}` : 'Purchase'}
+                 </button>`
             }
           </div>
         `;
@@ -1797,6 +2079,360 @@ function renderSidebar(s) {
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id==='pane-'+name));
+}
+
+// ── Checkout System ────────────────────────────────
+let checkoutCustomer = null;    // customer object currently being checked out
+let checkoutScanned = [];       // { id, name, emoji, price, qty } per item
+let checkoutTotal = 0;
+let checkoutPayMethod = null;   // 'cash' | 'card'
+let checkoutTendered = 0;
+let checkoutCardApproved = false;
+let checkoutCanComplete = false;
+let _coPatienceInterval = null;
+
+const BILL_DENOMS = [100, 50, 20, 10, 5, 1];
+const BILL_CLASSES = { 100:'b100', 50:'b50', 20:'b20', 10:'b10', 5:'b5', 1:'b1' };
+
+function openCheckout(customer) {
+  if (checkoutCustomer) return; // already checking out someone
+  checkoutCustomer = customer;
+  checkoutScanned = [];
+  checkoutTotal = 0;
+  checkoutPayMethod = null;
+  checkoutTendered = 0;
+  checkoutCardApproved = false;
+  checkoutCanComplete = false;
+
+  // Reset UI
+  document.getElementById('co-customer-emoji').textContent = customer.emoji;
+  document.getElementById('co-customer-name').textContent  = (customer.isVip ? '⭐ ' : '') + customer.name;
+  document.getElementById('co-customer-sub').textContent   = customer.wants.length + ' item type' + (customer.wants.length > 1 ? 's' : '') + (customer.isVip ? ' — VIP 2× payout' : '');
+
+  document.getElementById('co-total-amount').textContent = '$0.00';
+  document.getElementById('co-items-list').innerHTML = '';
+  document.getElementById('co-payment-section').classList.remove('visible');
+  document.getElementById('co-cash-ui').classList.remove('visible');
+  document.getElementById('co-card-ui').classList.remove('visible');
+  document.getElementById('co-approved').classList.remove('show');
+  document.getElementById('co-change-display').classList.remove('show');
+  document.getElementById('co-complete-btn').classList.remove('visible');
+  document.getElementById('co-complete-btn').disabled = true;
+  document.getElementById('pay-cash-btn').classList.remove('selected');
+  document.getElementById('pay-card-btn').classList.remove('selected');
+  document.getElementById('co-cash-tendered').textContent = '$0.00';
+
+  // Build conveyor belt
+  buildConveyor(customer);
+
+  // Patience bar animation
+  startCoPatienceBar(customer);
+
+  document.getElementById('checkout-overlay').classList.add('active');
+}
+
+function buildConveyor(customer) {
+  const unscanned = document.getElementById('co-unscanned-side');
+  const scanned   = document.getElementById('co-scanned-side');
+  unscanned.innerHTML = '';
+  // keep scanned label
+  scanned.innerHTML = '<div style="font-size:10px;color:rgba(16,185,129,.3);font-weight:700;letter-spacing:1px;writing-mode:vertical-rl;padding:8px 4px">SCANNED</div>';
+
+  customer.wants.forEach(w => {
+    const prod = roomState?.products?.find(p => p.id === w.id);
+    const price = roomState?.prices?.[w.id] || prod?.basePrice || 0;
+
+    // One chip per unit (up to 6 shown, then batch)
+    const showIndividual = w.qty <= 5;
+    if (showIndividual) {
+      for (let i = 0; i < w.qty; i++) {
+        const chip = makeBeltItem(w.id, prod, price, 1, false);
+        unscanned.appendChild(chip);
+      }
+    } else {
+      // batch chip
+      const chip = makeBeltItem(w.id, prod, price, w.qty, false);
+      unscanned.appendChild(chip);
+    }
+  });
+}
+
+function makeBeltItem(id, prod, price, qty, scanned) {
+  const el = document.createElement('div');
+  el.className = 'belt-item' + (scanned ? ' scanned' : '');
+  el.dataset.id = id;
+  el.dataset.qty = qty;
+  el.dataset.price = price;
+  el.innerHTML = `
+    <span class="bi-emoji">${prod?.emoji || '📦'}</span>
+    <span class="bi-name">${prod?.name || id}</span>
+    <span class="bi-price">$${price}</span>
+    ${qty > 1 ? `<span class="bi-qty-badge">×${qty}</span>` : ''}
+  `;
+  if (!scanned) {
+    el.onclick = () => scanItem(el, id, prod, price, qty);
+  }
+  return el;
+}
+
+function scanItem(el, id, prod, price, qty) {
+  if (el.classList.contains('scanned')) return;
+
+  // Flash
+  el.classList.add('scanned', 'flash');
+  el.onclick = null;
+  setTimeout(() => el.classList.remove('flash'), 400);
+
+  // Move to scanned side after short delay
+  setTimeout(() => {
+    el.remove();
+    const scannedSide = document.getElementById('co-scanned-side');
+    const scannedEl = makeBeltItem(id, prod, price, qty, true);
+    scannedSide.appendChild(scannedEl);
+  }, 280);
+
+  // Add to total
+  const lineTotal = price * qty;
+  checkoutScanned.push({ id, name: prod?.name || id, emoji: prod?.emoji || '📦', price, qty, lineTotal });
+  checkoutTotal += lineTotal;
+
+  updateRegisterDisplay();
+  checkAllScanned();
+}
+
+function checkoutScanAll() {
+  const items = document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)');
+  let delay = 0;
+  items.forEach(el => {
+    setTimeout(() => {
+      const id = el.dataset.id;
+      const qty = parseInt(el.dataset.qty);
+      const price = parseFloat(el.dataset.price);
+      const prod = roomState?.products?.find(p => p.id === id);
+      scanItem(el, id, prod, price, qty);
+    }, delay);
+    delay += 180;
+  });
+}
+
+function updateRegisterDisplay() {
+  // Apply multipliers client-side display (same as server will apply)
+  let mult = 1;
+  if (roomState?.saleActive) mult *= 1.5;
+  if (roomState?.upgrades?.includes('loyalty')) mult *= 1.15;
+  if (checkoutCustomer?.isVip) mult *= 2;
+  const displayTotal = Math.round(checkoutTotal * mult);
+
+  document.getElementById('co-total-amount').textContent = '$' + displayTotal.toFixed(2).replace('.00', '');
+
+  const list = document.getElementById('co-items-list');
+  list.innerHTML = checkoutScanned.map(item => {
+    const lineDisplay = Math.round(item.lineTotal * mult);
+    return `${item.emoji} ${item.name} ×${item.qty} ............... $${lineDisplay}`;
+  }).join('\n');
+
+  if (roomState?.saleActive) list.innerHTML += '\n🏷️ FLASH SALE +50%';
+  if (roomState?.upgrades?.includes('loyalty')) list.innerHTML += '\n💳 LOYALTY +15%';
+  if (checkoutCustomer?.isVip) list.innerHTML += '\n⭐ VIP ×2';
+}
+
+function checkAllScanned() {
+  const remaining = document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)').length;
+  if (remaining === 0 && checkoutScanned.length > 0) {
+    document.getElementById('co-payment-section').classList.add('visible');
+    document.getElementById('co-scan-hint').textContent = '✅ All items scanned! Choose a payment method →';
+  }
+}
+
+function selectPayMethod(method) {
+  checkoutPayMethod = method;
+  checkoutTendered = 0;
+  checkoutCardApproved = false;
+  checkoutCanComplete = false;
+
+  document.getElementById('pay-cash-btn').classList.toggle('selected', method === 'cash');
+  document.getElementById('pay-card-btn').classList.toggle('selected', method === 'card');
+  document.getElementById('co-cash-ui').classList.toggle('visible', method === 'cash');
+  document.getElementById('co-card-ui').classList.toggle('visible', method === 'card');
+  document.getElementById('co-complete-btn').classList.remove('visible');
+  document.getElementById('co-approved').classList.remove('show');
+  document.getElementById('co-change-display').classList.remove('show');
+
+  if (method === 'cash') {
+    setupCashPayment();
+  } else if (method === 'card') {
+    setupCardPayment();
+  }
+}
+
+function getEffectiveTotal() {
+  let mult = 1;
+  if (roomState?.saleActive) mult *= 1.5;
+  if (roomState?.upgrades?.includes('loyalty')) mult *= 1.15;
+  if (checkoutCustomer?.isVip) mult *= 2;
+  return Math.round(checkoutTotal * mult);
+}
+
+function setupCashPayment() {
+  const total = getEffectiveTotal();
+  checkoutTendered = 0;
+  document.getElementById('co-cash-tendered').textContent = '$0.00';
+  document.getElementById('co-change-display').classList.remove('show');
+  document.getElementById('co-complete-btn').classList.remove('visible');
+
+  // Generate random bills that sum to enough to cover the total
+  const bills = generateCustomerBills(total);
+  const billsEl = document.getElementById('co-customer-bills');
+  billsEl.innerHTML = '';
+
+  bills.forEach(denom => {
+    const chip = document.createElement('div');
+    chip.className = `bill-chip b${denom}`;
+    chip.textContent = `$${denom}`;
+    chip.dataset.denom = denom;
+    chip.dataset.used = '0';
+    chip.onclick = () => acceptBill(chip, denom);
+    billsEl.appendChild(chip);
+  });
+}
+
+function generateCustomerBills(total) {
+  // Generate a realistic set of bills that totals to >= total
+  const bills = [];
+  let remaining = total;
+  // Pick a random "overpay" amount (0 to $15) to create a change situation
+  const overpay = [0, 1, 2, 5, 10, 15][Math.floor(Math.random() * 6)];
+  remaining += overpay;
+
+  for (const denom of BILL_DENOMS) {
+    while (remaining >= denom) {
+      bills.push(denom);
+      remaining -= denom;
+    }
+  }
+  // Shuffle for realism
+  return bills.sort(() => Math.random() - .5);
+}
+
+function acceptBill(chip, denom) {
+  if (chip.dataset.used === '1') return;
+  chip.dataset.used = '1';
+  chip.classList.add('bused');
+
+  checkoutTendered += denom;
+  document.getElementById('co-cash-tendered').textContent = '$' + checkoutTendered.toFixed(2).replace('.00','');
+
+  const total = getEffectiveTotal();
+  if (checkoutTendered >= total) {
+    const change = checkoutTendered - total;
+    showChange(change);
+  }
+}
+
+function showChange(change) {
+  const dispEl = document.getElementById('co-change-display');
+  dispEl.classList.add('show');
+  document.getElementById('co-change-amount').textContent = '$' + change.toFixed(2).replace('.00','');
+
+  const billsEl = document.getElementById('co-change-bills');
+  billsEl.innerHTML = '';
+  if (change > 0) {
+    let rem = change;
+    for (const denom of BILL_DENOMS) {
+      while (rem >= denom) {
+        const b = document.createElement('span');
+        b.className = 'change-bill';
+        b.textContent = '$' + denom;
+        billsEl.appendChild(b);
+        rem -= denom;
+      }
+    }
+  } else {
+    billsEl.innerHTML = '<span style="font-size:12px;color:var(--green)">No change needed!</span>';
+  }
+
+  checkoutCanComplete = true;
+  document.getElementById('co-complete-btn').textContent = change > 0 ? `💰 Give $${change} change & Complete` : '✅ Complete Transaction';
+  document.getElementById('co-complete-btn').classList.add('visible');
+  document.getElementById('co-complete-btn').disabled = false;
+}
+
+function setupCardPayment() {
+  document.getElementById('co-approved').classList.remove('show');
+  document.getElementById('co-card-hint-sub').style.display = 'block';
+  document.getElementById('co-card-hint-sub').textContent = 'Click card to swipe →';
+  const cardVis = document.getElementById('co-card-vis');
+  cardVis.style.display = 'block';
+  cardVis.classList.remove('swiping');
+  // random card brand
+  const brands = ['VISA','MC','AMEX','DISC'];
+  cardVis.querySelector('.card-brand').textContent = brands[Math.floor(Math.random()*brands.length)];
+}
+
+function doCardSwipe() {
+  if (checkoutCardApproved) return;
+  const cardEl = document.getElementById('co-card-vis');
+  cardEl.classList.remove('swiping');
+  void cardEl.offsetWidth; // reflow
+  cardEl.classList.add('swiping');
+
+  setTimeout(() => {
+    document.getElementById('co-card-hint-sub').textContent = 'Processing...';
+  }, 100);
+
+  setTimeout(() => {
+    checkoutCardApproved = true;
+    cardEl.style.display = 'none';
+    document.getElementById('co-approved').classList.add('show');
+    document.getElementById('co-card-hint-sub').style.display = 'none';
+
+    checkoutCanComplete = true;
+    document.getElementById('co-complete-btn').textContent = '✅ Complete Transaction';
+    document.getElementById('co-complete-btn').classList.add('visible');
+    document.getElementById('co-complete-btn').disabled = false;
+  }, 750);
+}
+
+function completeCheckout() {
+  if (!checkoutCanComplete || !checkoutCustomer) return;
+  const cid = checkoutCustomer.id;
+  closeCheckout();
+  socket.emit('serveCustomer', cid);
+}
+
+function abandonCheckout() {
+  closeCheckout();
+  showToast('Customer sent back to queue.', 'info');
+}
+
+function closeCheckout() {
+  clearInterval(_coPatienceInterval);
+  checkoutCustomer = null;
+  document.getElementById('checkout-overlay').classList.remove('active');
+}
+
+function startCoPatienceBar(customer) {
+  clearInterval(_coPatienceInterval);
+  const bar     = document.getElementById('co-patience-bar');
+  const barText = document.getElementById('co-patience-text');
+  const start   = Date.now();
+  const totalMs = customer.patience * 1000;
+
+  function tick() {
+    const elapsed = Date.now() - start;
+    const pct = Math.max(0, 1 - elapsed / totalMs);
+    bar.style.width = (pct * 100) + '%';
+    bar.style.background = pct > .6 ? 'var(--green)' : pct > .3 ? 'var(--yellow)' : 'var(--red)';
+    const secLeft = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+    barText.textContent = secLeft + 's';
+    if (pct === 0) {
+      clearInterval(_coPatienceInterval);
+      closeCheckout();
+      showToast(`${customer.name} lost patience and left!`, 'error');
+    }
+  }
+  tick();
+  _coPatienceInterval = setInterval(tick, 500);
 }
 
 // ── Toast ──────────────────────────────────────────
