@@ -878,6 +878,13 @@ input::placeholder { color: var(--muted); }
 }
 .save-slot-badge.new-game { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
 .save-slot-badge.continue  { background: var(--blue-lo);  color: var(--blue);  border: 1px solid var(--blue); }
+.difficulty-picker { width: 100%; max-width: 480px; margin: 12px auto 0; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px; }
+.difficulty-label  { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+.difficulty-options { display: flex; gap: 8px; margin-bottom: 10px; }
+.diff-btn { flex: 1; padding: 9px 0; border-radius: 10px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s; }
+.diff-btn:hover   { border-color: var(--blue); }
+.diff-btn.selected { border-color: var(--green); background: var(--green-lo); color: var(--green); }
+.difficulty-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; min-height: 32px; }
 
 .saves-actions { display: flex; gap: 12px; }
 .saves-actions .btn { min-width: 140px; }
@@ -1320,6 +1327,15 @@ input::placeholder { color: var(--muted); }
     <p>Select a slot to continue a run, or start fresh</p>
   </div>
   <div class="save-slots" id="save-slots-container"></div>
+  <div class="difficulty-picker" id="difficulty-picker" style="display:none">
+    <div class="difficulty-label">⚙️ Difficulty</div>
+    <div class="difficulty-options">
+      <button class="diff-btn" data-diff="easy"   onclick="selectDifficulty('easy')">🌱 Easy</button>
+      <button class="diff-btn selected" data-diff="normal" onclick="selectDifficulty('normal')">🏪 Normal</button>
+      <button class="diff-btn" data-diff="hard"   onclick="selectDifficulty('hard')">🔥 Hard</button>
+    </div>
+    <div class="difficulty-desc" id="difficulty-desc">Balanced challenge — manage your budget carefully and react to events.</div>
+  </div>
   <div class="saves-actions">
     <button class="btn blue" id="saves-confirm-btn" onclick="confirmSaveSelection()" disabled>▶ Open Lobby</button>
     <button class="btn secondary" onclick="show('title')">← Back</button>
@@ -1657,6 +1673,19 @@ let roomState = null;
 let myRoomCode = null;
 let pendingCreateName = '';
 let selectedSaveSlot = null;   // null = new game, 0/1/2 = slot index
+let selectedDifficulty = 'normal';
+
+const DIFF_DESCS = {
+  easy:   'Relaxed store sim — generous starting cash, cheap upgrades, patient customers.',
+  normal: 'Balanced challenge — manage your budget carefully and react to events.',
+  hard:   'Brutal economy — tight cash, impatient customers, punishing events.',
+};
+
+function selectDifficulty(diff) {
+  selectedDifficulty = diff;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('selected', b.dataset.diff === diff));
+  document.getElementById('difficulty-desc').textContent = DIFF_DESCS[diff] || '';
+}
 let savesData = [null, null, null];
 
 // ── localStorage save helpers ──────────────────────
@@ -1762,8 +1791,11 @@ function doManualSave() {
 function handleCreate() {
   pendingCreateName = document.getElementById('create-name').value.trim() || 'Player 1';
   selectedSaveSlot = null;
+  selectedDifficulty = 'normal';
+  selectDifficulty('normal');
   savesData = lsLoadSaves();
   renderSaveSlots(savesData);
+  document.getElementById('difficulty-picker').style.display = 'none';
   show('saves');
 }
 
@@ -1795,6 +1827,7 @@ function renderSaveSlots(saves) {
           ⬆️ ${save.upgrades.length} upgrade${save.upgrades.length!==1?'s':''}
         </div>
         <div class="save-slot-date">Saved ${dateStr}</div>
+        <div style="margin-top:6px;font-size:12px;font-weight:700;opacity:.8">${{easy:'🌱 Easy',normal:'🏪 Normal',hard:'🔥 Hard'}[save.difficulty||'normal']||'🏪 Normal'}</div>
         <button class="btn red xs" style="margin-top:8px;width:100%" onclick="deleteSave(event,${i})">🗑️ Delete Save</button>
       `;
     } else {
@@ -1816,6 +1849,9 @@ function selectSaveSlot(slotIdx, hasSave) {
   if (el) el.classList.add('selected');
   selectedSaveSlot = slotIdx;
   document.getElementById('saves-confirm-btn').disabled = false;
+  // Only show difficulty picker for new (empty) slots
+  const picker = document.getElementById('difficulty-picker');
+  picker.style.display = hasSave ? 'none' : 'block';
 }
 
 function deleteSave(e, slotIdx) {
@@ -1829,7 +1865,8 @@ function deleteSave(e, slotIdx) {
 function confirmSaveSelection() {
   if (selectedSaveSlot === null) return;
   const save = savesData[selectedSaveSlot] || null;
-  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save });
+  const difficulty = save ? (save.difficulty || 'normal') : selectedDifficulty;
+  socket.emit('createRoom', { name: pendingCreateName, saveSlot: selectedSaveSlot, save, difficulty });
 }
 
 function handleJoin() {
