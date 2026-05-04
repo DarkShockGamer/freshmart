@@ -804,7 +804,7 @@ input::placeholder { color: var(--muted); }
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  cursor: pointer;
+  cursor: grab;
   padding: 8px 10px;
   border-radius: 12px;
   border: 1.5px solid var(--border);
@@ -818,7 +818,8 @@ input::placeholder { color: var(--muted); }
   transform: translateY(-3px) scale(1.05);
   box-shadow: 0 6px 20px rgba(16,185,129,.2);
 }
-.belt-item:active { transform: scale(.96); }
+.belt-item:active { cursor: grabbing; transform: scale(.96); }
+.belt-item.dragging { opacity: .5; border-color: var(--green); cursor: grabbing; }
 .belt-item .bi-emoji { font-size: 24px; line-height: 1; }
 .belt-item .bi-name  { font-size: 9px; font-weight: 700; color: var(--muted); text-align: center; max-width: 64px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .belt-item .bi-price { font-size: 10px; font-family: var(--mono); font-weight: 700; color: var(--green); }
@@ -844,6 +845,13 @@ input::placeholder { color: var(--muted); }
   100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
 }
 .belt-item.flash { animation: scanFlash .35s ease-out; }
+
+/* Scan line highlight when dragging over */
+#co-belt.drag-active #co-belt-line {
+  background: linear-gradient(180deg, transparent, rgba(16,185,129,.9), transparent);
+  width: 4px;
+  box-shadow: 0 0 16px rgba(16,185,129,.6);
+}
 
 /* Scanner zone label */
 #co-scan-hint {
@@ -970,13 +978,18 @@ input::placeholder { color: var(--muted); }
 .card-visual.swiping { animation: cardSwipe .6s ease-in-out; }
 
 .swipe-terminal {
-  width: 160px; height: 16px; background: #111; border-radius: 4px;
-  border: 2px solid #333; position: relative; overflow: hidden;
+  width: 160px; height: 40px; background: #111; border-radius: 8px;
+  border: 2px dashed #444; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .2s, background .2s;
+}
+.swipe-terminal.drag-over {
+  border-color: var(--green); background: rgba(16,185,129,.1);
 }
 .swipe-terminal::after {
-  content: 'SWIPE CARD';
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  content: 'SWIPE CARD HERE';
   font-size: 9px; color: #555; letter-spacing: 2px; font-weight: 700;
+  pointer-events: none;
 }
 
 #co-card-hint { font-size: 12px; color: var(--muted); text-align: center; }
@@ -1290,7 +1303,7 @@ input::placeholder { color: var(--muted); }
 
       <!-- Left: Conveyor belt -->
       <div id="co-conveyor-panel">
-        <div id="co-conveyor-label">🛒 Conveyor Belt — Click items to scan</div>
+        <div id="co-conveyor-label">🛒 Conveyor Belt — Drag items across the line to scan</div>
         <div id="co-belt">
           <div id="co-belt-line"></div>
           <div id="co-belt-row">
@@ -1301,7 +1314,7 @@ input::placeholder { color: var(--muted); }
             </div>
           </div>
         </div>
-        <div id="co-scan-hint">Click an item on the left to scan it → items move right once scanned</div>
+        <div id="co-scan-hint">Drag items across the green line to scan them →</div>
       </div>
 
       <!-- Right: Register -->
@@ -1320,9 +1333,10 @@ input::placeholder { color: var(--muted); }
         <!-- Payment section — shown after all items scanned -->
         <div id="co-payment-section">
           <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Payment Method</div>
-          <div id="co-payment-method">
-            <div class="pay-method-btn" id="pay-cash-btn" onclick="selectPayMethod('cash')">💵 Cash</div>
-            <div class="pay-method-btn" id="pay-card-btn" onclick="selectPayMethod('card')">💳 Card</div>
+          <div id="co-payment-method-display" style="display:flex;align-items:center;gap:8px;background:var(--surf2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;">
+            <span id="co-pay-method-icon" style="font-size:22px">💳</span>
+            <span id="co-pay-method-label" style="font-size:13px;font-weight:700;color:var(--text)">Card</span>
+            <span style="font-size:11px;color:var(--muted);margin-left:auto">Customer chose this</span>
           </div>
 
           <!-- CASH UI -->
@@ -1340,14 +1354,20 @@ input::placeholder { color: var(--muted); }
           <!-- CARD UI -->
           <div id="co-card-ui">
             <div id="co-card-hint">Customer is ready to pay by card</div>
-            <div class="card-visual" id="co-card-vis" onclick="doCardSwipe()">
+            <div class="card-visual" id="co-card-vis"
+              draggable="true"
+              ondragstart="onCardDragStart(event)"
+              ondragend="onCardDragEnd(event)">
               <div class="chip"></div>
               <div class="card-num">•••• •••• •••• ••••</div>
               <div class="card-tap">📶</div>
               <div class="card-brand">VISA</div>
             </div>
-            <div class="swipe-terminal"></div>
-            <div id="co-card-hint-sub" style="font-size:11px;color:var(--muted);text-align:center">Click card to swipe →</div>
+            <div class="swipe-terminal" id="co-swipe-terminal"
+              ondragover="event.preventDefault()"
+              ondrop="onCardDropSwipe(event)">
+            </div>
+            <div id="co-card-hint-sub" style="font-size:11px;color:var(--muted);text-align:center">Drag card onto the reader to swipe →</div>
             <div id="co-approved">
               <div class="ap-icon">✅</div>
               <div class="ap-text">APPROVED</div>
@@ -2118,8 +2138,6 @@ function openCheckout(customer) {
   document.getElementById('co-change-display').classList.remove('show');
   document.getElementById('co-complete-btn').classList.remove('visible');
   document.getElementById('co-complete-btn').disabled = true;
-  document.getElementById('pay-cash-btn').classList.remove('selected');
-  document.getElementById('pay-card-btn').classList.remove('selected');
   document.getElementById('co-cash-tendered').textContent = '$0.00';
 
   // Build conveyor belt
@@ -2138,31 +2156,57 @@ function buildConveyor(customer) {
   // keep scanned label
   scanned.innerHTML = '<div style="font-size:10px;color:rgba(16,185,129,.3);font-weight:700;letter-spacing:1px;writing-mode:vertical-rl;padding:8px 4px">SCANNED</div>';
 
+  // Make scanned side a drop target
+  scanned.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  scanned.ondrop = (e) => {
+    e.preventDefault();
+    const itemKey = e.dataTransfer.getData('text/plain');
+    dropScanItem(itemKey);
+  };
+  // Also allow dropping on the belt line
+  const beltLine = document.getElementById('co-belt-line');
+  beltLine.ondragover = (e) => { e.preventDefault(); };
+  beltLine.ondrop = (e) => {
+    e.preventDefault();
+    const itemKey = e.dataTransfer.getData('text/plain');
+    dropScanItem(itemKey);
+  };
+
   customer.wants.forEach(w => {
     const prod = roomState?.products?.find(p => p.id === w.id);
     const price = roomState?.prices?.[w.id] || prod?.basePrice || 0;
 
-    // One chip per unit (up to 6 shown, then batch)
     const showIndividual = w.qty <= 5;
     if (showIndividual) {
       for (let i = 0; i < w.qty; i++) {
-        const chip = makeBeltItem(w.id, prod, price, 1, false);
+        const chip = makeBeltItem(w.id, prod, price, 1, false, i);
         unscanned.appendChild(chip);
       }
     } else {
-      // batch chip
-      const chip = makeBeltItem(w.id, prod, price, w.qty, false);
+      const chip = makeBeltItem(w.id, prod, price, w.qty, false, 0);
       unscanned.appendChild(chip);
     }
   });
 }
 
-function makeBeltItem(id, prod, price, qty, scanned) {
+function dropScanItem(itemKey) {
+  const el = document.querySelector(`#co-unscanned-side .belt-item[data-key="${itemKey}"]:not(.scanned)`);
+  if (!el) return;
+  const id   = el.dataset.id;
+  const qty  = parseInt(el.dataset.qty);
+  const price = parseFloat(el.dataset.price);
+  const prod = roomState?.products?.find(p => p.id === id);
+  scanItem(el, id, prod, price, qty);
+}
+
+function makeBeltItem(id, prod, price, qty, scanned, idx) {
   const el = document.createElement('div');
+  const key = id + '_' + idx + '_' + Math.random().toString(36).slice(2,6);
   el.className = 'belt-item' + (scanned ? ' scanned' : '');
-  el.dataset.id = id;
+  el.dataset.id  = id;
   el.dataset.qty = qty;
   el.dataset.price = price;
+  el.dataset.key = key;
   el.innerHTML = `
     <span class="bi-emoji">${prod?.emoji || '📦'}</span>
     <span class="bi-name">${prod?.name || id}</span>
@@ -2170,7 +2214,18 @@ function makeBeltItem(id, prod, price, qty, scanned) {
     ${qty > 1 ? `<span class="bi-qty-badge">×${qty}</span>` : ''}
   `;
   if (!scanned) {
-    el.onclick = () => scanItem(el, id, prod, price, qty);
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      if (el.classList.contains('scanned')) { e.preventDefault(); return; }
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', key);
+      document.getElementById('co-belt').classList.add('drag-active');
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.getElementById('co-belt').classList.remove('drag-active');
+    });
   }
   return el;
 }
@@ -2180,14 +2235,14 @@ function scanItem(el, id, prod, price, qty) {
 
   // Flash
   el.classList.add('scanned', 'flash');
-  el.onclick = null;
+  el.draggable = false;
   setTimeout(() => el.classList.remove('flash'), 400);
 
   // Move to scanned side after short delay
   setTimeout(() => {
     el.remove();
     const scannedSide = document.getElementById('co-scanned-side');
-    const scannedEl = makeBeltItem(id, prod, price, qty, true);
+    const scannedEl = makeBeltItem(id, prod, price, qty, true, 0);
     scannedSide.appendChild(scannedEl);
   }, 280);
 
@@ -2201,7 +2256,7 @@ function scanItem(el, id, prod, price, qty) {
 }
 
 function checkoutScanAll() {
-  const items = document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)');
+  const items = [...document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)')];
   let delay = 0;
   items.forEach(el => {
     setTimeout(() => {
@@ -2239,30 +2294,34 @@ function updateRegisterDisplay() {
 function checkAllScanned() {
   const remaining = document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)').length;
   if (remaining === 0 && checkoutScanned.length > 0) {
-    document.getElementById('co-payment-section').classList.add('visible');
-    document.getElementById('co-scan-hint').textContent = '✅ All items scanned! Choose a payment method →';
+    document.getElementById('co-scan-hint').textContent = '✅ All items scanned!';
+    // Auto-assign: 25% cash, 75% card
+    const method = Math.random() < 0.25 ? 'cash' : 'card';
+    setTimeout(() => autoSelectPayMethod(method), 300);
   }
 }
 
-function selectPayMethod(method) {
-  checkoutPayMethod = method;
-  checkoutTendered = 0;
+function autoSelectPayMethod(method) {
+  checkoutPayMethod    = method;
+  checkoutTendered     = 0;
   checkoutCardApproved = false;
-  checkoutCanComplete = false;
+  checkoutCanComplete  = false;
 
-  document.getElementById('pay-cash-btn').classList.toggle('selected', method === 'cash');
-  document.getElementById('pay-card-btn').classList.toggle('selected', method === 'card');
+  // Update display badge
+  const icon  = document.getElementById('co-pay-method-icon');
+  const label = document.getElementById('co-pay-method-label');
+  icon.textContent  = method === 'cash' ? '💵' : '💳';
+  label.textContent = method === 'cash' ? 'Cash' : 'Card';
+
+  document.getElementById('co-payment-section').classList.add('visible');
   document.getElementById('co-cash-ui').classList.toggle('visible', method === 'cash');
   document.getElementById('co-card-ui').classList.toggle('visible', method === 'card');
   document.getElementById('co-complete-btn').classList.remove('visible');
   document.getElementById('co-approved').classList.remove('show');
   document.getElementById('co-change-display').classList.remove('show');
 
-  if (method === 'cash') {
-    setupCashPayment();
-  } else if (method === 'card') {
-    setupCardPayment();
-  }
+  if (method === 'cash') setupCashPayment();
+  else setupCardPayment();
 }
 
 function getEffectiveTotal() {
@@ -2297,20 +2356,20 @@ function setupCashPayment() {
 }
 
 function generateCustomerBills(total) {
-  // Generate a realistic set of bills that totals to >= total
   const bills = [];
   let remaining = total;
-  // Pick a random "overpay" amount (0 to $15) to create a change situation
-  const overpay = [0, 1, 2, 5, 10, 15][Math.floor(Math.random() * 6)];
-  remaining += overpay;
-
+  // 40% chance exact change, otherwise overpay by a random amount
+  const isExact = Math.random() < 0.4;
+  if (!isExact) {
+    const overpayOptions = [1, 2, 5, 10, 15, 20];
+    remaining += overpayOptions[Math.floor(Math.random() * overpayOptions.length)];
+  }
   for (const denom of BILL_DENOMS) {
     while (remaining >= denom) {
       bills.push(denom);
       remaining -= denom;
     }
   }
-  // Shuffle for realism
   return bills.sort(() => Math.random() - .5);
 }
 
@@ -2360,13 +2419,30 @@ function showChange(change) {
 function setupCardPayment() {
   document.getElementById('co-approved').classList.remove('show');
   document.getElementById('co-card-hint-sub').style.display = 'block';
-  document.getElementById('co-card-hint-sub').textContent = 'Click card to swipe →';
+  document.getElementById('co-card-hint-sub').textContent = 'Drag the card onto the reader to swipe →';
   const cardVis = document.getElementById('co-card-vis');
   cardVis.style.display = 'block';
   cardVis.classList.remove('swiping');
-  // random card brand
   const brands = ['VISA','MC','AMEX','DISC'];
   cardVis.querySelector('.card-brand').textContent = brands[Math.floor(Math.random()*brands.length)];
+  checkoutCardApproved = false;
+}
+
+function onCardDragStart(e) {
+  if (checkoutCardApproved) { e.preventDefault(); return; }
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'card');
+  document.getElementById('co-swipe-terminal').classList.add('drag-over');
+}
+
+function onCardDragEnd(e) {
+  document.getElementById('co-swipe-terminal').classList.remove('drag-over');
+}
+
+function onCardDropSwipe(e) {
+  e.preventDefault();
+  document.getElementById('co-swipe-terminal').classList.remove('drag-over');
+  if (e.dataTransfer.getData('text/plain') === 'card') doCardSwipe();
 }
 
 function doCardSwipe() {
