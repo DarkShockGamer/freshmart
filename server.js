@@ -454,7 +454,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
     color: PLAYER_COLORS[0], role: PLAYER_ROLES[0],
-    personalScore: 0,
+    personalScore: 0, cashierLane: null,
   };
   rooms.set(code, room);
   if (save) {
@@ -946,7 +946,7 @@ io.on('connection', (socket) => {
     // Carry over personalScore if someone with the same name was here before
     const nameKey = playerName.toLowerCase();
     const priorScore = (room.stats?.byPlayer?.[nameKey]?.revenue) || 0;
-    room.players[socket.id] = { id: socket.id, name: playerName, color: PLAYER_COLORS[idx%6], role: PLAYER_ROLES[idx%6], personalScore: priorScore };
+    room.players[socket.id] = { id: socket.id, name: playerName, color: PLAYER_COLORS[idx%6], role: PLAYER_ROLES[idx%6], personalScore: priorScore, cashierLane: null };
     socketRoom.set(socket.id, roomCode);
     socket.join(roomCode);
     roomLog(room, `👋 ${playerName} joined!`);
@@ -995,26 +995,34 @@ io.on('connection', (socket) => {
     if (!room || room.phase !== 'playing') return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
     const lanes = getCheckoutLanes(room.upgrades);
+    const p = room.players[socket.id];
     // If this player already has a lock, just update the customer
     if (room.checkoutLocks[socket.id]) {
       if (customerId != null) {
         const c = room.customers.find(c => c.id === customerId);
-        const p = room.players[socket.id];
         if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
       }
       emit(room); return;
     }
-    // Count how many OTHER players currently hold a checkout lock
+    // Count active player locks (excluding self)
     const activeLocks = Object.keys(room.checkoutLocks)
       .filter(pid => pid !== socket.id && room.players[pid]).length;
-    if (activeLocks >= lanes) {
+
+    // Count lanes that are free AND not reserved by someone else
+    const reservations = getCashierReservations(room);
+    const myReservedLane = p?.cashierLane || null;
+    // Lanes reserved by OTHER players that don't yet have a lock are "spoken for"
+    const spokenFor = Object.entries(reservations)
+      .filter(([ln, pid]) => pid !== socket.id && !room.checkoutLocks[pid]).length;
+    const availableLanes = lanes - activeLocks - spokenFor;
+
+    if (!myReservedLane && availableLanes <= 0) {
       socket.emit('checkoutDenied', { reason: `All ${lanes} checkout lane${lanes>1?'s':''} are busy! Buy more lanes in Upgrades.` });
       return;
     }
     room.checkoutLocks[socket.id] = true;
     if (customerId != null) {
       const c = room.customers.find(c => c.id === customerId);
-      const p = room.players[socket.id];
       if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
     }
     emit(room);
@@ -1211,6 +1219,87 @@ io.on('connection', (socket) => {
     resetRoom(room);
   });
 
+  // Helper: find which lane (if any) is reserved for a given player
+  function getReservedLane(room, pid) {
+    const p = room.players[pid];
+    return (p && p.cashierLane) ? p.cashierLane : null;
+  }
+
+  // Helper: get a map of laneNum -> pid for all cashier reservations
+  function getCashierReservations(room) {
+    const map = {};
+    Object.values(room.players).forEach(p => {
+      if (p.cashierLane) map[p.cashierLane] = p.id;
+    });
+    return map;
+  }
+
+  // Player claims or releases a cashier lane for themselves
+  socket.on('setCashierLane', ({ lane }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    const p = room.players[socket.id];
+    if (!p) return;
+    const lanes = getCheckoutLanes(room.upgrades);
+
+    if (lane === null) {
+      // Release
+      p.cashierLane = null;
+      roomLog(room, `🧑‍💼 ${p.name} left the cashier.`);
+      emit(room);
+      return;
+    }
+
+    const laneNum = parseInt(lane);
+    if (laneNum < 1 || laneNum > lanes) { socket.emit('msg', { type:'error', text:'Invalid lane!' }); return; }
+
+    // Check lane isn't already reserved by another player
+    const reservations = getCashierReservations(room);
+    if (reservations[laneNum] && reservations[laneNum] !== socket.id) {
+      socket.emit('msg', { type:'error', text:`Lane ${laneNum} is already reserved by another cashier!` });
+      return;
+    }
+    // Check AI worker isn't on that lane
+    const aiOnLane = (room.aiWorkers || []).some(w => w.assignedLane === laneNum);
+    if (aiOnLane) { socket.emit('msg', { type:'error', text:`Lane ${laneNum} has an AI worker assigned!` }); return; }
+
+    // Release previous lane
+    p.cashierLane = laneNum;
+    roomLog(room, `🧑‍💼 ${p.name} is now cashier on Lane ${laneNum}.`);
+    emit(room);
+  });
+
+  // Host assigns or removes a cashier lane for any player
+  socket.on('assignCashierLane', ({ targetId, lane }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.hostId !== socket.id) return;
+    const target = room.players[targetId];
+    if (!target) return;
+    const lanes = getCheckoutLanes(room.upgrades);
+
+    if (lane === null) {
+      target.cashierLane = null;
+      roomLog(room, `👑 Host removed ${target.name} from cashier.`);
+      emit(room);
+      return;
+    }
+
+    const laneNum = parseInt(lane);
+    if (laneNum < 1 || laneNum > lanes) { socket.emit('msg', { type:'error', text:'Invalid lane!' }); return; }
+
+    const reservations = getCashierReservations(room);
+    if (reservations[laneNum] && reservations[laneNum] !== targetId) {
+      socket.emit('msg', { type:'error', text:`Lane ${laneNum} is already reserved by another cashier!` });
+      return;
+    }
+    const aiOnLane = (room.aiWorkers || []).some(w => w.assignedLane === laneNum);
+    if (aiOnLane) { socket.emit('msg', { type:'error', text:`Lane ${laneNum} has an AI worker assigned!` }); return; }
+
+    target.cashierLane = laneNum;
+    roomLog(room, `👑 Host assigned ${target.name} to Lane ${laneNum}.`);
+    emit(room);
+  });
+
   socket.on('leaveRoom', () => handleLeave(socket));
   socket.on('disconnect', () => handleLeave(socket));
 
@@ -1221,6 +1310,7 @@ io.on('connection', (socket) => {
     socketRoom.delete(sock.id);
     if (!room) return;
     const pname = room.players[sock.id]?.name || 'A player';
+    if (room.players[sock.id]) room.players[sock.id].cashierLane = null;
     delete room.players[sock.id];
     sock.leave(code);
 
