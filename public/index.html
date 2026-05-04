@@ -663,6 +663,120 @@ input::placeholder { color: var(--muted); }
 .stats-player-table th { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; padding: 0 8px 8px; text-align: left; }
 .stats-player-table td { padding: 7px 8px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
 .stats-player-table tr:hover td { background: var(--surf2); }
+/* ── Self-Checkout Zone ── */
+#sco-zone {
+  margin-top: 18px;
+  border-top: 2px solid var(--border);
+  padding-top: 14px;
+}
+.sco-zone-header {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;
+}
+.sco-zone-title {
+  font-size: 13px; font-weight: 800; color: var(--cyan); letter-spacing: .3px;
+}
+.sco-zone-sub {
+  font-size: 11px; color: var(--muted); font-weight: 600;
+}
+#sco-machines-row {
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+
+/* Each machine card */
+.sco-machine-card {
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  min-width: 190px;
+  max-width: 240px;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.sco-machine-card.active-sco {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(6,182,212,.15);
+}
+.sco-machine-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.sco-machine-emoji { font-size: 22px; }
+.sco-machine-name { font-size: 12px; font-weight: 800; }
+.sco-machine-speed { font-size: 10px; color: var(--cyan); font-family: var(--mono); }
+
+/* Animated screen inside the machine */
+.sco-screen {
+  background: #0a1a10;
+  border: 1px solid #1a3a20;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-height: 64px;
+  font-family: var(--mono);
+  position: relative;
+  overflow: hidden;
+}
+.sco-screen-idle {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 64px; color: #2a5a3a; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+}
+.sco-screen-idle::before {
+  content: '🛒';
+  font-size: 22px; display: block; margin-bottom: 4px; opacity: .4;
+}
+.sco-active-customer {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.sco-cust-emoji { font-size: 18px; }
+.sco-cust-name { font-size: 11px; font-weight: 700; color: #80ffaa; }
+.sco-items-scroll {
+  display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;
+}
+.sco-item-tag {
+  background: rgba(6,182,212,.15); border: 1px solid rgba(6,182,212,.3);
+  border-radius: 5px; padding: 1px 6px; font-size: 9px; color: var(--cyan);
+  animation: scoItemPop .25s ease;
+}
+@keyframes scoItemPop { from { transform:scale(.8); opacity:0 } to { transform:scale(1); opacity:1 } }
+.sco-total-line {
+  font-size: 12px; font-weight: 700; color: #80ffaa; text-align: right; letter-spacing: .5px;
+}
+
+/* Card swipe animation */
+.sco-card-swipe {
+  position: absolute; bottom: 6px; right: 8px;
+  font-size: 16px;
+  animation: scoCardSwipe .6s ease-in-out;
+}
+@keyframes scoCardSwipe {
+  0%   { transform: translateY(-14px) rotate(-15deg); opacity: 0; }
+  40%  { transform: translateY(0px) rotate(5deg); opacity: 1; }
+  70%  { transform: translateY(2px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(0px) rotate(0deg); opacity: .8; }
+}
+
+/* Green scan flash */
+.sco-scan-flash {
+  position: absolute; inset: 0;
+  background: rgba(16,185,129,.25);
+  animation: scoFlash .4s ease-out forwards;
+  pointer-events: none; border-radius: 7px;
+}
+@keyframes scoFlash { from { opacity:1 } to { opacity:0 } }
+
+.sco-machine-footer {
+  display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  font-size: 10px; color: var(--muted);
+}
+.sco-maint-badge {
+  background: var(--yellow-lo); border: 1px solid var(--yellow);
+  color: var(--yellow); border-radius: 5px; padding: 1px 7px; font-size: 9px; font-weight: 700; font-family: var(--mono);
+}
+.sco-sell-btn {
+  margin-left: auto;
+}
+
 /* ── Save indicator ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .save-spinner {
@@ -1313,6 +1427,14 @@ input::placeholder { color: var(--muted); }
           <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
         </div>
         <div id="customer-grid"></div>
+        <!-- Self-checkout machines zone -->
+        <div id="sco-zone" style="display:none">
+          <div class="sco-zone-header">
+            <span class="sco-zone-title">🤖 Self-Checkout Machines</span>
+            <span class="sco-zone-sub" id="sco-zone-sub">Customers scan their own items</span>
+          </div>
+          <div id="sco-machines-row"></div>
+        </div>
       </div>
 
       <!-- Inventory -->
@@ -1723,6 +1845,7 @@ function renderAll(s) {
   renderShopBanner(s);
   renderCheckoutLanesBar(s);
   renderCustomers(s);
+  renderScoMachines(s);
   renderInventory(s);
   renderShop(s);
   renderUpgrades(s);
@@ -1947,6 +2070,104 @@ function renderCustomers(s) {
   });
 }
 
+// ── Self-Checkout Machines ─────────────────────────
+// Track which machines had activity to detect new transactions
+const _scoLastActivity = {};
+
+function renderScoMachines(s) {
+  const zone = document.getElementById('sco-zone');
+  const row = document.getElementById('sco-machines-row');
+  const machines = s.scoMachines || [];
+
+  if (!machines.length) {
+    zone.style.display = 'none';
+    return;
+  }
+  zone.style.display = 'block';
+
+  const sub = document.getElementById('sco-zone-sub');
+  const activeCount = machines.filter(m => m.currentActivity).length;
+  sub.textContent = activeCount > 0
+    ? `${activeCount} machine${activeCount>1?'s':''} processing customers`
+    : 'Waiting for customers…';
+
+  const isShop = s.phase === 'shop';
+
+  // Sync machines
+  const existing = new Set([...row.querySelectorAll('.sco-machine-card')].map(el => +el.dataset.uid));
+  const incoming = new Set(machines.map(m => m.uid));
+
+  // Remove removed
+  existing.forEach(uid => { if (!incoming.has(uid)) row.querySelector(`[data-uid="${uid}"]`)?.remove(); });
+
+  machines.forEach(m => {
+    let card = row.querySelector(`[data-uid="${m.uid}"]`);
+    const act = m.currentActivity;
+    const isActive = !!act;
+    const wasActive = !!_scoLastActivity[m.uid];
+    const newTransaction = isActive && !wasActive;
+
+    if (!card) {
+      card = document.createElement('div');
+      card.dataset.uid = m.uid;
+      card.className = 'sco-machine-card';
+      card.innerHTML = `
+        <div class="sco-machine-top">
+          <span class="sco-machine-emoji">${m.emoji}</span>
+          <div>
+            <div class="sco-machine-name">${m.name}</div>
+            <div class="sco-machine-speed">⚡ ×${m.speed} speed</div>
+          </div>
+        </div>
+        <div class="sco-screen" id="sco-screen-${m.uid}"></div>
+        <div class="sco-machine-footer">
+          <span class="sco-maint-badge">$${m.maintenance}/day maint</span>
+          <button class="btn xs red sco-sell-btn" onclick="socket.emit('sellScoMachine',{uid:${m.uid}})" ${isShop ? '' : 'disabled'} title="Sell for 40% refund">Sell</button>
+        </div>
+      `;
+      row.appendChild(card);
+    }
+
+    card.className = 'sco-machine-card' + (isActive ? ' active-sco' : '');
+
+    // Update the sell button state
+    const sellBtn = card.querySelector('.sco-sell-btn');
+    if (sellBtn) sellBtn.disabled = !isShop;
+
+    const screen = document.getElementById(`sco-screen-${m.uid}`);
+    if (!screen) return;
+
+    if (!isActive) {
+      screen.innerHTML = `<div class="sco-screen-idle">READY — PLACE ITEMS</div>`;
+    } else {
+      // Compute items html
+      const itemsHtml = (act.items || []).slice(0, 6).map(it =>
+        `<span class="sco-item-tag">${it.emoji} ×${it.qty}</span>`
+      ).join('');
+
+      screen.innerHTML = `
+        <div class="sco-active-customer">
+          <span class="sco-cust-emoji">${act.customerEmoji}</span>
+          <span class="sco-cust-name">${act.customerName}</span>
+        </div>
+        <div class="sco-items-scroll">${itemsHtml}</div>
+        <div class="sco-total-line">$${act.total.toFixed ? act.total.toFixed(2) : act.total}</div>
+        <div class="sco-card-swipe" key="${act.startedAt}">💳</div>
+      `;
+
+      // Flash effect on new transaction
+      if (newTransaction) {
+        const flash = document.createElement('div');
+        flash.className = 'sco-scan-flash';
+        screen.appendChild(flash);
+        setTimeout(() => flash.remove(), 500);
+      }
+    }
+
+    _scoLastActivity[m.uid] = act;
+  });
+}
+
 // ── Inventory Table ────────────────────────────────
 // Client-side demand weight mirror (matches server logic)
 function clientDemandWeight(price, basePrice) {
@@ -2066,14 +2287,15 @@ function doRestockFull(productId, space) {
 
 // ── Upgrades Tree ──────────────────────────────────────────────────
 const BRANCH_META = {
-  grocery:     { label: '🥗 Grocery',       color: 'var(--green)' },
-  store:       { label: '🏪 Store Ops',     color: 'var(--blue)'  },
-  checkout:    { label: '🏧 Checkouts',     color: 'var(--cyan)'  },
-  clothing:    { label: '👕 Clothing',      color: 'var(--cyan)'  },
-  electronics: { label: '📱 Electronics',  color: 'var(--orange)' },
-  auto:        { label: '🚗 Automotive',    color: 'var(--yellow)' },
-  outdoors:    { label: '🏹 Outdoors',      color: 'var(--red)'    },
-  furniture:   { label: '🛋️ Furniture',    color: 'var(--muted)'  },
+  grocery:       { label: '🥗 Grocery',          color: 'var(--green)' },
+  store:         { label: '🏪 Store Ops',         color: 'var(--blue)'  },
+  checkout:      { label: '🏧 Checkouts',         color: 'var(--cyan)'  },
+  selfcheckout:  { label: '🤖 Self-Checkout',     color: 'var(--cyan)'  },
+  clothing:      { label: '👕 Clothing',           color: 'var(--cyan)'  },
+  electronics:   { label: '📱 Electronics',        color: 'var(--orange)' },
+  auto:          { label: '🚗 Automotive',         color: 'var(--yellow)' },
+  outdoors:      { label: '🏹 Outdoors',           color: 'var(--red)'    },
+  furniture:     { label: '🛋️ Furniture',         color: 'var(--muted)'  },
 };
 const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III' };
 
@@ -2781,8 +3003,7 @@ function renderWorkers(s) {
 
   types.forEach(t => {
     const canAfford = s.money >= t.cost;
-    const needsElec = t.id === 'bot' && !s.upgrades.includes('electronics_l1');
-    const disabled = !isShop || needsElec;
+    const disabled = !isShop;
     html += `<div class="worker-hire-card">
       <div class="worker-hire-top">
         <span class="worker-hire-emoji">${t.emoji}</span>
@@ -2797,7 +3018,7 @@ function renderWorkers(s) {
         <span class="worker-hire-wage">${t.wage ? `$${t.wage}/day wage` : 'No wage'}</span>
         <button class="btn xs blue" style="margin-left:auto" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
           ${disabled || !canAfford ? 'disabled' : ''}>
-          ${needsElec ? '🔒 Electronics needed' : !isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
+          ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
       </div>
     </div>`;
@@ -2855,8 +3076,60 @@ function renderWorkers(s) {
     </div>
   </div>`;
 
+  // ── Self-Checkout Machine Purchase Section ──────────
+  const scoTypes = s.scoTypes || [];
+  const scoMachines = s.scoMachines || [];
+  const hasScoUnlock = s.upgrades.includes('sco_unlock');
+
+  html += `<div class="workers-section" style="margin-top:20px">
+    <span class="workers-section-title" style="color:var(--cyan)">🤖 Self-Checkout Machines${!hasScoUnlock ? ' — Locked' : ''}</span>`;
+
+  if (!hasScoUnlock) {
+    html += `<div style="text-align:center;padding:24px 16px;color:var(--muted);background:var(--surf);border:1.5px dashed var(--border);border-radius:12px">
+      <div style="font-size:28px;margin-bottom:8px">🔒</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Self-Checkout Area not unlocked</div>
+      <div style="font-size:12px">Purchase <b style="color:var(--cyan)">Self-Checkout Area</b> in the Upgrades → Self-Checkout branch to unlock machines.</div>
+    </div>`;
+  } else {
+    html += `<div class="worker-hire-grid">`;
+    scoTypes.forEach(t => {
+      const unlockMap = { sco_basic: 'sco_unlock', sco_express: 'sco_express_unlock', sco_premium: 'sco_premium_unlock' };
+      const hasUnlock = s.upgrades.includes(unlockMap[t.id]);
+      const canAfford = s.money >= t.cost;
+      const ownedCount = scoMachines.filter(m => m.typeId === t.id).length;
+      html += `<div class="worker-hire-card" style="${hasUnlock ? 'border-color:var(--cyan)' : ''}">
+        <div class="worker-hire-top">
+          <span class="worker-hire-emoji">${t.emoji}</span>
+          <div>
+            <div class="worker-hire-name">${t.name}</div>
+            <div class="worker-hire-speed" style="color:var(--cyan)">⚡ Speed ×${t.speed}</div>
+          </div>
+        </div>
+        <div class="worker-hire-desc">${t.desc}</div>
+        <div class="worker-hire-footer">
+          <span class="worker-hire-cost">$${t.cost.toLocaleString()}</span>
+          <span class="worker-hire-wage" style="color:var(--yellow)">$${t.maintenance}/day maint</span>
+          ${ownedCount > 0 ? `<span style="font-size:11px;color:var(--cyan);font-weight:700;margin-left:4px">×${ownedCount}</span>` : ''}
+          <button class="btn xs" style="margin-left:auto;background:var(--cyan);color:#000"
+            onclick="socket.emit('buyScoMachine',{typeId:'${t.id}'})"
+            ${!isShop || !hasUnlock || !canAfford ? 'disabled' : ''}>
+            ${!hasUnlock ? '🔒 Locked' : !isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost.toLocaleString()}` : 'Install'}
+          </button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+
+    if (scoMachines.length > 0) {
+      html += `<div style="margin-top:10px;font-size:12px;color:var(--muted)">
+        ✅ ${scoMachines.length} machine${scoMachines.length>1?'s':''} installed — visible in the <b style="color:var(--text)">Customers</b> tab during play.
+        Sell machines from there (40% refund).
+      </div>`;
+    }
+  }
+  html += `</div>`;
+
   pane.innerHTML = html;
-}
 
 // ── Stats Tab ──────────────────────────────────────
 function renderStats(s) {
