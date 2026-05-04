@@ -699,6 +699,9 @@ input::placeholder { color: var(--muted); }
 .stats-player-table tr:hover td { background: var(--surf2); }
 /* ── AI Worker Register Zone ── */
 #registers-zone {
+  margin-top: 18px;
+  border-top: 2px solid var(--border);
+  padding-top: 14px;
   margin-bottom: 0;
   padding-bottom: 0;
 }
@@ -967,9 +970,13 @@ input::placeholder { color: var(--muted); }
 
 /* ── Player Registers Zone ── */
 #player-registers-zone {
+  margin-top: 18px;
+  border-top: 2px solid var(--border);
+  padding-top: 14px;
   margin-bottom: 0;
   padding-bottom: 0;
 }
+
 .player-registers-zone-header {
   display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;
 }
@@ -2291,7 +2298,7 @@ input::placeholder { color: var(--muted); }
         </div>
         <div id="customer-grid"></div>
         <!-- Player Registers zone -->
-        <div id="player-registers-zone" style="margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+        <div id="player-registers-zone">
           <div class="player-registers-zone-header">
             <span class="player-registers-zone-title">🧑‍💼 Player Registers</span>
             <span class="player-registers-zone-sub" id="player-registers-zone-sub">Players checking out customers</span>
@@ -2299,7 +2306,7 @@ input::placeholder { color: var(--muted); }
           <div id="player-registers-row"></div>
         </div>
         <!-- AI Worker Registers zone -->
-        <div id="registers-zone" style="display:none;margin-top:18px;border-top:2px solid var(--border);padding-top:14px">
+        <div id="registers-zone" style="display:none">
           <div class="registers-zone-header">
             <span class="registers-zone-title">🧑‍💼 Registers</span>
             <span class="registers-zone-sub" id="registers-zone-sub">AI workers checking out customers</span>
