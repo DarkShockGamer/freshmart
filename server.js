@@ -498,6 +498,7 @@ function emit(room) {
     checkoutLocked: room.checkoutLocked,
     checkoutLocks: room.checkoutLocks || {},
     checkoutLanes: getCheckoutLanes(room.upgrades),
+    playerCheckoutActivity: room.playerCheckoutActivity || {},
     aiWorkers: room.aiWorkers || [],
     aiWorkerTypes: AI_WORKER_TYPES,
     scoMachines: room.scoMachines || [],
@@ -846,7 +847,7 @@ function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
-  room.checkoutLocked = null; room.checkoutLocks = {};
+  room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
   if (room.stats) room.stats.daysCompleted = (room.stats.daysCompleted||0) + 1;
 
@@ -922,7 +923,7 @@ function resetRoom(room) {
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, players,
-    checkoutLocked: null, checkoutLocks: {}, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
+    checkoutLocked: null, checkoutLocks: {}, playerCheckoutActivity: {}, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
     scoMachines: [], nextScoId: 1,
     stats: {
       customersServed: 0, customersLost: 0, totalRevenue: 0, aiRevenue: 0, playerRevenue: 0,
@@ -1033,6 +1034,18 @@ io.on('connection', (socket) => {
       if (customerId != null) {
         const c = room.customers.find(c => c.id === customerId);
         if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+        if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
+        if (c) {
+          const items = c.wants.map(w => {
+            const prod = ALL_PRODUCTS.find(pr => pr.id === w.id);
+            return { emoji: prod?.emoji || '📦', name: prod?.name || w.id, qty: w.qty, price: room.prices[w.id] || prod?.basePrice || 0 };
+          });
+          room.playerCheckoutActivity[socket.id] = {
+            customerEmoji: c.emoji, customerName: c.name, items,
+            total: items.reduce((sum, it) => sum + it.price * it.qty, 0),
+            startedAt: Date.now(),
+          };
+        }
       }
       emit(room); return;
     }
@@ -1056,6 +1069,26 @@ io.on('connection', (socket) => {
     if (customerId != null) {
       const c = room.customers.find(c => c.id === customerId);
       if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+      // Broadcast player checkout activity to all clients
+      if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
+      if (c) {
+        const items = c.wants.map(w => {
+          const prod = ALL_PRODUCTS.find(pr => pr.id === w.id);
+          return {
+            emoji: prod?.emoji || '📦',
+            name: prod?.name || w.id,
+            qty: w.qty,
+            price: room.prices[w.id] || prod?.basePrice || 0,
+          };
+        });
+        room.playerCheckoutActivity[socket.id] = {
+          customerEmoji: c.emoji,
+          customerName: c.name,
+          items,
+          total: items.reduce((sum, it) => sum + it.price * it.qty, 0),
+          startedAt: Date.now(),
+        };
+      }
     }
     emit(room);
   });
@@ -1066,6 +1099,7 @@ io.on('connection', (socket) => {
     if (!room.checkoutLocks) room.checkoutLocks = {};
     if (room.checkoutLocks[socket.id]) {
       delete room.checkoutLocks[socket.id];
+      if (room.playerCheckoutActivity) delete room.playerCheckoutActivity[socket.id];
       room.customers.forEach(c => { if (c.attendedBy?.type === 'player') c.attendedBy = null; });
       emit(room);
     }
@@ -1166,6 +1200,7 @@ io.on('connection', (socket) => {
     }
     const result = serveCustomer(room, cid, socket.id);
     delete room.checkoutLocks[socket.id]; // release after serve
+    if (room.playerCheckoutActivity) delete room.playerCheckoutActivity[socket.id];
     socket.emit('serveResult', result);
     if (result.ok) emit(room);
   });
