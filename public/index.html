@@ -391,6 +391,17 @@ input::placeholder { color: var(--muted); }
 .vip .wtag { border-color: var(--yellow); }
 
 .serve-label { font-size: 11px; color: var(--green); font-weight: 700; letter-spacing: .5px; }
+.ccard.attended { opacity: .62; cursor: default; }
+.ccard.attended:hover { border-color: var(--border); transform: none; box-shadow: none; }
+.attended-badge {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  color: var(--orange); background: var(--orange-lo);
+  border: 1px solid var(--orange); border-radius: 6px;
+  padding: 3px 8px; margin-top: 2px;
+}
+.attended-badge.worker { color: var(--blue); background: var(--blue-lo); border-color: var(--blue); }
+.attended-badge.sco    { color: var(--cyan); background: rgba(6,182,212,.12); border-color: var(--cyan); }
 .vip .serve-label { color: var(--yellow); }
 
 #no-customers { text-align: center; padding: 60px 20px; color: var(--muted); }
@@ -2031,13 +2042,13 @@ function renderCustomers(s) {
   s.customers.forEach(c => {
     const pct = Math.round((c.patience / c.maxPatience) * 100);
     const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+    const att = c.attendedBy;
+    const takenByOther = att && !(checkoutCustomer && checkoutCustomer.id === c.id);
     let card = grid.querySelector(`[data-id="${c.id}"]`);
 
     if (!card) {
       card = document.createElement('div');
-      card.className = 'ccard' + (c.isVip ? ' vip' : '') + (pct < 25 ? ' urgent' : '');
       card.dataset.id = c.id;
-      card.onclick = () => openCheckout(c);
 
       const wantsHtml = c.wants.map(w => {
         const prod = s.products.find(p => p.id === w.id);
@@ -2054,16 +2065,34 @@ function renderCustomers(s) {
         </div>
         <div class="cwants">${wantsHtml}</div>
         <div class="serve-label">🛒 CLICK TO CHECKOUT</div>
-        <div class="pbar ${barClass}" style="width:${pct}%"></div>
+        <div class="attended-badge" style="display:none"></div>
+        <div class="pbar ok" style="width:100%"></div>
       `;
       grid.appendChild(card);
-    } else {
-      const bar = card.querySelector('.pbar');
-      if (bar) { bar.className = 'pbar '+barClass; bar.style.width = pct+'%'; }
-      card.className = 'ccard' + (c.isVip?' vip':'') + (pct<25?' urgent':'');
     }
-  });
-}
+
+    // Update dynamic state on both new and existing cards
+    const bar = card.querySelector('.pbar');
+    if (bar) { bar.className = 'pbar '+barClass; bar.style.width = pct+'%'; }
+
+    const badge = card.querySelector('.attended-badge');
+    const serveLabel = card.querySelector('.serve-label');
+
+    if (takenByOther) {
+      const typeClass = att.type === 'worker' ? 'worker' : att.type === 'sco' ? 'sco' : '';
+      badge.className = 'attended-badge' + (typeClass ? ' '+typeClass : '');
+      badge.style.display = 'flex';
+      badge.textContent = att.emoji + ' ' + att.name + ' is handling this';
+      if (serveLabel) serveLabel.style.display = 'none';
+      card.className = 'ccard attended' + (c.isVip?' vip':'');
+      card.onclick = null;
+    } else {
+      badge.style.display = 'none';
+      if (serveLabel) serveLabel.style.display = '';
+      card.className = 'ccard' + (c.isVip?' vip':'') + (pct<25?' urgent':'');
+      card.onclick = () => openCheckout(c);
+    }
+  });}
 
 // ── Self-Checkout Machines ─────────────────────────
 // Track which machines had activity to detect new transactions
@@ -2483,7 +2512,7 @@ function openCheckout(customer) {
     showToast(`${locker?.name || 'Another player'} is at the checkout!`, 'error');
     return;
   }
-  socket.emit('lockCheckout');
+  socket.emit('lockCheckout', { customerId: customer.id });
 
   checkoutCustomer = customer;
   checkoutScanned = [];
