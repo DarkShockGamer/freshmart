@@ -229,6 +229,23 @@ const UPGRADES = [
     requires: ['checkout_l3'], unlocks: [],
   },
 
+  // ══════════════ SELF-CHECKOUT BRANCH ══════════════
+  {
+    id: 'sco_unlock', name: 'Self-Checkout Area', emoji: '🤖', cost: 2500, tier: 1, section: 'selfcheckout',
+    desc: 'Install a self-checkout zone. Buy Basic Kiosk machines in the Workers tab. Customers serve themselves — no wages!',
+    requires: [], unlocks: ['sco_express_unlock'],
+  },
+  {
+    id: 'sco_express_unlock', name: 'Express SCO Upgrade', emoji: '⚡', cost: 5000, tier: 2, section: 'selfcheckout',
+    desc: 'Unlock faster Express SCO machines. Handles rush hour customers with bigger baskets.',
+    requires: ['sco_unlock'], unlocks: ['sco_premium_unlock'],
+  },
+  {
+    id: 'sco_premium_unlock', name: 'Premium SCO Station', emoji: '💎', cost: 10000, tier: 3, section: 'selfcheckout',
+    desc: 'Unlock top-tier Premium self-checkout stations. Near-cashier speed with zero ongoing wages.',
+    requires: ['sco_express_unlock'], unlocks: [],
+  },
+
   // ══════════════ FURNITURE BRANCH ══════════════
   {
     id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 700, tier: 1, section: 'furniture',
@@ -255,8 +272,14 @@ const AI_WORKER_TYPES = [
   { id: 'rookie',      name: 'Rookie Cashier',    emoji: '🧑‍💼', speed: 1.0, cost: 400,  wage: 50,  desc: 'A new hire. Gets the job done, slowly.' },
   { id: 'experienced', name: 'Experienced Clerk',  emoji: '👩‍💼', speed: 1.5, cost: 900,  wage: 100, desc: 'Faster checkout, fewer mistakes.' },
   { id: 'veteran',     name: 'Veteran Cashier',    emoji: '🧓‍💼', speed: 2.0, cost: 2000, wage: 200, desc: 'Blazing fast. Handles rush hour like a pro.' },
-  { id: 'bot',         name: 'Self-Checkout Bot',  emoji: '🤖',   speed: 2.5, cost: 4000, wage: 0,   desc: 'Never takes breaks. Zero wage. Requires Electronics upgrade.' },
   { id: 'manager',     name: 'Shift Manager',      emoji: '👔',   speed: 3.0, cost: 6000, wage: 400, desc: 'Serves VIPs for double the speed bonus.' },
+];
+
+// ─── Self-Checkout Machine Types ───────────────────────────────────
+const SELF_CHECKOUT_TYPES = [
+  { id: 'sco_basic',   name: 'Basic Kiosk',       emoji: '🖥️',  speed: 0.8, cost: 3000,  maintenance: 20,  desc: 'Slow but no wages. Serves 1 customer at a time.' },
+  { id: 'sco_express', name: 'Express SCO',        emoji: '⚡',  speed: 1.5, cost: 7000,  maintenance: 40,  desc: 'Faster scanning. Great for small basket customers.' },
+  { id: 'sco_premium', name: 'Premium Station',    emoji: '💎',  speed: 2.5, cost: 15000, maintenance: 80,  desc: 'Top-tier kiosk. Near-cashier speed, zero wages ever.' },
 ];
 
 // ─── Difficulty Configs ───────────────────────────────────────────
@@ -328,6 +351,7 @@ function snapshotRoom(room) {
     shelves:   { ...room.shelves   },
     difficulty: room.difficulty || 'normal',
     aiWorkers: room.aiWorkers ? room.aiWorkers.map(w => ({...w})) : [],
+    scoMachines: room.scoMachines ? room.scoMachines.map(m => ({...m})) : [],
     stats: room.stats ? {...room.stats} : null,
     savedAt: Date.now(),
   };
@@ -386,6 +410,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
   }
 
   const savedWorkers = save?.aiWorkers || [];
+  const savedScoMachines = save?.scoMachines || [];
 
   const room = {
     code, hostId,
@@ -406,6 +431,9 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     // AI Workers: array of { uid, type, name, emoji, speed, assignedLane (null = unassigned), hired: true }
     aiWorkers: savedWorkers,
     nextWorkerId: savedWorkers.length > 0 ? Math.max(...savedWorkers.map(w => w.uid)) + 1 : 1,
+    // Self-checkout machines: array of { uid, typeId, name, emoji, speed, maintenance, active, lastServeAt, currentActivity }
+    scoMachines: savedScoMachines,
+    nextScoId: savedScoMachines.length > 0 ? Math.max(...savedScoMachines.map(m => m.uid)) + 1 : 1,
     // AI worker checkout timers: { laneIdx: timeoutId }
     _aiCheckoutTimers: {},
     // Stats
@@ -471,6 +499,8 @@ function emit(room) {
     checkoutLanes: getCheckoutLanes(room.upgrades),
     aiWorkers: room.aiWorkers || [],
     aiWorkerTypes: AI_WORKER_TYPES,
+    scoMachines: room.scoMachines || [],
+    scoTypes: SELF_CHECKOUT_TYPES,
     stats: room.stats || {},
   });
 }
@@ -678,6 +708,8 @@ function startDay(room) {
 
     // AI workers auto-serve customers assigned to their lane
     tickAiWorkers(room);
+    // Self-checkout machines auto-serve customers
+    tickScoMachines(room);
 
     emit(room);
   }, diff.spawnInterval);
@@ -724,7 +756,48 @@ function tickAiWorkers(room) {
   });
 }
 
-function endDay(room) {
+// Self-checkout machine serve tick
+const SCO_SERVE_BASE_MS = 10000; // base time between SCO serves at speed 1.0
+
+function tickScoMachines(room) {
+  if (!room.scoMachines || room.phase !== 'playing') return;
+  const now = Date.now();
+
+  room.scoMachines.forEach(m => {
+    if (!room.customers.length) {
+      m.currentActivity = null;
+      return;
+    }
+    const cooldown = SCO_SERVE_BASE_MS / (m.speed || 1.0);
+    const lastServe = m.lastServeAt || 0;
+    if (now - lastServe < cooldown) return;
+
+    const customer = room.customers[0];
+    if (!customer) return;
+
+    m.lastServeAt = now;
+    // Build activity snapshot for client animation
+    const items = customer.wants.map(w => {
+      const prod = ALL_PRODUCTS.find(p => p.id === w.id);
+      return { emoji: prod?.emoji || '📦', name: prod?.name || w.id, qty: w.qty };
+    });
+    m.currentActivity = {
+      customerEmoji: customer.emoji,
+      customerName: customer.name,
+      items,
+      total: customer.wants.reduce((sum, w) => sum + (room.prices[w.id] || 0) * w.qty, 0),
+      startedAt: now,
+    };
+
+    const result = serveCustomer(room, customer.id, null, true, { name: m.name, uid: m.uid });
+    if (!result.ok) { m.currentActivity = null; return; }
+
+    const tag = customer.isVip ? ' ⭐VIP×2' : '';
+    roomLog(room, `${m.emoji} ${m.name} processed ${customer.name}${tag} — $${result.earned}`);
+  });
+}
+
+
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
@@ -740,6 +813,17 @@ function endDay(room) {
       room.money = Math.max(0, room.money - totalWages);
       roomLog(room, `💸 Paid $${totalWages} in worker wages.`);
     }
+  }
+  // Pay SCO maintenance
+  if (room.scoMachines && room.scoMachines.length > 0) {
+    let totalMaint = 0;
+    room.scoMachines.forEach(m => { totalMaint += (m.maintenance || 0); });
+    if (totalMaint > 0) {
+      room.money = Math.max(0, room.money - totalMaint);
+      roomLog(room, `🔧 Paid $${totalMaint} in SCO maintenance.`);
+    }
+    // Clear activity animations
+    room.scoMachines.forEach(m => { m.currentActivity = null; });
   }
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
@@ -791,6 +875,7 @@ function resetRoom(room) {
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, players,
     checkoutLocked: null, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
+    scoMachines: [], nextScoId: 1,
     stats: {
       customersServed: 0, customersLost: 0, totalRevenue: 0, aiRevenue: 0, playerRevenue: 0,
       rushHoursTriggered: 0, theftsBlocked: 0, theftsLost: 0, vipServed: 0, daysCompleted: 0, byPlayer: {},
@@ -903,7 +988,48 @@ io.on('connection', (socket) => {
     if (room.checkoutLocked === socket.id) { room.checkoutLocked = null; emit(room); }
   });
 
-  socket.on('hireWorker', ({ typeId }) => {
+  socket.on('buyScoMachine', ({ typeId }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
+    const type = SELF_CHECKOUT_TYPES.find(t => t.id === typeId);
+    if (!type) return;
+    // Check unlock requirement
+    const unlockMap = { sco_basic: 'sco_unlock', sco_express: 'sco_express_unlock', sco_premium: 'sco_premium_unlock' };
+    if (!room.upgrades.includes(unlockMap[typeId])) {
+      socket.emit('msg', { type:'error', text:`Requires the Self-Checkout upgrade first!` }); return;
+    }
+    if (room.money < type.cost) { socket.emit('msg', { type:'error', text:`Need $${type.cost}!` }); return; }
+    room.money -= type.cost;
+    const m = {
+      uid: room.nextScoId++,
+      typeId: type.id,
+      name: type.name,
+      emoji: type.emoji,
+      speed: type.speed,
+      maintenance: type.maintenance,
+      lastServeAt: 0,
+      currentActivity: null,
+    };
+    room.scoMachines.push(m);
+    roomLog(room, `${type.emoji} Installed ${type.name} self-checkout for $${type.cost}!`);
+    emit(room);
+  });
+
+  socket.on('sellScoMachine', ({ uid }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    const idx = room.scoMachines.findIndex(m => m.uid === uid);
+    if (idx === -1) return;
+    const m = room.scoMachines[idx];
+    const type = SELF_CHECKOUT_TYPES.find(t => t.id === m.typeId);
+    const refund = Math.round((type?.cost || 0) * 0.4);
+    room.money += refund;
+    room.scoMachines.splice(idx, 1);
+    roomLog(room, `${m.emoji} Sold ${m.name} for $${refund} (40% refund).`);
+    emit(room);
+  });
+
+
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     const type = AI_WORKER_TYPES.find(t => t.id === typeId);
