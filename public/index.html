@@ -1251,6 +1251,48 @@ input::placeholder { color: var(--muted); }
   pointer-events: none; border-radius: 7px;
 }
 
+/* ── Player Register Closed State ── */
+.preg-closed {
+  opacity: .55;
+}
+.preg-closed-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 20, 0.72);
+  border-radius: 15px;
+  z-index: 10;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  backdrop-filter: blur(2px);
+}
+.preg-closed-sign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 24px;
+  background: var(--surf);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+}
+.preg-closed-text {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.preg-closed-sub {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: .5px;
+  opacity: .7;
+}
+
 /* ── Self-Checkout Zone ── */
 #sco-zone {
   margin-top: 18px;
@@ -3449,13 +3491,12 @@ function renderPlayerRegisters(s) {
   const zone = document.getElementById('player-registers-zone');
   const row  = document.getElementById('player-registers-row');
 
-  // Build list of players who have an active checkout lock
+  // Show ALL players — active ones have a checkout lock, others appear as CLOSED
   const locks = s.checkoutLocks || {};
-  const activePlayers = Object.values(s.players).filter(p => locks[p.id]);
+  const allPlayers = Object.values(s.players);
 
-  if (!activePlayers.length) {
+  if (!allPlayers.length) {
     zone.style.display = 'none';
-    // Clear timers for players who left checkout
     Object.keys(_pregScanTimers).forEach(pid => {
       clearTimeout(_pregScanTimers[pid]);
       delete _pregScanTimers[pid];
@@ -3467,13 +3508,14 @@ function renderPlayerRegisters(s) {
   zone.style.display = 'block';
 
   const sub = document.getElementById('player-registers-zone-sub');
-  const activeCount = activePlayers.filter(p => s.playerCheckoutActivity?.[p.id]).length;
+  const activeCount = allPlayers.filter(p => locks[p.id] && s.playerCheckoutActivity?.[p.id]).length;
+  const claimedCount = allPlayers.filter(p => locks[p.id]).length;
   sub.textContent = activeCount > 0
     ? `${activeCount} player${activeCount > 1 ? 's' : ''} checking out customers`
-    : 'Players in checkout…';
+    : claimedCount > 0 ? 'Players in checkout…' : 'All registers closed';
 
-  // Remove cards for players who left
-  const incoming = new Set(activePlayers.map(p => p.id));
+  // Remove cards for players who left the game entirely
+  const incoming = new Set(allPlayers.map(p => p.id));
   [...row.querySelectorAll('.preg-card')].forEach(card => {
     const pid = card.dataset.pid;
     if (!incoming.has(pid)) {
@@ -3484,7 +3526,8 @@ function renderPlayerRegisters(s) {
     }
   });
 
-  activePlayers.forEach(p => {
+  allPlayers.forEach(p => {
+    const hasClaim = !!locks[p.id];
     const isMe = p.id === myId;
     const act  = s.playerCheckoutActivity?.[p.id] || null;  // { customerEmoji, customerName, items, total, startedAt }
     const isActive  = !!act;
@@ -3558,15 +3601,45 @@ function renderPlayerRegisters(s) {
             </div>
           </div>
         </div>
+
+        <!-- Closed overlay — shown when register is not claimed -->
+        <div class="preg-closed-overlay" id="preg-closed-${p.id}">
+          <div class="preg-closed-sign">
+            <span style="font-size:28px">🚫</span>
+            <div class="preg-closed-text">CLOSED</div>
+            <div class="preg-closed-sub">${p.name} not at register</div>
+          </div>
+        </div>
       `;
       row.appendChild(card);
     } else {
       // Update lane badge if lane changed
       const badge = card.querySelector(`.preg-lane-badge-${p.id}`);
       if (badge) badge.textContent = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
+      // Update closed overlay sub-text in case name changed
+      const closedSub = card.querySelector('.preg-closed-sub');
+      if (closedSub) closedSub.textContent = `${p.name} not at register`;
     }
 
-    // ── Idle state ─────────────────────────────────────
+    // ── Closed (not claimed) state ──────────────────────
+    const closedOverlay = document.getElementById(`preg-closed-${p.id}`);
+    if (!hasClaim) {
+      card.classList.remove('active-preg', 'is-me');
+      if (!isMe) card.classList.remove('is-me'); // keep is-me styling only when claimed
+      card.classList.add('preg-closed');
+      if (closedOverlay) closedOverlay.style.display = 'flex';
+      card.querySelector('.preg-cust-bar').style.display = 'none';
+      clearTimeout(_pregScanTimers[p.id]);
+      _pregLastActivity[p.id] = null;
+      return;
+    }
+
+    // Register is claimed — hide closed overlay
+    if (closedOverlay) closedOverlay.style.display = 'none';
+    card.classList.remove('preg-closed');
+    if (isMe) card.classList.add('is-me');
+
+    // ── Idle state (claimed but no active transaction) ──
     if (!isActive) {
       card.classList.remove('active-preg');
       card.querySelector('.preg-cust-bar').style.display = 'none';
