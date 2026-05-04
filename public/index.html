@@ -402,6 +402,28 @@ input::placeholder { color: var(--muted); }
 }
 .attended-badge.worker { color: var(--blue); background: var(--blue-lo); border-color: var(--blue); }
 .attended-badge.sco    { color: var(--cyan); background: rgba(6,182,212,.12); border-color: var(--cyan); }
+
+/* ── Attending overlay (blurs card content, shows label centered) ── */
+.ccard.attended .ccard-inner { filter: blur(2.5px); pointer-events: none; }
+.attending-overlay {
+  display: none;
+  position: absolute; inset: 0;
+  background: rgba(10, 14, 20, 0.62);
+  border-radius: 13px;
+  z-index: 2;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 4px;
+  pointer-events: none;
+}
+.ccard.attended .attending-overlay { display: flex; }
+.attending-overlay-label {
+  font-size: 12px; font-weight: 800; letter-spacing: .4px;
+  text-align: center; padding: 6px 12px;
+  border-radius: 8px; line-height: 1.3;
+}
+.attending-overlay-label.player { color: var(--orange); background: var(--orange-lo); border: 1px solid var(--orange); }
+.attending-overlay-label.worker { color: var(--blue); background: var(--blue-lo); border: 1px solid var(--blue); }
+.attending-overlay-label.sco    { color: var(--cyan); background: rgba(6,182,212,.12); border: 1px solid var(--cyan); }
 .vip .serve-label { color: var(--yellow); }
 
 #no-customers { text-align: center; padding: 60px 20px; color: var(--muted); }
