@@ -2528,11 +2528,17 @@ const BILL_CLASSES = { 100:'b100', 50:'b50', 20:'b20', 10:'b10', 5:'b5', 1:'b1' 
 function openCheckout(customer) {
   if (checkoutCustomer) return; // already checking out someone
 
-  // In multiplayer, try to lock the checkout
-  if (roomState && roomState.checkoutLocked && roomState.checkoutLocked !== myId) {
-    const locker = roomState.players[roomState.checkoutLocked];
-    showToast(`${locker?.name || 'Another player'} is at the checkout!`, 'error');
-    return;
+  // In multiplayer, block if all lanes are occupied
+  if (roomState) {
+    const locks = roomState.checkoutLocks || {};
+    const lanes = roomState.checkoutLanes || 1;
+    const aiOccupied = (roomState.aiWorkers || []).filter(w => w.assignedLane && w.assignedLane <= lanes).length;
+    const playerLocks = Object.keys(locks).filter(pid => pid !== myId && roomState.players[pid]).length;
+    const totalOccupied = aiOccupied + playerLocks;
+    if (totalOccupied >= lanes && !locks[myId]) {
+      showToast(`All ${lanes} checkout lane${lanes > 1 ? 's are' : ' is'} busy! Buy more lanes in Upgrades.`, 'error');
+      return;
+    }
   }
   socket.emit('lockCheckout', { customerId: customer.id });
 
@@ -3034,19 +3040,33 @@ function renderCheckoutLanesBar(s) {
   bar.innerHTML = '<span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.5px;margin-right:4px">CHECKOUTS</span>';
 
   const lanes = s.checkoutLanes || 1;
+  const locks = s.checkoutLocks || {};
+  // Build ordered list: AI workers fill from lane 1, then player locks fill remaining
+  const aiWorkers = (s.aiWorkers || []).filter(w => w.assignedLane && w.assignedLane <= lanes)
+    .sort((a, b) => a.assignedLane - b.assignedLane);
+  const playerLockIds = Object.keys(locks).filter(pid => s.players[pid]);
+
+  // Map lane index to occupant
+  const laneOccupants = {};
+  aiWorkers.forEach(w => { laneOccupants[w.assignedLane] = { type: 'ai', worker: w }; });
+  let playerLaneIdx = 1;
+  playerLockIds.forEach(pid => {
+    while (laneOccupants[playerLaneIdx] && playerLaneIdx <= lanes) playerLaneIdx++;
+    if (playerLaneIdx <= lanes) laneOccupants[playerLaneIdx++] = { type: 'player', pid };
+  });
+
   for (let i = 1; i <= lanes; i++) {
     const chip = document.createElement('div');
-    // check if an AI worker is assigned here
-    const aiW = (s.aiWorkers||[]).find(w => w.assignedLane === i);
-    if (aiW) {
+    const occ = laneOccupants[i];
+    if (occ && occ.type === 'ai') {
       chip.className = 'lane-chip ai';
-      chip.innerHTML = `${aiW.emoji} Lane ${i} — ${aiW.name}`;
-    } else if (i === 1 && s.checkoutLocked && s.checkoutLocked === myId) {
+      chip.innerHTML = `${occ.worker.emoji} Lane ${i} — ${occ.worker.name}`;
+    } else if (occ && occ.type === 'player' && occ.pid === myId) {
       chip.className = 'lane-chip busy';
       chip.innerHTML = `🟠 Lane ${i} — You`;
-    } else if (i === 1 && s.checkoutLocked && s.players[s.checkoutLocked]) {
+    } else if (occ && occ.type === 'player') {
       chip.className = 'lane-chip busy';
-      chip.innerHTML = `🟠 Lane ${i} — ${s.players[s.checkoutLocked].name}`;
+      chip.innerHTML = `🟠 Lane ${i} — ${s.players[occ.pid].name}`;
     } else {
       chip.className = 'lane-chip free';
       chip.innerHTML = `🟢 Lane ${i} — Open`;
