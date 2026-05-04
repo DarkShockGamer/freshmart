@@ -727,12 +727,16 @@ function startDay(room) {
   }, 1000);
 }
 
-// AI worker logic: each assigned AI worker periodically serves a customer
+// AI worker logic: each assigned AI worker periodically serves a customer.
+// Two-phase: first tick CLAIMS the customer (sets attendedBy so clients see overlay),
+// then after AI_CLAIM_DISPLAY_MS actually SERVES them (removes customer, logs revenue).
 const AI_SERVE_BASE_MS = 8000; // base time between AI serves (at speed 1.0)
+const AI_CLAIM_DISPLAY_MS = 2000; // ms to show "attending" overlay before serving
 
 function tickAiWorkers(room) {
   if (!room.aiWorkers || room.phase !== 'playing') return;
   if (!room._aiWorkerCooldowns) room._aiWorkerCooldowns = {};
+  if (!room._aiWorkerClaims) room._aiWorkerClaims = {};
 
   const now = Date.now();
   const lanes = getCheckoutLanes(room.upgrades);
@@ -741,20 +745,28 @@ function tickAiWorkers(room) {
     if (!w.assignedLane || w.assignedLane > lanes) return;
     if (!room.customers.length) return;
 
-    // Cooldown per worker
-    const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
-    const lastServe = room._aiWorkerCooldowns[w.uid] || 0;
-    if (now - lastServe < cooldown) return;
+    // Phase 2: worker already claimed a customer — serve them after display delay
+    const claim = room._aiWorkerClaims[w.uid];
+    if (claim) {
+      if (now - claim.claimedAt >= AI_CLAIM_DISPLAY_MS) {
+        delete room._aiWorkerClaims[w.uid];
+        room._aiWorkerCooldowns[w.uid] = now;
+        const customer = room.customers.find(c => c.id === claim.customerId);
+        if (customer) serveCustomer(room, customer.id, null, true, w);
+      }
+      return; // still in display window
+    }
 
-    // Pick first unattended customer
+    // Phase 1: cooldown check, then claim an unattended customer
+    const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
+    if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) return;
+
     const customer = room.customers.find(c => !c.attendedBy);
     if (!customer) return;
 
-    room._aiWorkerCooldowns[w.uid] = now;
+    // Claim: mark attendedBy so clients see the overlay immediately
     customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
-    const result = serveCustomer(room, customer.id, null, true, w);
-    if (!result.ok) return;
-    // emit is called by the calling loop, no need to call again
+    room._aiWorkerClaims[w.uid] = { customerId: customer.id, claimedAt: now };
   });
 }
 
