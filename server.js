@@ -212,6 +212,23 @@ const UPGRADES = [
     requires: ['outdoors_l2'], unlocks: [],
   },
 
+  // ══════════════ CHECKOUT BRANCH ══════════════
+  {
+    id: 'checkout_l2', name: 'Second Checkout Lane', emoji: '🏪', cost: 120, tier: 1, section: 'checkout',
+    desc: 'Open a 2nd checkout lane. Assign a player or AI worker to it.',
+    requires: [], unlocks: ['checkout_l3'],
+  },
+  {
+    id: 'checkout_l3', name: 'Third Checkout Lane', emoji: '🏬', cost: 250, tier: 2, section: 'checkout',
+    desc: 'Open a 3rd checkout lane. Handle serious rush-hour volume.',
+    requires: ['checkout_l2'], unlocks: ['checkout_l4'],
+  },
+  {
+    id: 'checkout_l4', name: 'Fourth Checkout Lane', emoji: '🏢', cost: 500, tier: 3, section: 'checkout',
+    desc: 'Open a 4th lane. Maximum throughput for a booming store.',
+    requires: ['checkout_l3'], unlocks: [],
+  },
+
   // ══════════════ FURNITURE BRANCH ══════════════
   {
     id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 110, tier: 1, section: 'furniture',
@@ -232,6 +249,15 @@ const UPGRADES = [
 
 const PLAYER_COLORS = ['#f97316','#6366f1','#10b981','#ec4899','#eab308','#06b6d4'];
 const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Associate','Floor Manager','Greeter'];
+
+// ─── AI Worker Types ──────────────────────────────────────────────
+const AI_WORKER_TYPES = [
+  { id: 'rookie',    name: 'Rookie Cashier',   emoji: '🧑‍💼', speed: 1.0, cost: 50,  wage: 5,  desc: 'A new hire. Gets the job done, slowly.' },
+  { id: 'experienced', name: 'Experienced Clerk', emoji: '👩‍💼', speed: 1.5, cost: 100, wage: 10, desc: 'Faster checkout, fewer mistakes.' },
+  { id: 'veteran',   name: 'Veteran Cashier',  emoji: '🧓‍💼', speed: 2.0, cost: 200, wage: 18, desc: 'Blazing fast. Handles rush hour like a pro.' },
+  { id: 'bot',       name: 'Self-Checkout Bot', emoji: '🤖', speed: 2.5, cost: 350, wage: 0,  desc: 'Never takes breaks. Zero wage. Requires Electronics upgrade.' },
+  { id: 'manager',   name: 'Shift Manager',    emoji: '👔', speed: 3.0, cost: 500, wage: 25, desc: 'Serves VIPs for double the speed bonus.' },
+];
 
 // ─── Difficulty Configs ───────────────────────────────────────────
 const DIFFICULTY_CONFIGS = {
@@ -301,6 +327,8 @@ function snapshotRoom(room) {
     prices:    { ...room.prices    },
     shelves:   { ...room.shelves   },
     difficulty: room.difficulty || 'normal',
+    aiWorkers: room.aiWorkers ? room.aiWorkers.map(w => ({...w})) : [],
+    stats: room.stats ? {...room.stats} : null,
     savedAt: Date.now(),
   };
 }
@@ -348,6 +376,17 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     upgrades = []; money = diff.startMoney; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
   }
 
+  // Calculate how many checkout lanes are unlocked
+  function getCheckoutLanes(upgs) {
+    let lanes = 1;
+    if (upgs.includes('checkout_l2')) lanes = 2;
+    if (upgs.includes('checkout_l3')) lanes = 3;
+    if (upgs.includes('checkout_l4')) lanes = 4;
+    return lanes;
+  }
+
+  const savedWorkers = save?.aiWorkers || [];
+
   const room = {
     code, hostId,
     phase: 'lobby',
@@ -362,6 +401,27 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, // always start in morning prep before first day
     difficulty: effectiveDiff, diff,
+    // Checkout system
+    checkoutLocked: null,  // socketId currently in checkout (null = free)
+    // AI Workers: array of { uid, type, name, emoji, speed, assignedLane (null = unassigned), hired: true }
+    aiWorkers: savedWorkers,
+    nextWorkerId: savedWorkers.length > 0 ? Math.max(...savedWorkers.map(w => w.uid)) + 1 : 1,
+    // AI worker checkout timers: { laneIdx: timeoutId }
+    _aiCheckoutTimers: {},
+    // Stats
+    stats: save?.stats || {
+      customersServed: 0,
+      customersLost: 0,
+      totalRevenue: 0,
+      aiRevenue: 0,
+      playerRevenue: 0,
+      rushHoursTriggered: 0,
+      theftsBlocked: 0,
+      theftsLost: 0,
+      vipServed: 0,
+      daysCompleted: 0,
+      byPlayer: {}, // playerId -> { served, revenue }
+    },
   };
   room.players[hostId] = {
     id: hostId, name: hostName || 'Player 1',
@@ -382,6 +442,14 @@ function roomLog(room, msg) {
   if (room.eventLog.length > 40) room.eventLog.pop();
 }
 
+function getCheckoutLanes(upgs) {
+  let lanes = 1;
+  if (upgs.includes('checkout_l2')) lanes = 2;
+  if (upgs.includes('checkout_l3')) lanes = 3;
+  if (upgs.includes('checkout_l4')) lanes = 4;
+  return lanes;
+}
+
 function emit(room) {
   const products = getUnlockedProducts(room.upgrades);
   io.to(room.code).emit('roomState', {
@@ -399,6 +467,11 @@ function emit(room) {
     products, upgradeList: UPGRADES,
     difficulty: room.difficulty,
     diffConfig: room.diff,
+    checkoutLocked: room.checkoutLocked,
+    checkoutLanes: getCheckoutLanes(room.upgrades),
+    aiWorkers: room.aiWorkers || [],
+    aiWorkerTypes: AI_WORKER_TYPES,
+    stats: room.stats || {},
   });
 }
 
@@ -465,12 +538,13 @@ function spawnCustomer(room) {
       room.reputation = Math.max(0, room.reputation - repLoss);
       roomLog(room, `😤 ${c.name} left unserved! Rep -${repLoss}`);
       room.customers.splice(idx, 1);
+      if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
       emit(room);
     }
   }, patience * 1000);
 }
 
-function serveCustomer(room, cid, sid) {
+function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
   if (room.phase !== 'playing') return { ok: false, msg: 'Game not active' };
   const idx = room.customers.findIndex(c => c.id === cid);
   if (idx === -1) return { ok: false, msg: 'Customer already gone!' };
@@ -491,8 +565,39 @@ function serveCustomer(room, cid, sid) {
   room.money += total;
   room.totalScore += total;
   room.reputation = Math.max(0, Math.min(100, room.reputation + (hasIssues ? -2 : 1)));
+
+  // Stats tracking
+  if (room.stats) {
+    room.stats.customersServed = (room.stats.customersServed||0) + 1;
+    room.stats.totalRevenue = (room.stats.totalRevenue||0) + total;
+    if (c.isVip) room.stats.vipServed = (room.stats.vipServed||0) + 1;
+  }
+
+  if (isAi && aiWorker) {
+    if (room.stats) room.stats.aiRevenue = (room.stats.aiRevenue||0) + total;
+    room.customers.splice(idx, 1);
+    const tag = c.isVip ? ' ⭐VIP×2' : '';
+    const sTag = room.saleActive ? ' 🏷️+50%' : '';
+    roomLog(room, `🤖 ${aiWorker.name} served ${c.name}${tag} — $${total}${sTag}`);
+    return { ok: true, earned: total, isVip: c.isVip };
+  }
+
   const p = room.players[sid];
-  if (p) p.personalScore += total;
+  if (p) {
+    p.personalScore += total;
+    if (room.stats) {
+      if (!room.stats.byPlayer) room.stats.byPlayer = {};
+      if (!room.stats.byPlayer[sid]) room.stats.byPlayer[sid] = { served: 0, revenue: 0, name: p.name };
+      room.stats.byPlayer[sid].served++;
+      room.stats.byPlayer[sid].revenue += total;
+      room.stats.byPlayer[sid].name = p.name;
+      room.stats.playerRevenue = (room.stats.playerRevenue||0) + total;
+    }
+  }
+
+  // Release checkout lock for this player
+  if (room.checkoutLocked === sid) room.checkoutLocked = null;
+
   room.customers.splice(idx, 1);
   const tag = c.isVip ? ' ⭐VIP×2' : '';
   const sTag = room.saleActive ? ' 🏷️+50%' : '';
@@ -511,6 +616,7 @@ function triggerEvent(room) {
 
   if (ev.type === 'rush') {
     room.rushActive = true;
+    if (room.stats) room.stats.rushHoursTriggered = (room.stats.rushHoursTriggered||0) + 1;
     setTimeout(() => { room.rushActive = false; room.activeEvent = null; emit(room); }, ev.duration*1000);
   } else if (ev.type === 'sale') {
     room.saleActive = true;
@@ -518,6 +624,7 @@ function triggerEvent(room) {
   } else if (ev.type === 'theft') {
     if (room.upgrades.includes('security')) {
       roomLog(room, '👮 Security guard caught the thief instantly!');
+      if (room.stats) room.stats.theftsBlocked = (room.stats.theftsBlocked||0) + 1;
       room.activeEvent = null; emit(room);
     } else {
       room.theftActive = true;
@@ -525,6 +632,7 @@ function triggerEvent(room) {
         if (room.theftActive) {
           room.money = Math.max(0, room.money - diff.theftLoss);
           room.theftActive = false; room.activeEvent = null;
+          if (room.stats) room.stats.theftsLost = (room.stats.theftsLost||0) + 1;
           roomLog(room, `🦝 Thief escaped! Lost $${diff.theftLoss}`); emit(room);
         }
       }, ev.duration*1000);
@@ -557,6 +665,7 @@ function startDay(room) {
   room.phase = 'playing';
   room.dayTimer = 120;
   room.customers = [];
+  room.checkoutLocked = null;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   roomLog(room, `📅 Day ${room.day} open! You have 2 minutes.`);
   emit(room);
@@ -566,6 +675,10 @@ function startDay(room) {
     const boost = room.upgrades.includes('ads') ? 1.4 : 1;
     const times = room.rushActive ? diff.rushSpawnMult : 1;
     for (let i = 0; i < times; i++) if (Math.random() < diff.spawnChance * boost) spawnCustomer(room);
+
+    // AI workers auto-serve customers assigned to their lane
+    tickAiWorkers(room);
+
     emit(room);
   }, diff.spawnInterval);
 
@@ -581,10 +694,53 @@ function startDay(room) {
   }, 1000);
 }
 
+// AI worker logic: each assigned AI worker periodically serves a customer
+const AI_SERVE_BASE_MS = 8000; // base time between AI serves (at speed 1.0)
+
+function tickAiWorkers(room) {
+  if (!room.aiWorkers || room.phase !== 'playing') return;
+  if (!room._aiWorkerCooldowns) room._aiWorkerCooldowns = {};
+
+  const now = Date.now();
+  const lanes = getCheckoutLanes(room.upgrades);
+
+  room.aiWorkers.forEach(w => {
+    if (!w.assignedLane || w.assignedLane > lanes) return;
+    if (!room.customers.length) return;
+
+    // Cooldown per worker
+    const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
+    const lastServe = room._aiWorkerCooldowns[w.uid] || 0;
+    if (now - lastServe < cooldown) return;
+
+    // Pick first customer
+    const customer = room.customers[0];
+    if (!customer) return;
+
+    room._aiWorkerCooldowns[w.uid] = now;
+    const result = serveCustomer(room, customer.id, null, true, w);
+    if (!result.ok) return;
+    // emit is called by the calling loop, no need to call again
+  });
+}
+
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
+  room.checkoutLocked = null;
+  room._aiWorkerCooldowns = {};
+  if (room.stats) room.stats.daysCompleted = (room.stats.daysCompleted||0) + 1;
+
+  // Pay AI worker wages
+  if (room.aiWorkers && room.aiWorkers.length > 0) {
+    let totalWages = 0;
+    room.aiWorkers.forEach(w => { totalWages += (w.wage || 0); });
+    if (totalWages > 0) {
+      room.money = Math.max(0, room.money - totalWages);
+      roomLog(room, `💸 Paid $${totalWages} in worker wages.`);
+    }
+  }
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
   room.day++;
   // Start periodic auto-save for the shop phase (saves immediately + every 30s)
@@ -633,8 +789,12 @@ function resetRoom(room) {
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
-    isMorning: true,
-    players,
+    isMorning: true, players,
+    checkoutLocked: null, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
+    stats: {
+      customersServed: 0, customersLost: 0, totalRevenue: 0, aiRevenue: 0, playerRevenue: 0,
+      rushHoursTriggered: 0, theftsBlocked: 0, theftsLost: 0, vipServed: 0, daysCompleted: 0, byPlayer: {},
+    },
   });
   roomLog(room, '🔄 Game reset — back to lobby!');
   emit(room);
@@ -726,10 +886,73 @@ io.on('connection', (socket) => {
     socket.emit('msg', { type:'success', text:'💾 Game saved!' });
   });
 
+  socket.on('lockCheckout', () => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.phase !== 'playing') return;
+    if (room.checkoutLocked && room.checkoutLocked !== socket.id) {
+      socket.emit('checkoutDenied', { reason: `${room.players[room.checkoutLocked]?.name || 'Another player'} is already at checkout!` });
+      return;
+    }
+    room.checkoutLocked = socket.id;
+    emit(room);
+  });
+
+  socket.on('releaseCheckout', () => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    if (room.checkoutLocked === socket.id) { room.checkoutLocked = null; emit(room); }
+  });
+
+  socket.on('hireWorker', ({ typeId }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
+    const type = AI_WORKER_TYPES.find(t => t.id === typeId);
+    if (!type) return;
+    if (type.id === 'bot' && !room.upgrades.includes('electronics_l1')) {
+      socket.emit('msg', { type:'error', text:'Self-Checkout Bot requires Electronics upgrade!' }); return;
+    }
+    if (room.money < type.cost) { socket.emit('msg', { type:'error', text:`Need $${type.cost} to hire!` }); return; }
+    room.money -= type.cost;
+    const w = { uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji, speed: type.speed, wage: type.wage, assignedLane: null };
+    room.aiWorkers.push(w);
+    roomLog(room, `${type.emoji} Hired ${type.name} for $${type.cost}!`);
+    emit(room);
+  });
+
+  socket.on('fireWorker', ({ uid }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    const idx = room.aiWorkers.findIndex(w => w.uid === uid);
+    if (idx === -1) return;
+    const w = room.aiWorkers[idx];
+    room.aiWorkers.splice(idx, 1);
+    roomLog(room, `${w.emoji} ${w.name} was let go.`);
+    emit(room);
+  });
+
+  socket.on('assignWorker', ({ uid, lane }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    const lanes = getCheckoutLanes(room.upgrades);
+    if (lane !== null && (lane < 1 || lane > lanes)) { socket.emit('msg', { type:'error', text:'Invalid lane!' }); return; }
+    const w = room.aiWorkers.find(w => w.uid === uid);
+    if (!w) return;
+    w.assignedLane = lane;
+    const msg = lane ? `${w.emoji} ${w.name} assigned to Lane ${lane}` : `${w.emoji} ${w.name} removed from checkout`;
+    roomLog(room, msg);
+    emit(room);
+  });
+
   socket.on('serveCustomer', (cid) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
+    // Only allow if this player holds the checkout lock (or no one does for solo)
+    if (room.checkoutLocked && room.checkoutLocked !== socket.id) {
+      socket.emit('serveResult', { ok: false, msg: 'Checkout is occupied!' });
+      return;
+    }
     const result = serveCustomer(room, cid, socket.id);
+    room.checkoutLocked = null; // always release after serve
     socket.emit('serveResult', result);
     if (result.ok) emit(room);
   });
@@ -739,6 +962,7 @@ io.on('connection', (socket) => {
     if (!room || !room.theftActive) return;
     clearTimeout(room.theftTimeout);
     room.theftActive = false; room.activeEvent = null;
+    if (room.stats) room.stats.theftsBlocked = (room.stats.theftsBlocked||0) + 1;
     roomLog(room, `👮 ${room.players[socket.id]?.name||'?'} caught the thief! $10 saved!`);
     emit(room);
   });
