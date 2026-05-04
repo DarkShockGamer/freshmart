@@ -618,10 +618,11 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
     p.personalScore += total;
     if (room.stats) {
       if (!room.stats.byPlayer) room.stats.byPlayer = {};
-      if (!room.stats.byPlayer[sid]) room.stats.byPlayer[sid] = { served: 0, revenue: 0, name: p.name };
-      room.stats.byPlayer[sid].served++;
-      room.stats.byPlayer[sid].revenue += total;
-      room.stats.byPlayer[sid].name = p.name;
+      const nameKey = p.name.toLowerCase();
+      if (!room.stats.byPlayer[nameKey]) room.stats.byPlayer[nameKey] = { served: 0, revenue: 0, name: p.name };
+      room.stats.byPlayer[nameKey].served++;
+      room.stats.byPlayer[nameKey].revenue += total;
+      room.stats.byPlayer[nameKey].name = p.name;
       room.stats.playerRevenue = (room.stats.playerRevenue||0) + total;
     }
   }
@@ -942,7 +943,10 @@ io.on('connection', (socket) => {
     if (Object.keys(room.players).length >= 6) { socket.emit('joinError', 'Room is full (max 6)!'); return; }
     const idx = Object.keys(room.players).length;
     const playerName = (name||'').trim().slice(0,20) || `Player ${idx+1}`;
-    room.players[socket.id] = { id: socket.id, name: playerName, color: PLAYER_COLORS[idx%6], role: PLAYER_ROLES[idx%6], personalScore: 0 };
+    // Carry over personalScore if someone with the same name was here before
+    const nameKey = playerName.toLowerCase();
+    const priorScore = (room.stats?.byPlayer?.[nameKey]?.revenue) || 0;
+    room.players[socket.id] = { id: socket.id, name: playerName, color: PLAYER_COLORS[idx%6], role: PLAYER_ROLES[idx%6], personalScore: priorScore };
     socketRoom.set(socket.id, roomCode);
     socket.join(roomCode);
     roomLog(room, `👋 ${playerName} joined!`);
