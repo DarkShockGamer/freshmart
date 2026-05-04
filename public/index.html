@@ -714,8 +714,10 @@ input::placeholder { color: var(--muted); }
 #registers-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 }
+#registers-row > * { width: 560px; max-width: 100%; }
 
 /* ── Register Card (same layout as SCO but worker-themed) ── */
 .register-card {
@@ -969,8 +971,11 @@ input::placeholder { color: var(--muted); }
 #all-registers-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 }
+#all-registers-row > * { width: 560px; max-width: 100%; }
+
 
 /* Offline lane card — shown when no one has claimed the lane */
 .register-card.lane-offline {
@@ -1011,8 +1016,10 @@ input::placeholder { color: var(--muted); }
 #player-registers-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 }
+#player-registers-row > * { width: 560px; max-width: 100%; }
 
 /* Player register card — green theme, mirrors .register-card */
 .preg-card {
@@ -1298,8 +1305,10 @@ input::placeholder { color: var(--muted); }
 #sco-machines-row {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16px;
 }
+#sco-machines-row > * { width: 560px; max-width: 100%; }
 
 /* ── SCO Kiosk Card — full checkout layout ── */
 .sco-machine-card {
@@ -3230,8 +3239,8 @@ function renderAllRegisters(s) {
   const zone = document.getElementById('all-registers-zone');
   const row  = document.getElementById('all-registers-row');
 
-  // Hide during lobby and between-day shop phase (registers aren't active)
-  if (s.phase === 'lobby' || s.phase === 'shop') {
+  // Hide only during lobby (pre-game)
+  if (s.phase === 'lobby') {
     zone.style.display = 'none';
     return;
   }
