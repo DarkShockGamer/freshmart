@@ -267,12 +267,25 @@ const UPGRADES = [
 const PLAYER_COLORS = ['#f97316','#6366f1','#10b981','#ec4899','#eab308','#06b6d4'];
 const PLAYER_ROLES  = ['Store Manager','Head Cashier','Stock Clerk','Sales Associate','Floor Manager','Greeter'];
 
+// Storage capacity per product (warehouse in back)
+const STORAGE_CAPACITY = 100;
+// Default shelf capacity
+const BASE_SHELF_CAPACITY = 30;
+// AI stocker: base ms between stocking one product batch (at speed 1.0)
+const AI_STOCKER_BASE_MS = 7000;
+// Units moved per stock action
+const STOCK_BATCH_SIZE = 8;
+
 // ─── AI Worker Types ──────────────────────────────────────────────
 const AI_WORKER_TYPES = [
-  { id: 'rookie',      name: 'Rookie Cashier',    emoji: '🧑‍💼', speed: 1.0, cost: 400,  wage: 50,  desc: 'A new hire. Gets the job done, slowly.' },
-  { id: 'experienced', name: 'Experienced Clerk',  emoji: '👩‍💼', speed: 1.5, cost: 900,  wage: 100, desc: 'Faster checkout, fewer mistakes.' },
-  { id: 'veteran',     name: 'Veteran Cashier',    emoji: '🧓‍💼', speed: 2.0, cost: 2000, wage: 200, desc: 'Blazing fast. Handles rush hour like a pro.' },
-  { id: 'manager',     name: 'Shift Manager',      emoji: '👔',   speed: 3.0, cost: 6000, wage: 400, desc: 'Serves VIPs for double the speed bonus.' },
+  { id: 'rookie',      name: 'Rookie Cashier',    emoji: '🧑‍💼', speed: 1.0, cost: 400,  wage: 50,  desc: 'A new hire. Gets the job done, slowly.',         workerType: 'cashier' },
+  { id: 'experienced', name: 'Experienced Clerk',  emoji: '👩‍💼', speed: 1.5, cost: 900,  wage: 100, desc: 'Faster checkout, fewer mistakes.',                workerType: 'cashier' },
+  { id: 'veteran',     name: 'Veteran Cashier',    emoji: '🧓‍💼', speed: 2.0, cost: 2000, wage: 200, desc: 'Blazing fast. Handles rush hour like a pro.',     workerType: 'cashier' },
+  { id: 'manager',     name: 'Shift Manager',      emoji: '👔',   speed: 3.0, cost: 6000, wage: 400, desc: 'Serves VIPs for double the speed bonus.',         workerType: 'cashier' },
+  // Stocker types
+  { id: 'stocker_jr',  name: 'Junior Stocker',     emoji: '🧑‍🏭', speed: 1.0, cost: 300,  wage: 40,  desc: 'Slowly moves stock from storage to shelves.',     workerType: 'stocker' },
+  { id: 'stocker_sr',  name: 'Senior Stocker',     emoji: '👷',   speed: 2.0, cost: 700,  wage: 80,  desc: 'Fast stocker. Keeps shelves full during rushes.',  workerType: 'stocker' },
+  { id: 'stocker_lead',name: 'Stock Lead',          emoji: '🦺',   speed: 3.5, cost: 1800, wage: 150, desc: 'Prioritizes the most-depleted shelves first.',     workerType: 'stocker' },
 ];
 
 // ─── Self-Checkout Machine Types ───────────────────────────────────
@@ -349,6 +362,7 @@ function snapshotRoom(room) {
     inventory: { ...room.inventory },
     prices:    { ...room.prices    },
     shelves:   { ...room.shelves   },
+    storage:   { ...room.storage   },
     difficulty: room.difficulty || 'normal',
     aiWorkers: room.aiWorkers ? room.aiWorkers.map(w => ({...w})) : [],
     scoMachines: room.scoMachines ? room.scoMachines.map(m => ({...m})) : [],
@@ -369,11 +383,16 @@ function getUnlockedProducts(upgrades = []) {
 }
 
 function freshStore(upgrades = []) {
-  const inv = {}, prices = {}, shelves = {};
+  const inv = {}, prices = {}, shelves = {}, storage = {};
   getUnlockedProducts(upgrades).forEach(p => {
-    if (!(p.id in inv)) { inv[p.id] = 10; prices[p.id] = p.basePrice; shelves[p.id] = true; }
+    if (!(p.id in inv)) {
+      inv[p.id] = 10;           // shelf stock (customers buy from here)
+      storage[p.id] = 30;      // back-room warehouse stock
+      prices[p.id] = p.basePrice;
+      shelves[p.id] = true;
+    }
   });
-  return { inv, prices, shelves };
+  return { inv, prices, shelves, storage };
 }
 
 function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
@@ -381,7 +400,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
   // If loading from save, use the saved difficulty
   const effectiveDiff = (save && save.difficulty) ? save.difficulty : difficulty;
   const diff = DIFFICULTY_CONFIGS[effectiveDiff] || DIFFICULTY_CONFIGS.normal;
-  let inv, prices, shelves, upgrades, money, day, totalScore, reputation, capacityBonus;
+  let inv, prices, shelves, storage, upgrades, money, day, totalScore, reputation, capacityBonus;
 
   if (save) {
     // Restore from save — ensure all products for unlocked upgrades exist
@@ -390,13 +409,14 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     inv          = { ...baseProd.inv,    ...save.inventory };
     prices       = { ...baseProd.prices, ...save.prices    };
     shelves      = { ...baseProd.shelves,...save.shelves   };
+    storage      = { ...baseProd.storage,...(save.storage || {}) };
     money        = save.money;
     day          = save.day;
     totalScore   = save.totalScore;
     reputation   = save.reputation;
     capacityBonus= save.capacityBonus || 0;
   } else {
-    ({ inv, prices, shelves } = freshStore());
+    ({ inv, prices, shelves, storage } = freshStore());
     upgrades = []; money = diff.startMoney; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
   }
 
@@ -417,7 +437,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     phase: 'lobby',
     players: {},
     money, day, totalScore, reputation,
-    inventory: inv, prices, shelves,
+    inventory: inv, prices, shelves, storage,
     customers: [], eventLog: [],
     activeEvent: null, upgrades,
     nextCustomerId: 1, dayTimer: 120,
@@ -436,6 +456,8 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     nextScoId: savedScoMachines.length > 0 ? Math.max(...savedScoMachines.map(m => m.uid)) + 1 : 1,
     // AI worker checkout timers: { laneIdx: timeoutId }
     _aiCheckoutTimers: {},
+    // AI stocker cooldowns
+    _aiStockerCooldowns: {},
     // Stats
     stats: save?.stats || {
       customersServed: 0,
@@ -448,6 +470,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
       theftsLost: 0,
       vipServed: 0,
       daysCompleted: 0,
+      stockingActions: 0,
       byPlayer: {}, // playerId -> { served, revenue }
     },
   };
@@ -485,6 +508,9 @@ function emit(room) {
     players: room.players,
     money: room.money, day: room.day, totalScore: room.totalScore, reputation: room.reputation,
     inventory: room.inventory, prices: room.prices, shelves: room.shelves,
+    storage: room.storage,
+    storageCapacity: STORAGE_CAPACITY,
+    shelfCapacity: BASE_SHELF_CAPACITY + (room.capacityBonus || 0),
     customers: room.customers,
     eventLog: room.eventLog.slice(0, 15),
     activeEvent: room.activeEvent, upgrades: room.upgrades,
@@ -711,6 +737,8 @@ function startDay(room) {
 
     // AI workers auto-serve customers assigned to their lane
     tickAiWorkers(room);
+    // AI stockers auto-restock shelves
+    tickAiStockers(room);
     // Self-checkout machines auto-serve customers
     tickScoMachines(room);
 
@@ -843,12 +871,57 @@ function tickScoMachines(room) {
   });
 }
 
+// AI Stocker logic: finds the most-depleted shelf product and moves stock from storage
+function tickAiStockers(room) {
+  if (!room.aiWorkers || room.phase !== 'playing') return;
+  if (!room._aiStockerCooldowns) room._aiStockerCooldowns = {};
+  const now = Date.now();
+  const unlocked = getUnlockedProducts(room.upgrades);
+  const shelfCap = BASE_SHELF_CAPACITY + (room.capacityBonus || 0);
+
+  room.aiWorkers.forEach(w => {
+    const type = AI_WORKER_TYPES.find(t => t.id === w.typeId);
+    if (!type || type.workerType !== 'stocker') return;
+    if (!w.activeAsStorcker) return; // must be activated
+
+    const cooldown = AI_STOCKER_BASE_MS / (w.speed || 1.0);
+    if (now - (room._aiStockerCooldowns[w.uid] || 0) < cooldown) return;
+
+    // Find the product with the lowest shelf fill % that has storage stock
+    let target = null, lowestRatio = 1.1;
+    unlocked.forEach(p => {
+      if (!room.shelves[p.id]) return;
+      const storageAmt = room.storage[p.id] || 0;
+      if (storageAmt <= 0) return;
+      const shelfAmt = room.inventory[p.id] || 0;
+      const ratio = shelfAmt / shelfCap;
+      if (ratio < lowestRatio) { lowestRatio = ratio; target = p; }
+    });
+
+    if (!target) return; // nothing needs stocking or storage empty
+    if (lowestRatio >= 1.0) return; // shelves all full
+
+    const shelfAmt = room.inventory[target.id] || 0;
+    const storageAmt = room.storage[target.id] || 0;
+    const canAdd = Math.min(STOCK_BATCH_SIZE * Math.round(w.speed), shelfCap - shelfAmt, storageAmt);
+    if (canAdd <= 0) return;
+
+    room.inventory[target.id] = shelfAmt + canAdd;
+    room.storage[target.id] = storageAmt - canAdd;
+    room._aiStockerCooldowns[w.uid] = now;
+    if (room.stats) room.stats.stockingActions = (room.stats.stockingActions || 0) + 1;
+    w.lastStocked = { product: target.name, emoji: target.emoji, qty: canAdd, at: now };
+    roomLog(room, `${w.emoji} ${w.name} stocked ${target.emoji} ${target.name} ×${canAdd} to shelves`);
+  });
+}
+
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
+  room._aiStockerCooldowns = {};
   if (room.stats) room.stats.daysCompleted = (room.stats.daysCompleted||0) + 1;
 
   // Pay AI worker wages
@@ -911,23 +984,23 @@ function stopShopAutosave(room) {
 
 function resetRoom(room) {
   stopRoom(room);
-  const { inv, prices, shelves } = freshStore([]); // reset to base products only
+  const { inv, prices, shelves, storage } = freshStore([]); // reset to base products only
   const players = {};
   Object.entries(room.players).forEach(([id, p], i) => {
     players[id] = { ...p, personalScore: 0, role: PLAYER_ROLES[i % PLAYER_ROLES.length], color: PLAYER_COLORS[i % PLAYER_COLORS.length] };
   });
   Object.assign(room, {
     phase: 'lobby', money: room.diff?.startMoney || 200, day: 1, totalScore: 0, reputation: 100,
-    inventory: inv, prices, shelves, customers: [], eventLog: [],
+    inventory: inv, prices, shelves, storage, customers: [], eventLog: [],
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
     isMorning: true, players,
-    checkoutLocked: null, checkoutLocks: {}, playerCheckoutActivity: {}, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {},
+    checkoutLocked: null, checkoutLocks: {}, playerCheckoutActivity: {}, aiWorkers: [], nextWorkerId: 1, _aiWorkerCooldowns: {}, _aiStockerCooldowns: {},
     scoMachines: [], nextScoId: 1,
     stats: {
       customersServed: 0, customersLost: 0, totalRevenue: 0, aiRevenue: 0, playerRevenue: 0,
-      rushHoursTriggered: 0, theftsBlocked: 0, theftsLost: 0, vipServed: 0, daysCompleted: 0, byPlayer: {},
+      rushHoursTriggered: 0, theftsBlocked: 0, theftsLost: 0, vipServed: 0, daysCompleted: 0, stockingActions: 0, byPlayer: {},
     },
   });
   roomLog(room, '🔄 Game reset — back to lobby!');
@@ -1152,7 +1225,11 @@ io.on('connection', (socket) => {
     if (!type) return;
     if (room.money < type.cost) { socket.emit('msg', { type:'error', text:`Need $${type.cost} to hire!` }); return; }
     room.money -= type.cost;
-    const w = { uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji, speed: type.speed, wage: type.wage, assignedLane: null };
+    const w = {
+      uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji,
+      speed: type.speed, wage: type.wage, workerType: type.workerType || 'cashier',
+      assignedLane: null, activeAsStorcker: type.workerType === 'stocker', // stockers active by default
+    };
     room.aiWorkers.push(w);
     roomLog(room, `${type.emoji} Hired ${type.name} for $${type.cost}!`);
     emit(room);
@@ -1219,15 +1296,55 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
-    const maxCap = 30 + room.capacityBonus;
-    const cur = room.inventory[productId]||0;
-    const canAdd = Math.min(Math.max(0, qty), maxCap - cur);
-    if (canAdd===0) { socket.emit('msg', { type:'error', text:'Shelves are full!' }); return; }
+    if (!room.storage) room.storage = {};
+    const cur = room.storage[productId] || 0;
+    const canAdd = Math.min(Math.max(0, qty), STORAGE_CAPACITY - cur);
+    if (canAdd === 0) { socket.emit('msg', { type:'error', text:'Storage is full!' }); return; }
     const cost = prod.cost * canAdd;
     if (cost > room.money) { socket.emit('msg', { type:'error', text:`Need $${cost}, only have $${room.money}!` }); return; }
     room.money -= cost;
-    room.inventory[productId] = cur + canAdd;
-    roomLog(room, `📦 ${room.players[socket.id]?.name||'?'} restocked ${prod.name} ×${canAdd} (-$${cost})`);
+    room.storage[productId] = cur + canAdd;
+    roomLog(room, `📦 ${room.players[socket.id]?.name||'?'} ordered ${prod.name} ×${canAdd} to storage (-$${cost})`);
+    emit(room);
+  });
+
+  // Move stock from storage → shelves (can be done during play or shop)
+  socket.on('restockShelf', ({ productId, qty }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room) return;
+    const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
+    if (!room.storage) room.storage = {};
+    const shelfCap = BASE_SHELF_CAPACITY + (room.capacityBonus || 0);
+    const shelfAmt = room.inventory[productId] || 0;
+    const storageAmt = room.storage[productId] || 0;
+    const move = Math.min(qty || STOCK_BATCH_SIZE, shelfCap - shelfAmt, storageAmt);
+    if (move <= 0) {
+      if (storageAmt === 0) socket.emit('msg', { type:'error', text:`No ${prod.name} in storage!` });
+      else socket.emit('msg', { type:'error', text:`${prod.name} shelf is already full!` });
+      return;
+    }
+    room.inventory[productId] = shelfAmt + move;
+    room.storage[productId] = storageAmt - move;
+    if (room.stats) room.stats.stockingActions = (room.stats.stockingActions || 0) + 1;
+    const pname = room.players[socket.id]?.name || '?';
+    roomLog(room, `📋 ${pname} stocked ${prod.emoji} ${prod.name} ×${move} to shelves`);
+    emit(room);
+  });
+
+  // Buy stock directly into storage during shop phase (bulk order)
+  socket.on('bulkOrder', ({ productId, qty }) => {
+    const room = rooms.get(socketRoom.get(socket.id));
+    if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
+    const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
+    if (!room.storage) room.storage = {};
+    const cur = room.storage[productId] || 0;
+    const canAdd = Math.min(Math.max(0, qty || 20), STORAGE_CAPACITY - cur);
+    if (canAdd === 0) { socket.emit('msg', { type:'error', text:'Storage is full!' }); return; }
+    const cost = prod.cost * canAdd;
+    if (cost > room.money) { socket.emit('msg', { type:'error', text:`Need $${cost}!` }); return; }
+    room.money -= cost;
+    room.storage[productId] = cur + canAdd;
+    roomLog(room, `🚛 ${room.players[socket.id]?.name||'?'} bulk ordered ${prod.name} ×${canAdd} (-$${cost})`);
     emit(room);
   });
 
@@ -1267,6 +1384,8 @@ io.on('connection', (socket) => {
     newProds.forEach(p => {
       if (!(p.id in room.inventory)) {
         room.inventory[p.id] = 0;
+        if (!room.storage) room.storage = {};
+        room.storage[p.id] = 0;
         room.prices[p.id] = p.basePrice;
         room.shelves[p.id] = true;
       }
