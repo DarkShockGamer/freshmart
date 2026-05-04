@@ -1251,15 +1251,14 @@ input::placeholder { color: var(--muted); }
   pointer-events: none; border-radius: 7px;
 }
 
-/* ── Player Register Closed State ── */
-.preg-closed {
-  opacity: .55;
+/* ── Player Register Closed/Unclaimed State ── */
+.preg-unclaimed {
+  opacity: .5;
 }
 .preg-closed-overlay {
-  display: none;
   position: absolute;
   inset: 0;
-  background: rgba(10, 14, 20, 0.72);
+  background: rgba(10, 14, 20, 0.70);
   border-radius: 15px;
   z-index: 10;
   align-items: center;
@@ -1273,7 +1272,7 @@ input::placeholder { color: var(--muted); }
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 16px 24px;
+  padding: 14px 22px;
   background: var(--surf);
   border: 2px solid var(--border);
   border-radius: 12px;
@@ -3491,7 +3490,9 @@ function renderPlayerRegisters(s) {
   const zone = document.getElementById('player-registers-zone');
   const row  = document.getElementById('player-registers-row');
 
-  // Show ALL players — active ones have a checkout lock, others appear as CLOSED
+  // Show ALL players at all times
+  // cashierLane = player has claimed/assigned to a lane ("Be Cashier")
+  // checkoutLocks[pid] = player is actively mid-transaction right now
   const locks = s.checkoutLocks || {};
   const allPlayers = Object.values(s.players);
 
@@ -3508,13 +3509,13 @@ function renderPlayerRegisters(s) {
   zone.style.display = 'block';
 
   const sub = document.getElementById('player-registers-zone-sub');
-  const activeCount = allPlayers.filter(p => locks[p.id] && s.playerCheckoutActivity?.[p.id]).length;
-  const claimedCount = allPlayers.filter(p => locks[p.id]).length;
-  sub.textContent = activeCount > 0
-    ? `${activeCount} player${activeCount > 1 ? 's' : ''} checking out customers`
-    : claimedCount > 0 ? 'Players in checkout…' : 'All registers closed';
+  const servingCount = allPlayers.filter(p => s.playerCheckoutActivity?.[p.id]).length;
+  const claimedCount = allPlayers.filter(p => p.cashierLane).length;
+  sub.textContent = servingCount > 0
+    ? `${servingCount} player${servingCount > 1 ? 's' : ''} checking out customers`
+    : claimedCount > 0 ? 'Players at registers, waiting for customers…' : 'No registers claimed yet';
 
-  // Remove cards for players who left the game entirely
+  // Remove cards for players who left the room entirely
   const incoming = new Set(allPlayers.map(p => p.id));
   [...row.querySelectorAll('.preg-card')].forEach(card => {
     const pid = card.dataset.pid;
@@ -3527,12 +3528,13 @@ function renderPlayerRegisters(s) {
   });
 
   allPlayers.forEach(p => {
-    const hasClaim = !!locks[p.id];
-    const isMe = p.id === myId;
-    const act  = s.playerCheckoutActivity?.[p.id] || null;  // { customerEmoji, customerName, items, total, startedAt }
-    const isActive  = !!act;
-    const wasActive = !!_pregLastActivity[p.id];
-    const newTxn    = isActive && (!wasActive || act.startedAt !== _pregLastActivity[p.id]?.startedAt);
+    const isMe       = p.id === myId;
+    const hasClaim   = !!p.cashierLane;   // player has pressed "Be Cashier" for a lane
+    const hasLock    = !!locks[p.id];     // player is mid-transaction
+    const act        = s.playerCheckoutActivity?.[p.id] || null;
+    const isActive   = !!act;
+    const wasActive  = !!_pregLastActivity[p.id];
+    const newTxn     = isActive && (!wasActive || act.startedAt !== _pregLastActivity[p.id]?.startedAt);
 
     let card = row.querySelector(`[data-pid="${p.id}"]`);
 
@@ -3540,17 +3542,16 @@ function renderPlayerRegisters(s) {
     if (!card) {
       card = document.createElement('div');
       card.dataset.pid = p.id;
-      card.className   = 'preg-card' + (isMe ? ' is-me' : '');
+      card.className   = 'preg-card';
 
-      const laneNum = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
       card.innerHTML = `
         <div class="preg-card-header">
           <div class="preg-player-dot" style="background:${p.color}">${p.name[0].toUpperCase()}</div>
           <div style="flex:1;min-width:0">
             <div class="preg-player-name">${p.name}</div>
-            <div class="preg-player-sub">Player cashier</div>
+            <div class="preg-player-sub preg-player-sub-${p.id}">Player cashier</div>
           </div>
-          <span class="preg-lane-badge preg-lane-badge-${p.id}">${laneNum}</span>
+          <span class="preg-lane-badge preg-lane-badge-${p.id}">Checkout</span>
           ${isMe ? '<span class="preg-me-badge">YOU</span>' : ''}
         </div>
 
@@ -3602,31 +3603,29 @@ function renderPlayerRegisters(s) {
           </div>
         </div>
 
-        <!-- Closed overlay — shown when register is not claimed -->
-        <div class="preg-closed-overlay" id="preg-closed-${p.id}">
+        <!-- Closed overlay — shown when no cashierLane claimed -->
+        <div class="preg-closed-overlay" id="preg-closed-${p.id}" style="display:none">
           <div class="preg-closed-sign">
-            <span style="font-size:28px">🚫</span>
+            <span style="font-size:26px">🚫</span>
             <div class="preg-closed-text">CLOSED</div>
-            <div class="preg-closed-sub">${p.name} not at register</div>
+            <div class="preg-closed-sub">Available — not yet claimed</div>
           </div>
         </div>
       `;
       row.appendChild(card);
-    } else {
-      // Update lane badge if lane changed
-      const badge = card.querySelector(`.preg-lane-badge-${p.id}`);
-      if (badge) badge.textContent = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
-      // Update closed overlay sub-text in case name changed
-      const closedSub = card.querySelector('.preg-closed-sub');
-      if (closedSub) closedSub.textContent = `${p.name} not at register`;
     }
 
-    // ── Closed (not claimed) state ──────────────────────
+    // ── Always update header details ────────────────────
+    const badge = card.querySelector(`.preg-lane-badge-${p.id}`);
+    if (badge) badge.textContent = p.cashierLane ? `Lane ${p.cashierLane}` : 'Checkout';
+    const subEl = card.querySelector(`.preg-player-sub-${p.id}`);
+    if (subEl) subEl.textContent = hasClaim ? `Lane ${p.cashierLane} cashier` : 'Not at a register';
+
+    // ── CLOSED: player hasn't claimed a lane ────────────
     const closedOverlay = document.getElementById(`preg-closed-${p.id}`);
     if (!hasClaim) {
       card.classList.remove('active-preg', 'is-me');
-      if (!isMe) card.classList.remove('is-me'); // keep is-me styling only when claimed
-      card.classList.add('preg-closed');
+      card.classList.add('preg-unclaimed');
       if (closedOverlay) closedOverlay.style.display = 'flex';
       card.querySelector('.preg-cust-bar').style.display = 'none';
       clearTimeout(_pregScanTimers[p.id]);
@@ -3634,12 +3633,12 @@ function renderPlayerRegisters(s) {
       return;
     }
 
-    // Register is claimed — hide closed overlay
+    // Player has claimed a lane — hide closed overlay, apply me-styling
     if (closedOverlay) closedOverlay.style.display = 'none';
-    card.classList.remove('preg-closed');
-    if (isMe) card.classList.add('is-me');
+    card.classList.remove('preg-unclaimed');
+    if (isMe) card.classList.add('is-me'); else card.classList.remove('is-me');
 
-    // ── Idle state (claimed but no active transaction) ──
+    // ── IDLE: claimed lane but not mid-transaction ──────
     if (!isActive) {
       card.classList.remove('active-preg');
       card.querySelector('.preg-cust-bar').style.display = 'none';
