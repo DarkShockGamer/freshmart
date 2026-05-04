@@ -3540,6 +3540,9 @@ function renderPlayerRegisters(s) {
   const lanePlayer = {};
   Object.values(players).forEach(p => { if (p.cashierLane) lanePlayer[p.cashierLane] = p; });
 
+  // Lanes occupied by AI workers — exclude these from player registers entirely
+  const aiLanes = new Set((s.aiWorkers || []).filter(w => w.assignedLane).map(w => w.assignedLane));
+
   zone.style.display = 'block';
 
   const sub = document.getElementById('player-registers-zone-sub');
@@ -3560,7 +3563,18 @@ function renderPlayerRegisters(s) {
     }
   });
 
+  // Hide/remove cards for lanes now handled by AI workers
+  [...row.querySelectorAll('.preg-card[data-lane]')].forEach(card => {
+    const ln = +card.dataset.lane;
+    if (aiLanes.has(ln)) {
+      const pid = card.dataset.pid;
+      if (pid) { clearTimeout(_pregScanTimers[pid]); delete _pregScanTimers[pid]; delete _pregLastActivity[pid]; }
+      card.remove();
+    }
+  });
+
   for (let laneNum = 1; laneNum <= totalLanes; laneNum++) {
+    if (aiLanes.has(laneNum)) continue; // AI worker owns this lane
     const p        = lanePlayer[laneNum] || null;
     const pid      = p ? p.id : null;
     const isMe     = pid === myId;
