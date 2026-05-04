@@ -1844,13 +1844,8 @@ function renderAll(s) {
   renderEventBanner(s);
   renderShopBanner(s);
   renderCheckoutLanesBar(s);
-  renderCustomers(s);
-  renderScoMachines(s);
-  renderInventory(s);
-  renderShop(s);
-  renderUpgrades(s);
-  renderWorkers(s);
-  renderStats(s);
+  // Only render the active tab to prevent flicker on every tick
+  renderTabContent(_activeTab, s);
   renderSidebar(s);
 }
 
@@ -2412,35 +2407,58 @@ function renderSidebar(s) {
   document.getElementById('rep-fill').style.width  = s.reputation+'%';
   document.getElementById('rep-label').textContent = s.reputation+'%';
 
-  // scoreboard
+  // scoreboard — update in place, only rebuild if player count changes
   const sb = document.getElementById('sb-scores');
-  sb.innerHTML = '';
-  Object.values(s.players).sort((a,b)=>b.personalScore-a.personalScore).forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'sb-score-row';
-    row.innerHTML = `
-      <span class="sn"><span style="width:10px;height:10px;border-radius:50%;background:${p.color};display:inline-block"></span>${p.name}${p.id===myId?' <span style="font-size:10px;color:var(--green)">(you)</span>':''}</span>
-      <span class="sv">$${p.personalScore}</span>
-    `;
-    sb.appendChild(row);
-  });
+  const sortedPlayers = Object.values(s.players).sort((a,b)=>b.personalScore-a.personalScore);
+  const existingRows = sb.querySelectorAll('.sb-score-row');
+  if (existingRows.length !== sortedPlayers.length) {
+    sb.innerHTML = '';
+    sortedPlayers.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'sb-score-row';
+      row.dataset.pid = p.id;
+      row.innerHTML = `<span class="sn"><span style="width:10px;height:10px;border-radius:50%;background:${p.color};display:inline-block"></span>${p.name}${p.id===myId?' <span style="font-size:10px;color:var(--green)">(you)</span>':''}</span><span class="sv">$${p.personalScore}</span>`;
+      sb.appendChild(row);
+    });
+  } else {
+    sortedPlayers.forEach((p, i) => {
+      const sv = existingRows[i]?.querySelector('.sv');
+      if (sv) sv.textContent = '$' + p.personalScore;
+    });
+  }
 
-  // log
+  // log — only rebuild when top entry changes
   const log = document.getElementById('log-area');
   const entries = s.eventLog||[];
-  log.innerHTML = '';
-  entries.forEach(e => {
-    const el = document.createElement('div');
-    el.className = 'log-entry';
-    el.textContent = e.msg;
-    log.appendChild(el);
-  });
+  const firstEntry = entries[0]?.msg || '';
+  if (log.dataset.firstEntry !== firstEntry) {
+    log.dataset.firstEntry = firstEntry;
+    log.innerHTML = '';
+    entries.forEach(e => {
+      const el = document.createElement('div');
+      el.className = 'log-entry';
+      el.textContent = e.msg;
+      log.appendChild(el);
+    });
+  }
 }
 
 // ── Tab switching ──────────────────────────────────
+let _activeTab = 'customers';
 function switchTab(name) {
+  _activeTab = name;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id==='pane-'+name));
+  if (roomState) renderTabContent(name, roomState);
+}
+
+function renderTabContent(tab, s) {
+  if (tab === 'customers')  { renderCustomers(s); renderScoMachines(s); }
+  if (tab === 'inventory')  renderInventory(s);
+  if (tab === 'shop')       renderShop(s);
+  if (tab === 'upgrades')   renderUpgrades(s);
+  if (tab === 'workers')    renderWorkers(s);
+  if (tab === 'stats')      renderStats(s);
 }
 
 // ── Checkout System ────────────────────────────────
