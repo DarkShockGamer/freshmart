@@ -720,6 +720,7 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
 // ─── Events ───────────────────────────────────────────────────────
 function triggerEvent(room) {
   if (room.phase !== 'playing') return;
+  if (room._devNoEvents) return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
   room.activeEvent = ev;
@@ -1576,6 +1577,104 @@ io.on('connection', (socket) => {
     emit(room);
   }
 });
+
+// ─── DEV CONTROLS ────────────────────────────────────────────────────────────
+// Activated client-side by Ctrl+Shift+D, then password prompt.
+// Token is set via DEV_TOKEN env var (falls back to a hard-coded default for local dev).
+const DEV_TOKEN = process.env.DEV_TOKEN || 'fm-dev-9x2k7p';
+
+io.on('connection', (socket) => {
+  // Re-use existing connection scope — this block only handles dev commands.
+  // Defined after main io.on so it layers on top without interference.
+});
+
+// Attach dev command handler inside the existing io.on via a separate listener
+// We inject it by patching the existing connection listeners map.
+// Actually we register it directly on the io instance via middleware-style patch:
+const _origOnConn = io._events?.connection;
+// Instead, we just add a second 'connection' listener which adds devCmd to each socket:
+io.on('connection', function devLayer(socket) {
+  socket.on('devCmd', ({ token, cmd, payload }) => {
+    if (token !== DEV_TOKEN) {
+      socket.emit('devResult', { ok: false, msg: 'Invalid token' });
+      return;
+    }
+    const code = socketRoom.get(socket.id);
+    const room = code ? rooms.get(code) : null;
+    if (!room) { socket.emit('devResult', { ok: false, msg: 'Not in a room' }); return; }
+
+    switch (cmd) {
+      case 'addMoney': {
+        const amt = Number(payload.amount) || 99999;
+        room.money += amt;
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `+$${amt} added` });
+        break;
+      }
+      case 'setMoney': {
+        room.money = Number(payload.amount) ?? 999999;
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `Money set to $${room.money}` });
+        break;
+      }
+      case 'setReputation': {
+        room.reputation = Math.max(0, Math.min(100, Number(payload.value) ?? 100));
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `Reputation set to ${room.reputation}` });
+        break;
+      }
+      case 'skipDay': {
+        if (room.phase === 'playing') {
+          endDay(room);
+          socket.emit('devResult', { ok: true, msg: 'Day ended' });
+        } else {
+          socket.emit('devResult', { ok: false, msg: 'Not in playing phase' });
+        }
+        break;
+      }
+      case 'unlockAllUpgrades': {
+        const allIds = UPGRADES.map(u => u.id);
+        allIds.forEach(id => { if (!room.upgrades.includes(id)) room.upgrades.push(id); });
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `All ${allIds.length} upgrades unlocked` });
+        break;
+      }
+      case 'fillStorage': {
+        Object.keys(room.storage).forEach(pid => { room.storage[pid] = 50; });
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: 'Storage filled' });
+        break;
+      }
+      case 'fillShelves': {
+        Object.keys(room.inventory).forEach(pid => { room.inventory[pid] = 20; });
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: 'Shelves filled' });
+        break;
+      }
+      case 'setDay': {
+        room.day = Math.max(1, Number(payload.value) ?? 1);
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `Day set to ${room.day}` });
+        break;
+      }
+      case 'noEvents': {
+        room._devNoEvents = !room._devNoEvents;
+        socket.emit('devResult', { ok: true, msg: `Events ${room._devNoEvents ? 'disabled' : 'enabled'}` });
+        break;
+      }
+      case 'spawnCustomers': {
+        const n = Math.min(Number(payload.count) || 5, 20);
+        for (let i = 0; i < n; i++) spawnCustomer(room);
+        emit(room);
+        socket.emit('devResult', { ok: true, msg: `Spawned ${n} customers` });
+        break;
+      }
+      default:
+        socket.emit('devResult', { ok: false, msg: `Unknown cmd: ${cmd}` });
+    }
+  });
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🛒 FreshMart → http://localhost:${PORT}`));
