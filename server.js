@@ -612,6 +612,35 @@ function weightedPick(arr, weightFn) {
   return arr[arr.length - 1];
 }
 
+// Schedules (or reschedules) a patience timer for a customer using a room-level Map.
+// Keeps timer IDs off customer objects so they never interfere with serialization.
+function schedPatienceTimer(room, cust, ms) {
+  if (!room._patienceTimers) room._patienceTimers = new Map();
+  const existing = room._patienceTimers.get(cust.id);
+  if (existing) clearTimeout(existing);
+  const tid = setTimeout(() => {
+    // Never fire while customer is actively being served
+    if (cust.attendedBy) return;
+    const idx = room.customers.findIndex(x => x.id === cust.id);
+    if (idx !== -1) {
+      const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
+      room.reputation = Math.max(0, room.reputation - repLoss);
+      roomLog(room, `😤 ${cust.name} left unserved! Rep -${repLoss}`);
+      room.customers.splice(idx, 1);
+      if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
+      room._patienceTimers.delete(cust.id);
+      emit(room);
+    }
+  }, ms);
+  room._patienceTimers.set(cust.id, tid);
+}
+
+function cancelPatienceTimer(room, custId) {
+  if (!room._patienceTimers) return;
+  const tid = room._patienceTimers.get(custId);
+  if (tid) { clearTimeout(tid); room._patienceTimers.delete(custId); }
+}
+
 function spawnCustomer(room) {
   if (room.phase !== 'playing') return;
   const unlocked = getUnlockedProducts(room.upgrades);
@@ -645,27 +674,11 @@ function spawnCustomer(room) {
     emoji: CUSTOMER_EMOJIS[Math.floor(Math.random()*CUSTOMER_EMOJIS.length)],
     wants, patience, maxPatience: patience, spawnTime: Date.now(), isVip,
   };
-  // Store timeout ID so we can cancel/pause it when a player starts checkout
-  c._patienceTimer = null;
-  function startPatienceTimer(cust, ms) {
-    if (cust._patienceTimer) clearTimeout(cust._patienceTimer);
-    cust._patienceTimer = setTimeout(() => {
-      // Never leave while being actively checked out by any agent
-      if (cust.attendedBy) return;
-      const idx = room.customers.findIndex(x => x.id === cust.id);
-      if (idx !== -1) {
-        const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
-        room.reputation = Math.max(0, room.reputation - repLoss);
-        roomLog(room, `😤 ${cust.name} left unserved! Rep -${repLoss}`);
-        room.customers.splice(idx, 1);
-        if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
-        emit(room);
-      }
-    }, ms);
-  }
-  c._startPatienceTimer = startPatienceTimer;
   room.customers.push(c);
-  startPatienceTimer(c, patience * 1000);
+  // Use room-level Map to store timers — never put functions/timers on customer objects
+  // (they'd get serialized/stripped by Socket.IO and cause silent crashes)
+  if (!room._patienceTimers) room._patienceTimers = new Map();
+  schedPatienceTimer(room, c, patience * 1000);
 }
 
 function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
@@ -901,7 +914,7 @@ function tickAiWorkers(room) {
     // Claim: mark attendedBy so clients see the overlay immediately
     customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
     // Cancel patience timer — customer is now being served
-    if (customer._patienceTimer) { clearTimeout(customer._patienceTimer); customer._patienceTimer = null; }
+    cancelPatienceTimer(room, customer.id);
     room._aiWorkerClaims[w.uid] = { customerId: customer.id, claimedAt: now };
 
     // Build activity snapshot for client animation (mirrors SCO)
@@ -941,7 +954,7 @@ function tickScoMachines(room) {
     m.lastServeAt = now;
     customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
     // Cancel patience timer — customer is being processed by SCO
-    if (customer._patienceTimer) { clearTimeout(customer._patienceTimer); customer._patienceTimer = null; }
+    cancelPatienceTimer(room, customer.id);
     // Build activity snapshot for client animation
     const items = customer.wants.map(w => {
       const prod = ALL_PRODUCTS.find(p => p.id === w.id);
@@ -1010,6 +1023,8 @@ function tickAiStockers(room) {
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
+  // Clear all pending patience timers before wiping customers
+  if (room._patienceTimers) { room._patienceTimers.forEach(tid => clearTimeout(tid)); room._patienceTimers.clear(); }
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
@@ -1201,7 +1216,7 @@ io.on('connection', (socket) => {
         if (c && !c.attendedBy) {
           c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
           // Cancel patience timer — customer will never leave while being served
-          if (c._patienceTimer) { clearTimeout(c._patienceTimer); c._patienceTimer = null; }
+          cancelPatienceTimer(room, c.id);
         }
         if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
         if (c) {
@@ -1240,7 +1255,7 @@ io.on('connection', (socket) => {
       if (c && !c.attendedBy) {
         c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
         // Cancel patience timer — customer will never leave while being checked out
-        if (c._patienceTimer) { clearTimeout(c._patienceTimer); c._patienceTimer = null; }
+        cancelPatienceTimer(room, c.id);
       }
       // Broadcast player checkout activity to all clients
       if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
@@ -1279,7 +1294,7 @@ io.on('connection', (socket) => {
         if (c.attendedBy?.type === 'player') {
           c.attendedBy = null;
           // Restart patience timer with a 30-second grace window
-          if (c._startPatienceTimer) c._startPatienceTimer(c, 30000);
+          schedPatienceTimer(room, c, 30000);
         }
       });
       emit(room);
