@@ -5847,6 +5847,151 @@ const SFX = (() => {
     play(() => osc(440, 'sine', 0, 0.1, 0.15, true));
   }
 
+  /** Tab switch — soft neutral click */
+  function tabSwitch() {
+    play(() => {
+      osc(600, 'sine', 0, 0.07, 0.12, true);
+      osc(900, 'sine', 0.02, 0.05, 0.06, true);
+    });
+  }
+
+  /** Restock single batch — cardboard box thud */
+  function restock() {
+    play(() => {
+      const ac = getCtx();
+      osc(90, 'sine', 0, 0.08, 0.35, true);
+      osc(140, 'sine', 0, 0.04, 0.2, true);
+      // paper/cardboard texture
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.06, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/(d.length*0.4));
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1200;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.22, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.06);
+      src.connect(lp); lp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.1);
+    });
+  }
+
+  /** Restock max / fill — satisfying stack of boxes */
+  function restockFull() {
+    play(() => {
+      osc(100, 'sine', 0,    0.1,  0.4, true);
+      osc(150, 'sine', 0.06, 0.08, 0.28, true);
+      osc(200, 'sine', 0.12, 0.06, 0.18, true);
+      osc(500, 'sine', 0.14, 0.08, 0.12, true);
+    });
+  }
+
+  /** Abandon checkout — dismissive downward blip */
+  function abandonCheckout() {
+    play(() => {
+      osc(400, 'sine', 0,    0.1, 0.18, true);
+      osc(280, 'sine', 0.08, 0.12, 0.14, true);
+    });
+  }
+
+  /** Scan all — rapid-fire beep burst */
+  function scanAll() {
+    play(() => {
+      for (let i = 0; i < 5; i++) {
+        osc(1800 + i * 80, 'sine', i * 0.04, 0.05, 0.25, true);
+      }
+      osc(2400, 'sine', 0.22, 0.1, 0.2, true);
+    });
+  }
+
+  /** Copy code — clipboard snap */
+  function copyCode() {
+    play(() => {
+      osc(1200, 'sine', 0,    0.05, 0.18, true);
+      osc(1600, 'sine', 0.04, 0.07, 0.14, true);
+    });
+  }
+
+  /** Leave room / navigate back — soft descending tone */
+  function navigateBack() {
+    play(() => {
+      osc(660, 'sine', 0,    0.08, 0.14, true);
+      osc(440, 'sine', 0.07, 0.12, 0.12, true);
+    });
+  }
+
+  /** Fire worker — abrupt short buzz */
+  function fireWorker() {
+    play(() => {
+      osc(300, 'sawtooth', 0,    0.06, 0.28, true);
+      osc(200, 'sawtooth', 0.04, 0.08, 0.22, true);
+    });
+  }
+
+  /** Sell machine — coin drop clink */
+  function sellMachine() {
+    play(() => {
+      [1400, 1800, 1100].forEach((f, i) => {
+        osc(f,       'sine', i*0.05, 0.14, 0.18, true);
+        osc(f*2.5,   'sine', i*0.05, 0.08, 0.06, true);
+      });
+    });
+  }
+
+  /** Toggle shelf on — bright click-on */
+  function shelfOn() {
+    play(() => {
+      osc(900,  'sine', 0,    0.05, 0.2, true);
+      osc(1200, 'sine', 0.03, 0.06, 0.14, true);
+    });
+  }
+
+  /** Toggle shelf off — muted click-off */
+  function shelfOff() {
+    play(() => {
+      osc(700, 'sine', 0,    0.04, 0.15, true);
+      osc(500, 'sine', 0.03, 0.05, 0.1, true);
+    });
+  }
+
+  /** Price increase — rising tick */
+  function priceUp() {
+    play(() => {
+      osc(660, 'sine', 0,    0.05, 0.15, true);
+      osc(880, 'sine', 0.04, 0.07, 0.12, true);
+    });
+  }
+
+  /** Price decrease — falling tick */
+  function priceDown() {
+    play(() => {
+      osc(880, 'sine', 0,    0.05, 0.15, true);
+      osc(660, 'sine', 0.04, 0.07, 0.12, true);
+    });
+  }
+
+  /** Start day / open store — bright open chime */
+  function startDay() {
+    play(() => {
+      [[392,0],[523,0.1],[659,0.2],[784,0.3]].forEach(([f,t]) =>
+        osc(f, 'triangle', t, 0.3, 0.2, true)
+      );
+      osc(1047, 'sine', 0.38, 0.25, 0.12, true);
+    });
+  }
+
+  /** Dismiss morning overlay — gentle swoosh forward */
+  function dismissOverlay() {
+    play(() => {
+      osc(523, 'sine', 0,    0.08, 0.2, true);
+      osc(784, 'sine', 0.06, 0.1,  0.18, true);
+      osc(1047,'sine', 0.13, 0.12, 0.14, true);
+    });
+  }
+
+  /** Generic button click — subtle UI tap */
+  function uiClick() {
+    play(() => osc(700, 'sine', 0, 0.05, 0.1, true));
+  }
+
   // ── Background (ambience-level) variants for AI / SCO lanes ──
   // All routed through bgPlay so they sit quietly behind the main action
 
@@ -5923,6 +6068,9 @@ const SFX = (() => {
     upgradeBuy, storeExpand, dayStart, dayEnd, error, hireWorker,
     customerServed, allScanned, muteToggle,
     cartRoll, mistSpray, priceGun, conveyorStart, bagRustle, storeChime, itemDiscount,
+    tabSwitch, restock, restockFull, abandonCheckout, scanAll, copyCode,
+    navigateBack, fireWorker, sellMachine, shelfOn, shelfOff,
+    priceUp, priceDown, startDay, dismissOverlay, uiClick,
     bgScan, bgCardSwipe, bgCardApproved, bgKaChing, bgConveyorStart,
     get muted() { return muted; },
     toggleMute() {
@@ -5992,7 +6140,6 @@ const _origScanItem = scanItem;
 window.scanItem = function(el, id, prod, price, qty) {
   SFX.scan();
   _scanCount++;
-  if (_scanCount % 4 === 0) setTimeout(SFX.cartRoll, 180); // cart rattles every 4 scans
   return _origScanItem(el, id, prod, price, qty);
 };
 
@@ -6042,7 +6189,6 @@ document.addEventListener('DOMContentLoaded', () => {
 const _origCompleteCheckout = completeCheckout;
 window.completeCheckout = function() {
   SFX.kaChing();
-  setTimeout(SFX.bagRustle, 420); // bag rustle after the register chime
   return _origCompleteCheckout();
 };
 
@@ -6070,6 +6216,72 @@ document.addEventListener('click', (e) => {
   }
   // Hire worker
   if (btn.getAttribute('onclick')?.includes('hireWorker')) SFX.hireWorker();
+  // Fire worker
+  if (btn.getAttribute('onclick')?.includes('fireWorker')) SFX.fireWorker();
+  // Sell SCO machine
+  if (btn.getAttribute('onclick')?.includes('sellScoMachine')) SFX.sellMachine();
+  // Buy SCO machine
+  if (btn.getAttribute('onclick')?.includes('buyScoMachine')) SFX.hireWorker();
+  // Copy room code
+  if (btn.getAttribute('onclick')?.includes('copyCode')) SFX.copyCode();
+  // Leave room / back buttons
+  if (btn.getAttribute('onclick')?.includes('leaveRoom') ||
+      btn.getAttribute('onclick')?.includes("show('title')")) SFX.navigateBack();
+  // Start game
+  if (btn.getAttribute('onclick')?.includes('startGame')) SFX.startDay();
+  // Start day
+  if (btn.id === 'next-day-btn') SFX.startDay();
+  // Dismiss morning overlay
+  if (btn.id === 'morning-dismiss-btn') SFX.dismissOverlay();
+  // Scan all items
+  if (btn.id === 'co-scan-all-btn') SFX.scanAll();
+  // Abandon checkout
+  if (btn.id === 'co-abandon-btn') SFX.abandonCheckout();
+  // Toggle shelf
+  if (btn.getAttribute('onclick')?.includes('toggleShelf')) {
+    const isOn = btn.classList.contains('on');
+    isOn ? SFX.shelfOff() : SFX.shelfOn();
+  }
+});
+
+// Tab switching sound
+const _origSwitchTab = switchTab;
+window.switchTab = function(name) {
+  SFX.tabSwitch();
+  return _origSwitchTab(name);
+};
+
+// Restock sounds
+const _origDoRestock = doRestock;
+window.doRestock = function(productId) {
+  SFX.restock();
+  return _origDoRestock(productId);
+};
+
+const _origDoRestockFull = doRestockFull;
+window.doRestockFull = function(productId, space) {
+  SFX.restockFull();
+  return _origDoRestockFull(productId, space);
+};
+
+// Stocker panel restock button (socket.emit inline) — catch via click listener
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.stocker-restock-btn');
+  if (btn) SFX.restock();
+});
+
+// Price change buttons
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const onclick = btn.getAttribute('onclick') || '';
+  if (onclick.includes('setPrice') || onclick.includes('changePrice')) {
+    // Detect up/down by button text
+    const txt = btn.textContent.trim();
+    if (txt.includes('+') || txt.includes('▲') || txt.includes('↑')) SFX.priceUp();
+    else if (txt.includes('-') || txt.includes('▼') || txt.includes('↓')) SFX.priceDown();
+    else SFX.uiClick();
+  }
 });
 
 // Init mute state on load
