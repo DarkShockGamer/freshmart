@@ -486,7 +486,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     inventory: inv, prices, shelves, storage,
     customers: [], eventLog: [],
     activeEvent: null, upgrades,
-    nextCustomerId: 1, dayTimer: 120,
+    nextCustomerId: 1, dayTimer: 120, gameMinute: 0,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus,
     _cInt: null, _dInt: null, _eTimeout: null,
@@ -568,6 +568,16 @@ function emit(room) {
     eventLog: room.eventLog.slice(0, 15),
     activeEvent: room.activeEvent, upgrades: room.upgrades,
     dayTimer: room.dayTimer,
+    gameTime: (function() {
+      // Store hours: 8:00 AM (minute 0) to 10:00 PM (minute 840)
+      const totalMinutes = room.gameMinute || 0;
+      const absMinute = 8 * 60 + totalMinutes; // minutes since midnight
+      const hour24 = Math.floor(absMinute / 60);
+      const min = absMinute % 60;
+      const hour12 = hour24 % 12 || 12;
+      const ampm = hour24 < 12 ? 'AM' : 'PM';
+      return { hour: hour12, minute: min, ampm, totalMinutes };
+    })(),
     rushActive: room.rushActive, saleActive: room.saleActive, theftActive: room.theftActive,
     capacityBonus: room.capacityBonus,
     isMorning: !!room.isMorning,
@@ -800,28 +810,33 @@ function triggerEvent(room) {
 }
 
 // ─── Day Flow ─────────────────────────────────────────────────────
+// Store hours: 8:00 AM (gameMinute 0) to 10:00 PM (gameMinute 840) = 14 hours
+// Real-time day length target: ~3.5 minutes = 210 seconds
+// Each game-minute = 210,000ms / 840 = 250ms real time
+const GAME_MINUTES_PER_DAY = 840; // 14 hours × 60
+const GAME_TICK_MS = 250;          // ms per game-minute
+
 function startDay(room) {
   room.phase = 'playing';
-  room.dayTimer = 120;
+  room.dayTimer = GAME_MINUTES_PER_DAY; // keep in sync as minutes remaining (for legacy)
+  room.gameMinute = 0; // 0 = 8:00 AM
   room.customers = [];
   room.checkoutLocked = null;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
-  roomLog(room, `📅 Day ${room.day} open! You have 2 minutes.`);
+  roomLog(room, `📅 Day ${room.day} open! Store hours: 8:00 AM – 10:00 PM.`);
   emit(room);
 
+  // Customer spawn interval — runs every real-second equivalent
+  // We fire it every 4 game-minutes (1 real second at 250ms/gmin) to keep the same feel
+  const SPAWN_TICK_MS = GAME_TICK_MS * 4; // ~1 real second between spawn checks
   room._cInt = setInterval(() => {
     if (room.phase !== 'playing') return;
 
     // ── Progressive customer scaling ──────────────────────────────────────
-    // Early days feel like a real small shop: mostly 1 customer at a time.
-    // Traffic grows steadily and plateaus around day 20+.
-    // dayScale ramps from 0.15 on day 1 up to 1.0 around day 19.
     const adsBoost   = room.upgrades.includes('ads') ? 1.4 : 1;
     const dayScale   = Math.min(1, 0.15 + (room.day - 1) * 0.045);
     const baseChance = diff.spawnChance * dayScale * adsBoost;
 
-    // Soft floor cap: limits simultaneous customers based on day.
-    // Day 1-2: max ~2.  Day 5: max ~4.  Day 10: max ~6.  Day 20+: max 10+
     const dayCapBase = Math.floor(1.5 + room.day * 0.45);
     const floorCap   = Math.min(12, dayCapBase) * (room.upgrades.includes('ads') ? 1.3 : 1);
 
@@ -844,7 +859,7 @@ function startDay(room) {
     tickScoMachines(room);
 
     emit(room);
-  }, Math.max(diff.spawnInterval * 0.6, diff.spawnInterval - (room.day - 1) * 80));
+  }, SPAWN_TICK_MS);
 
   const schedEv = () => {
     const d = (18 + Math.random()*15)*1000;
@@ -852,10 +867,16 @@ function startDay(room) {
   };
   schedEv();
 
+  // Game clock: advances 1 game-minute every GAME_TICK_MS real milliseconds
   room._dInt = setInterval(() => {
-    room.dayTimer--;
-    if (room.dayTimer <= 0) endDay(room); else emit(room);
-  }, 1000);
+    room.gameMinute++;
+    room.dayTimer = GAME_MINUTES_PER_DAY - room.gameMinute; // minutes remaining
+    if (room.gameMinute >= GAME_MINUTES_PER_DAY) {
+      endDay(room);
+    } else {
+      emit(room);
+    }
+  }, GAME_TICK_MS);
 }
 
 // AI worker logic: each assigned AI worker periodically serves a customer.
