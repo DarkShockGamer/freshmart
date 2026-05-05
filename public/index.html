@@ -2691,6 +2691,49 @@ socket.on('autoSave', ({ slotIdx, save }) => {
   showSaveIndicator();
 });
 
+// ── Save Sounds (Web Audio API) ────────────────────
+const _saveAudioCtx = (() => {
+  try { return new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+})();
+
+function _playSaveTone(freq, type, startTime, duration, gainVal) {
+  if (!_saveAudioCtx) return;
+  const osc  = _saveAudioCtx.createOscillator();
+  const gain = _saveAudioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(_saveAudioCtx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startTime);
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(gainVal, startTime + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.05);
+}
+
+function playSavingSound() {
+  if (!_saveAudioCtx) return;
+  // Resume context on first user gesture if needed
+  if (_saveAudioCtx.state === 'suspended') _saveAudioCtx.resume();
+  const t = _saveAudioCtx.currentTime;
+  // Soft two-tone disk-write whoosh: low sine sweep up
+  _playSaveTone(280, 'sine',     t,       0.18, 0.06);
+  _playSaveTone(420, 'sine',     t + 0.08, 0.18, 0.04);
+}
+
+function playSavedSound() {
+  if (!_saveAudioCtx) return;
+  if (_saveAudioCtx.state === 'suspended') _saveAudioCtx.resume();
+  const t = _saveAudioCtx.currentTime;
+  // Cheerful three-note confirm chime: C5 → E5 → G5
+  _playSaveTone(523.25, 'sine', t,        0.15, 0.10);
+  _playSaveTone(659.25, 'sine', t + 0.12, 0.15, 0.10);
+  _playSaveTone(783.99, 'sine', t + 0.24, 0.28, 0.12);
+  // Subtle shimmer overtone on the final note
+  _playSaveTone(1567.98, 'sine', t + 0.24, 0.28, 0.03);
+}
+// ───────────────────────────────────────────────────
+
 let _saveDoneTimer = null;
 function showSaveIndicator() {
   const el = document.getElementById('save-indicator');
@@ -2699,9 +2742,11 @@ function showSaveIndicator() {
   clearTimeout(_saveDoneTimer);
   el.className = 'show';
   txt.textContent = 'Auto Saving...';
+  playSavingSound();
   _saveDoneTimer = setTimeout(() => {
     el.className = 'show done';
     txt.textContent = 'Saved ✓';
+    playSavedSound();
     _saveDoneTimer = setTimeout(() => { el.className = ''; }, 2000);
   }, 700);
 }
@@ -2709,6 +2754,7 @@ function showSaveIndicator() {
 function doManualSave() {
   const btn = document.getElementById('manual-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = '💾 Saving...'; }
+  playSavingSound();
   socket.emit('manualSave');
   setTimeout(() => {
     if (btn) { btn.disabled = false; btn.textContent = '💾 Save'; }
