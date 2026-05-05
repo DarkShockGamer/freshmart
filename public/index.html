@@ -260,6 +260,7 @@ input::placeholder { color: var(--muted); }
 #phase-pill.playing { background: var(--green-lo); color: var(--green); border-color: var(--green); }
 #phase-pill.shop    { background: var(--blue-lo);  color: var(--blue);  border-color: var(--blue);  }
 #phase-pill.lobby   { background: var(--surf2);    color: var(--muted); border-color: var(--border); }
+#phase-pill.closing { background: var(--orange-lo); color: var(--orange); border-color: var(--orange); }
 
 #header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
@@ -2937,16 +2938,17 @@ function renderHeader(s) {
   const phEl = document.getElementById('phase-pill');
   phEl.className = s.phase; // set just the phase class (CSS targets #phase-pill.playing etc.)
   if (s.phase === 'playing') phEl.textContent = 'OPEN';
+  else if (s.phase === 'closing') phEl.textContent = 'CLOSING';
   else if (s.phase === 'shop') phEl.textContent = 'SHOP';
   else phEl.textContent = 'LOBBY';
 
   // Removed incorrect 'phEl.className' reassignment
 
   const timerEl = document.getElementById('h-timer');
-  if (s.phase === 'playing') {
+  if (s.phase === 'playing' || s.phase === 'closing') {
     timerEl.style.display = 'flex';
     const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
-    document.getElementById('h-time').textContent = m+':'+(sec<10?'0':'')+sec;
+    document.getElementById('h-time').textContent = s.phase === 'closing' ? '🔔' : m+':'+(sec<10?'0':'')+sec;
   } else {
     timerEl.style.display = 'none';
   }
@@ -4313,10 +4315,15 @@ function renderSidebar(s) {
     const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
     t.textContent = m+':'+(sec<10?'0':'')+sec;
     t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
+  } else if (s.phase === 'closing') {
+    t.textContent = '🔔'; t.className = 'timer-big';
+    t.style.color = 'var(--orange)';
   } else if (s.phase === 'shop') {
     t.textContent = s.isMorning ? '🌅' : 'SHOP'; t.className = 'timer-big shop-mode';
+    t.style.color = '';
   } else {
     t.textContent = '—'; t.className = 'timer-big';
+    t.style.color = '';
   }
 
   // rep
@@ -6100,7 +6107,7 @@ socket.on('roomState', (state) => {
   // Phase transitions
   if (_sfxPrevPhase !== state.phase) {
     if (state.phase === 'playing') { SFX.dayStart(); setTimeout(SFX.mistSpray, 600); }
-    if (state.phase === 'shop' && _sfxPrevPhase === 'playing') SFX.dayEnd();
+    if (state.phase === 'closing' && _sfxPrevPhase === 'playing') SFX.dayEnd();
     _sfxPrevPhase = state.phase;
   }
   // Events
