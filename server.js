@@ -1579,23 +1579,33 @@ io.on('connection', (socket) => {
 });
 
 // ─── DEV CONTROLS ────────────────────────────────────────────────────────────
-// Activated client-side by Ctrl+Shift+D, then password prompt.
-// Token is set via DEV_TOKEN env var (falls back to a hard-coded default for local dev).
-const DEV_TOKEN = process.env.DEV_TOKEN || 'fm-dev-9x2k7p';
+// Password is validated server-side only — never sent to the client.
+// On success a random per-session token is issued; all devCmd calls use that token.
+// Set DEV_PASSWORD env var in production; the default below is for local dev only.
+const DEV_PASSWORD = process.env.DEV_PASSWORD || 'freshdev2026';
+const crypto = require('crypto');
+// Map of socket.id → ephemeral session token (cleared on disconnect)
+const devSessions = new Map();
 
-io.on('connection', (socket) => {
-  // Re-use existing connection scope — this block only handles dev commands.
-  // Defined after main io.on so it layers on top without interference.
-});
-
-// Attach dev command handler inside the existing io.on via a separate listener
-// We inject it by patching the existing connection listeners map.
-// Actually we register it directly on the io instance via middleware-style patch:
-const _origOnConn = io._events?.connection;
-// Instead, we just add a second 'connection' listener which adds devCmd to each socket:
 io.on('connection', function devLayer(socket) {
+  // ── Auth: exchange password for a per-session token ──────────────────────
+  socket.on('devAuth', ({ password }) => {
+    if (password !== DEV_PASSWORD) {
+      socket.emit('devAuthResult', { ok: false });
+      return;
+    }
+    const sessionToken = crypto.randomBytes(24).toString('hex');
+    devSessions.set(socket.id, sessionToken);
+    socket.emit('devAuthResult', { ok: true, token: sessionToken });
+  });
+
+  socket.on('disconnect', () => {
+    devSessions.delete(socket.id);
+  });
+
   socket.on('devCmd', ({ token, cmd, payload }) => {
-    if (token !== DEV_TOKEN) {
+    const validToken = devSessions.get(socket.id);
+    if (!validToken || token !== validToken) {
       socket.emit('devResult', { ok: false, msg: 'Invalid token' });
       return;
     }
