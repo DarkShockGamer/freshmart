@@ -110,6 +110,7 @@ const UPGRADES = [
     id: 'grocery_l4', name: 'Gourmet Market', emoji: '🦞', cost: 2000, tier: 3, section: 'grocery',
     desc: 'Unlock wine, lobster & truffles. Highest-margin food items in the game.',
     requires: ['grocery_l3'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ STORE UPGRADES BRANCH ══════════════
@@ -127,21 +128,25 @@ const UPGRADES = [
     id: 'ads', name: 'Advertising', emoji: '📢', cost: 700, tier: 2, section: 'store',
     desc: '40% more customers arrive each wave.',
     requires: ['shelves'], unlocks: ['loyalty'],
+    requiresSize: 1,
   },
   {
     id: 'fresh', name: 'Fresh Guarantee', emoji: '✅', cost: 600, tier: 2, section: 'store',
     desc: 'Immune to spoilage events.',
     requires: ['shelves'], unlocks: ['security'],
+    requiresSize: 1,
   },
   {
     id: 'loyalty', name: 'Loyalty Program', emoji: '💳', cost: 1200, tier: 3, section: 'store',
     desc: 'Earn +15% on every sale.',
     requires: ['ads'], unlocks: [],
+    requiresSize: 2,
   },
   {
     id: 'security', name: 'Security Guard', emoji: '👮', cost: 800, tier: 3, section: 'store',
     desc: 'Auto-catches all shoplifters instantly.',
     requires: ['fresh'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ CLOTHING BRANCH ══════════════
@@ -149,16 +154,19 @@ const UPGRADES = [
     id: 'clothing_l1', name: 'Clothing Section', emoji: '👕', cost: 800, tier: 1, section: 'clothing',
     desc: 'Open a clothing department. Unlock T-shirts, jeans & shoes.',
     requires: [], unlocks: ['clothing_l2'],
+    requiresSize: 1,
   },
   {
     id: 'clothing_l2', name: 'Fashion Floor', emoji: '👗', cost: 1500, tier: 2, section: 'clothing',
     desc: 'Expand with hats, jackets & dresses. Higher margins.',
     requires: ['clothing_l1'], unlocks: ['clothing_l3'],
+    requiresSize: 1,
   },
   {
     id: 'clothing_l3', name: 'Luxury Boutique', emoji: '🤵', cost: 3000, tier: 3, section: 'clothing',
     desc: 'Unlock suits & watches — the highest-margin clothing items.',
     requires: ['clothing_l2'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ ELECTRONICS BRANCH ══════════════
@@ -166,16 +174,19 @@ const UPGRADES = [
     id: 'electronics_l1', name: 'Electronics Corner', emoji: '📱', cost: 1200, tier: 1, section: 'electronics',
     desc: 'Open electronics. Unlock phones & headphones.',
     requires: [], unlocks: ['electronics_l2'],
+    requiresSize: 2,
   },
   {
     id: 'electronics_l2', name: 'Tech Department', emoji: '💻', cost: 2500, tier: 2, section: 'electronics',
     desc: 'Unlock laptops & tablets. Big-ticket items, big profits.',
     requires: ['electronics_l1'], unlocks: ['electronics_l3'],
+    requiresSize: 2,
   },
   {
     id: 'electronics_l3', name: 'AV Showroom', emoji: '📺', cost: 5000, tier: 3, section: 'electronics',
     desc: 'Unlock TVs & cameras — the highest-value electronics.',
     requires: ['electronics_l2'], unlocks: [],
+    requiresSize: 3,
   },
 
   // ══════════════ AUTO BRANCH ══════════════
@@ -183,16 +194,19 @@ const UPGRADES = [
     id: 'auto_l1', name: 'Auto Corner', emoji: '🚗', cost: 700, tier: 1, section: 'auto',
     desc: 'Open an auto section. Unlock wipers & motor oil.',
     requires: [], unlocks: ['auto_l2'],
+    requiresSize: 1,
   },
   {
     id: 'auto_l2', name: 'Auto Parts Aisle', emoji: '🔋', cost: 1600, tier: 2, section: 'auto',
     desc: 'Unlock car batteries & tires. Serious profit items.',
     requires: ['auto_l1'], unlocks: ['auto_l3'],
+    requiresSize: 1,
   },
   {
     id: 'auto_l3', name: 'Performance Shop', emoji: '🗺️', cost: 3200, tier: 3, section: 'auto',
     desc: 'Unlock GPS units & dash cams. Premium auto accessories.',
     requires: ['auto_l2'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ OUTDOORS BRANCH ══════════════
@@ -200,16 +214,19 @@ const UPGRADES = [
     id: 'outdoors_l1', name: 'Outdoors & Sporting', emoji: '🏹', cost: 900, tier: 1, section: 'outdoors',
     desc: 'Open outdoors section. Unlock bow & arrow and fishing rods.',
     requires: [], unlocks: ['outdoors_l2'],
+    requiresSize: 1,
   },
   {
     id: 'outdoors_l2', name: 'Hunting & Camping', emoji: '⛺', cost: 2000, tier: 2, section: 'outdoors',
     desc: 'Unlock tents & hunting rifles. High-demand items.',
     requires: ['outdoors_l1'], unlocks: ['outdoors_l3'],
+    requiresSize: 1,
   },
   {
     id: 'outdoors_l3', name: 'Adventure Gear', emoji: '🛶', cost: 4500, tier: 3, section: 'outdoors',
     desc: 'Unlock kayaks & ATVs — the biggest-ticket items in the store.',
     requires: ['outdoors_l2'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ CHECKOUT BRANCH ══════════════
@@ -222,11 +239,13 @@ const UPGRADES = [
     id: 'checkout_l3', name: 'Third Checkout Lane', emoji: '🏬', cost: 2000, tier: 2, section: 'checkout',
     desc: 'Open a 3rd checkout lane. Handle serious rush-hour volume.',
     requires: ['checkout_l2'], unlocks: ['checkout_l4'],
+    requiresSize: 1,
   },
   {
     id: 'checkout_l4', name: 'Fourth Checkout Lane', emoji: '🏢', cost: 4500, tier: 3, section: 'checkout',
     desc: 'Open a 4th lane. Maximum throughput for a booming store.',
     requires: ['checkout_l3'], unlocks: [],
+    requiresSize: 2,
   },
 
   // ══════════════ SELF-CHECKOUT BRANCH ══════════════
@@ -234,16 +253,19 @@ const UPGRADES = [
     id: 'sco_unlock', name: 'Self-Checkout Area', emoji: '🤖', cost: 2500, tier: 1, section: 'selfcheckout',
     desc: 'Install a self-checkout zone. Buy Basic Kiosk machines in the Workers tab. Customers serve themselves — no wages!',
     requires: [], unlocks: ['sco_express_unlock'],
+    requiresSize: 2,
   },
   {
     id: 'sco_express_unlock', name: 'Express SCO Upgrade', emoji: '⚡', cost: 5000, tier: 2, section: 'selfcheckout',
     desc: 'Unlock faster Express SCO machines. Handles rush hour customers with bigger baskets.',
     requires: ['sco_unlock'], unlocks: ['sco_premium_unlock'],
+    requiresSize: 2,
   },
   {
     id: 'sco_premium_unlock', name: 'Premium SCO Station', emoji: '💎', cost: 10000, tier: 3, section: 'selfcheckout',
     desc: 'Unlock top-tier Premium self-checkout stations. Near-cashier speed with zero ongoing wages.',
     requires: ['sco_express_unlock'], unlocks: [],
+    requiresSize: 3,
   },
 
   // ══════════════ FURNITURE BRANCH ══════════════
@@ -251,16 +273,39 @@ const UPGRADES = [
     id: 'furniture_l1', name: 'Home Goods', emoji: '🪑', cost: 700, tier: 1, section: 'furniture',
     desc: 'Open home goods. Unlock chairs & lamps.',
     requires: [], unlocks: ['furniture_l2'],
+    requiresSize: 2,
   },
   {
     id: 'furniture_l2', name: 'Furniture Floor', emoji: '🛋️', cost: 1800, tier: 2, section: 'furniture',
     desc: 'Unlock sofas & beds. Large-margin home items.',
     requires: ['furniture_l1'], unlocks: ['furniture_l3'],
+    requiresSize: 2,
   },
   {
     id: 'furniture_l3', name: 'Premium Living', emoji: '🛁', cost: 4000, tier: 3, section: 'furniture',
     desc: 'Unlock desks & bathtubs — top-tier home products.',
     requires: ['furniture_l2'], unlocks: [],
+    requiresSize: 3,
+  },
+
+  // ══════════════ STORE SIZE BRANCH ══════════════
+  {
+    id: 'size_medium', name: 'Medium Store', emoji: '🏪', cost: 600, tier: 1, section: 'storesize',
+    desc: 'Expand to a medium store. Unlocks Clothing, Auto, and Outdoors departments. Opens 2 new section slots.',
+    requires: [], unlocks: ['size_large'],
+    isStoreSize: true, sizeLevel: 1,
+  },
+  {
+    id: 'size_large', name: 'Large Store', emoji: '🏬', cost: 2000, tier: 2, section: 'storesize',
+    desc: 'Expand to a large store. Unlocks Electronics, Furniture, and Self-Checkout. Opens 3 more section slots.',
+    requires: ['size_medium'], unlocks: ['size_mega'],
+    isStoreSize: true, sizeLevel: 2,
+  },
+  {
+    id: 'size_mega', name: 'Mega Store', emoji: '🏢', cost: 5500, tier: 3, section: 'storesize',
+    desc: 'Become a Mega Store. All departments and tier-3 upgrades unlocked. Maximum customer capacity.',
+    requires: ['size_large'], unlocks: [],
+    isStoreSize: true, sizeLevel: 3,
   },
 ];
 
@@ -501,6 +546,13 @@ function getCheckoutLanes(upgs) {
   return lanes;
 }
 
+function getStoreSize(upgs) {
+  if (upgs.includes('size_mega'))   return 3;
+  if (upgs.includes('size_large'))  return 2;
+  if (upgs.includes('size_medium')) return 1;
+  return 0;
+}
+
 function emit(room) {
   const products = getUnlockedProducts(room.upgrades);
   io.to(room.code).emit('roomState', {
@@ -524,6 +576,7 @@ function emit(room) {
     checkoutLocked: room.checkoutLocked,
     checkoutLocks: room.checkoutLocks || {},
     checkoutLanes: getCheckoutLanes(room.upgrades),
+    storeSize: getStoreSize(room.upgrades),
     playerCheckoutActivity: room.playerCheckoutActivity || {},
     aiWorkers: room.aiWorkers || [],
     aiWorkerTypes: AI_WORKER_TYPES,
@@ -1372,6 +1425,14 @@ io.on('connection', (socket) => {
     if (missingReq) {
       const reqUpg = UPGRADES.find(u => u.id === missingReq);
       socket.emit('msg', { type:'error', text:`Requires "${reqUpg?.name || missingReq}" first!` }); return;
+    }
+    // Check store size requirement
+    if (upg.requiresSize) {
+      const currentSize = getStoreSize(room.upgrades);
+      if (currentSize < upg.requiresSize) {
+        const sizeNames = ['Small', 'Medium', 'Large', 'Mega'];
+        socket.emit('msg', { type:'error', text:`Requires a ${sizeNames[upg.requiresSize]} Store — expand first!` }); return;
+      }
     }
     const diff = room.diff || DIFFICULTY_CONFIGS.normal;
     const finalCost = Math.round(upg.cost * diff.upgradeCostMult);
