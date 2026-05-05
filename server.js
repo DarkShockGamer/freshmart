@@ -75,6 +75,38 @@ const ALL_PRODUCTS = [
   { id: 'bed',      name: 'Bed',         emoji: '🛏️', cost: 70, basePrice: 185,category: 'Furniture', section: 'furniture', requires: 'furniture_l2' },
   { id: 'desk',     name: 'Desk',        emoji: '🖥️', cost: 45, basePrice: 115,category: 'Furniture', section: 'furniture', requires: 'furniture_l3' },
   { id: 'bathtub',  name: 'Bathtub',     emoji: '🛁', cost: 90, basePrice: 240,category: 'Furniture', section: 'furniture', requires: 'furniture_l3' },
+
+  // ── Pharmacy section ──
+  { id: 'vitamins',    name: 'Vitamins',       emoji: '💊', cost: 4,  basePrice: 12,  category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l1' },
+  { id: 'painkiller',  name: 'Pain Reliever',  emoji: '🩹', cost: 3,  basePrice: 9,   category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l1' },
+  { id: 'firstaid',    name: 'First Aid Kit',  emoji: '🧰', cost: 8,  basePrice: 22,  category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l2' },
+  { id: 'skincare',    name: 'Skincare',        emoji: '🧴', cost: 6,  basePrice: 18,  category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l2' },
+  { id: 'supplement',  name: 'Supplements',    emoji: '🧬', cost: 12, basePrice: 35,  category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l3' },
+  { id: 'glucometer',  name: 'Blood Monitor',  emoji: '🩺', cost: 25, basePrice: 70,  category: 'Pharmacy', section: 'pharmacy', requires: 'pharmacy_l3' },
+
+  // ── Pet section ──
+  { id: 'dogfood',    name: 'Dog Food',       emoji: '🐕', cost: 4,  basePrice: 12,  category: 'Pet', section: 'pet', requires: 'pet_l1' },
+  { id: 'cattreats',  name: 'Cat Treats',     emoji: '🐈', cost: 3,  basePrice: 9,   category: 'Pet', section: 'pet', requires: 'pet_l1' },
+  { id: 'fishaquarium',name:'Aquarium Fish',  emoji: '🐠', cost: 8,  basePrice: 25,  category: 'Pet', section: 'pet', requires: 'pet_l2' },
+  { id: 'hammytoy',   name: 'Hamster Toy',    emoji: '🐹', cost: 5,  basePrice: 16,  category: 'Pet', section: 'pet', requires: 'pet_l2' },
+  { id: 'exoticbird', name: 'Exotic Bird',    emoji: '🦜', cost: 40, basePrice: 120, category: 'Pet', section: 'pet', requires: 'pet_l3' },
+  { id: 'petbed',     name: 'Premium Pet Bed',emoji: '🛏️', cost: 20, basePrice: 60,  category: 'Pet', section: 'pet', requires: 'pet_l3' },
+
+  // ── Bakery section ──
+  { id: 'croissant',  name: 'Croissant',      emoji: '🥐', cost: 2,  basePrice: 6,   category: 'Bakery', section: 'bakery', requires: 'bakery_l1' },
+  { id: 'muffin',     name: 'Muffin',         emoji: '🧁', cost: 2,  basePrice: 5,   category: 'Bakery', section: 'bakery', requires: 'bakery_l1' },
+  { id: 'customcake', name: 'Custom Cake',    emoji: '🎂', cost: 10, basePrice: 30,  category: 'Bakery', section: 'bakery', requires: 'bakery_l2' },
+  { id: 'sourdough',  name: 'Sourdough',      emoji: '🍞', cost: 4,  basePrice: 12,  category: 'Bakery', section: 'bakery', requires: 'bakery_l2' },
+  { id: 'luxpastry',  name: 'Luxury Pastry',  emoji: '🍰', cost: 15, basePrice: 45,  category: 'Bakery', section: 'bakery', requires: 'bakery_l3' },
+  { id: 'weddingcake',name: 'Wedding Cake',   emoji: '💒', cost: 50, basePrice: 150, category: 'Bakery', section: 'bakery', requires: 'bakery_l3' },
+
+  // ── Toys & Games section ──
+  { id: 'teddybear',  name: 'Teddy Bear',     emoji: '🧸', cost: 5,  basePrice: 18,  category: 'Toys', section: 'toys', requires: 'toys_l1' },
+  { id: 'boardgame',  name: 'Board Game',     emoji: '🎲', cost: 8,  basePrice: 25,  category: 'Toys', section: 'toys', requires: 'toys_l1' },
+  { id: 'videogame',  name: 'Video Game',     emoji: '🎮', cost: 20, basePrice: 60,  category: 'Toys', section: 'toys', requires: 'toys_l2' },
+  { id: 'legoset',    name: 'LEGO Set',       emoji: '🏗️', cost: 15, basePrice: 45,  category: 'Toys', section: 'toys', requires: 'toys_l2' },
+  { id: 'limitededfig',name:'Limited Figure', emoji: '🏆', cost: 35, basePrice: 110, category: 'Toys', section: 'toys', requires: 'toys_l3' },
+  { id: 'gaminrig',   name: 'Gaming Rig',     emoji: '🖥️', cost: 80, basePrice: 250, category: 'Toys', section: 'toys', requires: 'toys_l3' },
 ];
 
 // Products available at game start (no requires)
@@ -262,6 +294,200 @@ const UPGRADES = [
     desc: 'Unlock desks & bathtubs — top-tier home products.',
     requires: ['furniture_l2'], unlocks: [],
   },
+
+  // ══════════════ PHARMACY BRANCH ══════════════
+  {
+    id: 'pharmacy_l1', name: 'Pharmacy Corner', emoji: '💊', cost: 1000, tier: 1, section: 'pharmacy',
+    desc: 'Open a pharmacy. Unlock vitamins & pain relievers.',
+    requires: [], unlocks: ['pharmacy_l2'],
+  },
+  {
+    id: 'pharmacy_l2', name: 'Health & Wellness', emoji: '🩺', cost: 2200, tier: 2, section: 'pharmacy',
+    desc: 'Expand to first-aid kits & skincare products. High-margin health items.',
+    requires: ['pharmacy_l1'], unlocks: ['pharmacy_l3'],
+  },
+  {
+    id: 'pharmacy_l3', name: 'Full Dispensary', emoji: '🧬', cost: 5000, tier: 3, section: 'pharmacy',
+    desc: 'Unlock premium supplements & medical devices. Top-tier health revenue.',
+    requires: ['pharmacy_l2'], unlocks: [],
+  },
+
+  // ══════════════ PET SUPPLIES BRANCH ══════════════
+  {
+    id: 'pet_l1', name: 'Pet Corner', emoji: '🐾', cost: 600, tier: 1, section: 'pet',
+    desc: 'Open a pet section. Unlock dog food & cat treats.',
+    requires: [], unlocks: ['pet_l2'],
+  },
+  {
+    id: 'pet_l2', name: 'Pet Emporium', emoji: '🐶', cost: 1400, tier: 2, section: 'pet',
+    desc: 'Unlock aquarium fish & hamster toys. Adorable and profitable.',
+    requires: ['pet_l1'], unlocks: ['pet_l3'],
+  },
+  {
+    id: 'pet_l3', name: 'Exotic Pet Shop', emoji: '🦜', cost: 3500, tier: 3, section: 'pet',
+    desc: 'Unlock exotic birds & premium pet beds. Very high-margin exotic items.',
+    requires: ['pet_l2'], unlocks: [],
+  },
+
+  // ══════════════ STORE OPERATIONS (NEW) ══════════════
+  {
+    id: 'express_lane', name: 'Express Lane', emoji: '⚡', cost: 1100, tier: 2, section: 'store',
+    desc: 'Customers with 1 item skip the queue instantly — no patience loss for express shoppers.',
+    requires: ['shelves'], unlocks: ['price_scanner'],
+  },
+  {
+    id: 'price_scanner', name: 'Price Scanners', emoji: '🔖', cost: 1800, tier: 3, section: 'store',
+    desc: 'Auto-adjusts overpriced items toward base price every day — keeps demand healthy.',
+    requires: ['express_lane'], unlocks: [],
+  },
+  {
+    id: 'warehouse', name: 'Warehouse Expansion', emoji: '🏭', cost: 1500, tier: 2, section: 'store',
+    desc: 'Double storage capacity to 200 units per product. Stock up for long rushes.',
+    requires: ['shelves'], unlocks: ['cold_storage'],
+  },
+  {
+    id: 'cold_storage', name: 'Cold Storage', emoji: '🧊', cost: 2800, tier: 3, section: 'store',
+    desc: 'Perishable items last twice as long. Reduce spoilage losses by 50% permanently.',
+    requires: ['warehouse'], unlocks: [],
+  },
+  {
+    id: 'surge_pricing', name: 'Surge Pricing AI', emoji: '📈', cost: 2000, tier: 3, section: 'store',
+    desc: 'During Rush Hour events, all prices automatically increase 25% for bonus revenue.',
+    requires: ['ads'], unlocks: [],
+  },
+  {
+    id: 'member_card', name: 'Member Card Kiosk', emoji: '🎫', cost: 900, tier: 2, section: 'store',
+    desc: 'VIP customers visit 3× more often. Roll out the red carpet!',
+    requires: ['shelves'], unlocks: ['concierge'],
+  },
+  {
+    id: 'concierge', name: 'Concierge Service', emoji: '🛎️', cost: 2500, tier: 3, section: 'store',
+    desc: 'VIP customers spend 50% extra on top of the normal VIP multiplier.',
+    requires: ['member_card'], unlocks: [],
+  },
+  {
+    id: 'cctv', name: 'CCTV System', emoji: '📹', cost: 500, tier: 1, section: 'store',
+    desc: 'Get a 5-second early warning before theft events trigger. React faster!',
+    requires: [], unlocks: ['security'],
+  },
+  {
+    id: 'delivery_van', name: 'Delivery Van', emoji: '🚐', cost: 3000, tier: 3, section: 'store',
+    desc: 'Earn a passive $30 per day from local home deliveries — income even between customers.',
+    requires: ['ads'], unlocks: [],
+  },
+  {
+    id: 'staff_training', name: 'Staff Training Program', emoji: '🎓', cost: 1300, tier: 2, section: 'store',
+    desc: 'All hired AI workers operate 20% faster. Applies to cashiers and stockers alike.',
+    requires: ['shelves'], unlocks: ['automation'],
+  },
+  {
+    id: 'automation', name: 'Automation Suite', emoji: '🤖', cost: 4000, tier: 3, section: 'store',
+    desc: 'AI stocker cooldowns reduced by 35%. Your stockers never sleep.',
+    requires: ['staff_training'], unlocks: [],
+  },
+  {
+    id: 'flash_sale_boost', name: 'Flash Sale Amplifier', emoji: '🔊', cost: 1600, tier: 3, section: 'store',
+    desc: 'Flash Sale events earn 75% more instead of 50%. Capitalize on every promotion.',
+    requires: ['loyalty'], unlocks: [],
+  },
+  {
+    id: 'reputation_shield', name: 'Reputation Shield', emoji: '🛡️', cost: 1100, tier: 2, section: 'store',
+    desc: 'Halve all reputation losses from unserved customers and health inspection failures.',
+    requires: ['fresh'], unlocks: ['reputation_recovery'],
+  },
+  {
+    id: 'reputation_recovery', name: 'Reputation Recovery', emoji: '💖', cost: 2200, tier: 3, section: 'store',
+    desc: 'Gain +2 reputation per customer served instead of +1. Recover fast from bad events.',
+    requires: ['reputation_shield'], unlocks: [],
+  },
+  {
+    id: 'self_bagging', name: 'Self-Bagging Stations', emoji: '🛍️', cost: 750, tier: 2, section: 'store',
+    desc: 'Reduces customer patience decay by 15%. Shoppers stay a bit longer.',
+    requires: ['shelves'], unlocks: [],
+  },
+  {
+    id: 'store_music', name: 'In-Store Music System', emoji: '🎵', cost: 400, tier: 1, section: 'store',
+    desc: 'Upbeat music increases customer patience by 10%. Small quality-of-life boost.',
+    requires: [], unlocks: ['premium_sound'],
+  },
+  {
+    id: 'premium_sound', name: 'Premium Sound System', emoji: '🎶', cost: 900, tier: 2, section: 'store',
+    desc: 'Upgrade to premium audio — an extra 20% patience bonus. Customers shop longer.',
+    requires: ['store_music'], unlocks: [],
+  },
+
+  // ══════════════ BAKERY BRANCH ══════════════
+  {
+    id: 'bakery_l1', name: 'In-Store Bakery', emoji: '🥐', cost: 850, tier: 1, section: 'bakery',
+    desc: 'Open a fresh bakery. Unlock croissants & muffins — high-demand daily items.',
+    requires: [], unlocks: ['bakery_l2'],
+  },
+  {
+    id: 'bakery_l2', name: 'Artisan Bakery', emoji: '🎂', cost: 2000, tier: 2, section: 'bakery',
+    desc: 'Expand with custom cakes & sourdough loaves. Customers travel for these.',
+    requires: ['bakery_l1'], unlocks: ['bakery_l3'],
+  },
+  {
+    id: 'bakery_l3', name: 'Patisserie', emoji: '🍰', cost: 4500, tier: 3, section: 'bakery',
+    desc: 'Unlock luxury pastries & wedding cakes — eye-wateringly profitable.',
+    requires: ['bakery_l2'], unlocks: [],
+  },
+
+  // ══════════════ TOYS & GAMES BRANCH ══════════════
+  {
+    id: 'toys_l1', name: 'Toy Aisle', emoji: '🧸', cost: 700, tier: 1, section: 'toys',
+    desc: 'Open a toy section. Unlock teddy bears & board games.',
+    requires: [], unlocks: ['toys_l2'],
+  },
+  {
+    id: 'toys_l2', name: 'Gaming Corner', emoji: '🎮', cost: 1600, tier: 2, section: 'toys',
+    desc: 'Unlock video games & LEGO sets. Big impulse-buy revenue.',
+    requires: ['toys_l1'], unlocks: ['toys_l3'],
+  },
+  {
+    id: 'toys_l3', name: 'Collector\'s Den', emoji: '🏆', cost: 3800, tier: 3, section: 'toys',
+    desc: 'Unlock limited-edition figures & premium gaming rigs. Collectors pay anything.',
+    requires: ['toys_l2'], unlocks: [],
+  },
+
+  // ══════════════ FINANCE / PASSIVE INCOME ══════════════
+  {
+    id: 'atm_machine', name: 'ATM Machine', emoji: '🏧', cost: 800, tier: 1, section: 'store',
+    desc: 'Earn $5 per customer served as ATM fee revenue. Every transaction counts.',
+    requires: [], unlocks: ['bank_kiosk'],
+  },
+  {
+    id: 'bank_kiosk', name: 'In-Store Bank Kiosk', emoji: '🏦', cost: 2000, tier: 2, section: 'store',
+    desc: 'ATM fee doubled to $10 per customer. Plus unlock currency exchange for VIP bonus.',
+    requires: ['atm_machine'], unlocks: [],
+  },
+
+  // ══════════════ EVENTS & MARKETING ══════════════
+  {
+    id: 'social_media', name: 'Social Media Team', emoji: '📲', cost: 1000, tier: 2, section: 'store',
+    desc: 'Flash Sale and Rush Hour events occur 30% more often. More chaos, more cash.',
+    requires: ['ads'], unlocks: ['influencer'],
+  },
+  {
+    id: 'influencer', name: 'Influencer Partnership', emoji: '🌟', cost: 3000, tier: 3, section: 'store',
+    desc: 'VIP customers now arrive in groups of 2. Double the big spenders!',
+    requires: ['social_media'], unlocks: [],
+  },
+  {
+    id: 'panic_button', name: 'Panic Button', emoji: '🚨', cost: 500, tier: 1, section: 'store',
+    desc: 'Instantly ends theft events by calling a nearby patrol — always succeeds.',
+    requires: [], unlocks: ['security'],
+  },
+  {
+    id: 'weatherproof', name: 'Weatherproofing', emoji: '☂️', cost: 700, tier: 1, section: 'store',
+    desc: 'Immune to seasonal slow-day events. Customers come rain or shine.',
+    requires: [], unlocks: [],
+  },
+  {
+    id: 'loyalty_boost', name: 'Double Points Weekend', emoji: '🎉', cost: 1500, tier: 2, section: 'store',
+    desc: 'Loyalty Program bonus increases from +15% to +25% on all sales.',
+    requires: ['loyalty'], unlocks: [],
+  },
 ];
 
 const PLAYER_COLORS = ['#f97316','#6366f1','#10b981','#ec4899','#eab308','#06b6d4'];
@@ -359,6 +585,7 @@ function snapshotRoom(room) {
     money: room.money, day: room.day, totalScore: room.totalScore,
     reputation: room.reputation, upgrades: [...room.upgrades],
     capacityBonus: room.capacityBonus,
+    storageCapacityBonus: room.storageCapacityBonus || 0,
     inventory: { ...room.inventory },
     prices:    { ...room.prices    },
     shelves:   { ...room.shelves   },
@@ -415,6 +642,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     totalScore   = save.totalScore;
     reputation   = save.reputation;
     capacityBonus= save.capacityBonus || 0;
+    room.storageCapacityBonus = save.storageCapacityBonus || 0;
   } else {
     ({ inv, prices, shelves, storage } = freshStore());
     upgrades = []; money = diff.startMoney; day = 1; totalScore = 0; reputation = 100; capacityBonus = 0;
@@ -509,7 +737,7 @@ function emit(room) {
     money: room.money, day: room.day, totalScore: room.totalScore, reputation: room.reputation,
     inventory: room.inventory, prices: room.prices, shelves: room.shelves,
     storage: room.storage,
-    storageCapacity: STORAGE_CAPACITY,
+    storageCapacity: STORAGE_CAPACITY + (room.storageCapacityBonus || 0),
     shelfCapacity: BASE_SHELF_CAPACITY + (room.capacityBonus || 0),
     customers: room.customers,
     eventLog: room.eventLog.slice(0, 15),
@@ -581,7 +809,11 @@ function spawnCustomer(room) {
   if (wants.length === 0) return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   const basePatience = 15 + Math.floor(Math.random() * 12);
-  const patience = Math.max(6, Math.round(basePatience * diff.customerPatience));
+  let patienceMult = diff.customerPatience;
+  if (room.upgrades.includes('premium_sound')) patienceMult *= 1.3;
+  else if (room.upgrades.includes('store_music')) patienceMult *= 1.1;
+  if (room.upgrades.includes('self_bagging')) patienceMult *= 1.15;
+  const patience = Math.max(6, Math.round(basePatience * patienceMult));
   const c = {
     id: room.nextCustomerId++,
     name: CUSTOMER_NAMES[Math.floor(Math.random()*CUSTOMER_NAMES.length)],
@@ -593,8 +825,9 @@ function spawnCustomer(room) {
     const idx = room.customers.findIndex(x => x.id === c.id);
     if (idx !== -1) {
       const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
-      room.reputation = Math.max(0, room.reputation - repLoss);
-      roomLog(room, `😤 ${c.name} left unserved! Rep -${repLoss}`);
+      const actualRepLoss = room.upgrades.includes('reputation_shield') ? Math.ceil(repLoss / 2) : repLoss;
+      room.reputation = Math.max(0, room.reputation - actualRepLoss);
+      roomLog(room, `😤 ${c.name} left unserved! Rep -${actualRepLoss}`);
       room.customers.splice(idx, 1);
       if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
       emit(room);
@@ -616,13 +849,19 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
     room.inventory[w.id] = Math.max(0, avail - qty);
   }
   let mult = 1;
-  if (room.saleActive) mult *= 1.5;
-  if (room.upgrades.includes('loyalty')) mult *= 1.15;
-  if (c.isVip) mult *= 2;
+  if (room.saleActive) mult *= (room.upgrades.includes('flash_sale_boost') ? 1.75 : 1.5);
+  if (room.upgrades.includes('loyalty')) mult *= (room.upgrades.includes('loyalty_boost') ? 1.25 : 1.15);
+  if (c.isVip) mult *= (room.upgrades.includes('concierge') ? 3 : 2);
+  // Surge pricing during rush hour
+  if (room.rushActive && room.upgrades.includes('surge_pricing')) mult *= 1.25;
   total = Math.round(total * mult);
+  // ATM fee
+  if (room.upgrades.includes('bank_kiosk')) total += 10;
+  else if (room.upgrades.includes('atm_machine')) total += 5;
   room.money += total;
   room.totalScore += total;
-  room.reputation = Math.max(0, Math.min(100, room.reputation + (hasIssues ? -2 : 1)));
+  const repGain = room.upgrades.includes('reputation_recovery') ? 2 : 1;
+  room.reputation = Math.max(0, Math.min(100, room.reputation + (hasIssues ? -2 : repGain)));
 
   // Stats tracking
   if (room.stats) {
@@ -668,7 +907,13 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
 function triggerEvent(room) {
   if (room.phase !== 'playing') return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
-  const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+  // Build weighted event pool
+  let pool = [...EVENTS];
+  // member_card: VIP events 3x more likely
+  if (room.upgrades.includes('member_card')) {
+    pool = pool.concat(EVENTS.filter(e => e.type === 'vip'), EVENTS.filter(e => e.type === 'vip'));
+  }
+  const ev = pool[Math.floor(Math.random() * pool.length)];
   room.activeEvent = ev;
   roomLog(room, `⚡ ${ev.label} — ${ev.desc}`);
   emit(room);
@@ -681,8 +926,9 @@ function triggerEvent(room) {
     room.saleActive = true;
     setTimeout(() => { room.saleActive = false; room.activeEvent = null; emit(room); }, ev.duration*1000);
   } else if (ev.type === 'theft') {
-    if (room.upgrades.includes('security')) {
-      roomLog(room, '👮 Security guard caught the thief instantly!');
+    if (room.upgrades.includes('security') || room.upgrades.includes('panic_button')) {
+      const catcher = room.upgrades.includes('security') ? '👮 Security guard' : '🚨 Panic Button';
+      roomLog(room, `${catcher} caught the thief instantly!`);
       if (room.stats) room.stats.theftsBlocked = (room.stats.theftsBlocked||0) + 1;
       room.activeEvent = null; emit(room);
     } else {
@@ -702,19 +948,28 @@ function triggerEvent(room) {
     } else {
       const unlocked = getUnlockedProducts(room.upgrades);
       const t = unlocked.slice().sort(()=>Math.random()-0.5).find(p => room.inventory[p.id] > 0);
-      if (t) { room.inventory[t.id] = Math.max(0, room.inventory[t.id]-diff.spoilageLoss); roomLog(room, `🤢 ${t.name} spoiled! -${diff.spoilageLoss} stock`); }
+      if (t) {
+        const spoilAmt = room.upgrades.includes('cold_storage') ? Math.ceil(diff.spoilageLoss / 2) : diff.spoilageLoss;
+        room.inventory[t.id] = Math.max(0, room.inventory[t.id] - spoilAmt);
+        roomLog(room, `🤢 ${t.name} spoiled! -${spoilAmt} stock${room.upgrades.includes('cold_storage') ? ' (Cold Storage halved it!)' : ''}`);
+      }
     }
     room.activeEvent = null; emit(room);
   } else if (ev.type === 'inspect') {
     const unlocked = getUnlockedProducts(room.upgrades);
     const low = unlocked.filter(p => room.shelves[p.id] && (room.inventory[p.id]||0) < 3);
     if (low.length > 0) {
-      room.money = Math.max(0, room.money - diff.inspectPenalty);
-      roomLog(room, `🕵️ Failed inspection! (${low.map(p=>p.name).join(', ')}) -$${diff.inspectPenalty}`);
+      const pen = (room.diff || DIFFICULTY_CONFIGS.normal).inspectPenalty;
+      const actualPen = room.upgrades.includes('reputation_shield') ? Math.ceil(pen / 2) : pen;
+      room.money = Math.max(0, room.money - actualPen);
+      roomLog(room, `🕵️ Failed inspection! (${low.map(p=>p.name).join(', ')}) -$${actualPen}`);
     } else { roomLog(room, '🕵️ Passed health inspection! ✅'); }
     room.activeEvent = null; emit(room);
   } else if (ev.type === 'vip') {
-    setTimeout(() => { spawnCustomer(room); emit(room); }, 800);
+    const vipCount = room.upgrades.includes('influencer') ? 2 : 1;
+    for (let v = 0; v < vipCount; v++) {
+      setTimeout(() => { spawnCustomer(room); emit(room); }, 800 + v * 400);
+    }
     setTimeout(() => { room.activeEvent = null; emit(room); }, 8000);
   }
 }
@@ -726,6 +981,20 @@ function startDay(room) {
   room.customers = [];
   room.checkoutLocked = null;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
+
+  // Price Scanner: auto-nudge overpriced items 10% toward base price each day
+  if (room.upgrades.includes('price_scanner')) {
+    const products = getUnlockedProducts(room.upgrades);
+    let adjusted = 0;
+    products.forEach(p => {
+      const cur = room.prices[p.id];
+      if (cur > p.basePrice) {
+        room.prices[p.id] = Math.max(p.basePrice, Math.round(cur * 0.9));
+        adjusted++;
+      }
+    });
+    if (adjusted > 0) roomLog(room, `🔖 Price Scanners adjusted ${adjusted} overpriced item${adjusted>1?'s':''} toward base price.`);
+  }
   roomLog(room, `📅 Day ${room.day} open! You have 2 minutes.`);
   emit(room);
 
@@ -746,7 +1015,8 @@ function startDay(room) {
   }, diff.spawnInterval);
 
   const schedEv = () => {
-    const d = (18 + Math.random()*15)*1000;
+    const baseDelay = room.upgrades.includes('social_media') ? 13 : 18;
+    const d = (baseDelay + Math.random()*15)*1000;
     room._eTimeout = setTimeout(() => { if (room.phase==='playing') { triggerEvent(room); schedEv(); } }, d);
   };
   schedEv();
@@ -797,7 +1067,7 @@ function tickAiWorkers(room) {
     }
 
     // Phase 1: cooldown check, then claim an unattended customer
-    const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
+    const cooldown = AI_SERVE_BASE_MS / ((w.speed || 1.0) * (room.upgrades.includes('staff_training') ? 1.2 : 1));
     if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) {
       // Keep currentActivity null while on cooldown (idle)
       if (!room._aiWorkerClaims[w.uid]) w.currentActivity = null;
@@ -884,7 +1154,7 @@ function tickAiStockers(room) {
     if (!type || type.workerType !== 'stocker') return;
     if (!w.activeAsStorcker) return; // must be activated
 
-    const cooldown = AI_STOCKER_BASE_MS / (w.speed || 1.0);
+    const cooldown = AI_STOCKER_BASE_MS / ((w.speed || 1.0) * (room.upgrades.includes('staff_training') ? 1.2 : 1) * (room.upgrades.includes('automation') ? 1.35 : 1));
     if (now - (room._aiStockerCooldowns[w.uid] || 0) < cooldown) return;
 
     // Find the product with the lowest shelf fill % that has storage stock
@@ -948,6 +1218,12 @@ function endDay(room) {
     room.aiWorkers.forEach(w => { w.currentActivity = null; });
   }
   roomLog(room, `🌙 Day ${room.day} ended! Restock & upgrade before next day.`);
+  // Delivery van passive income
+  if (room.upgrades.includes('delivery_van')) {
+    room.money += 30;
+    room.totalScore += 30;
+    roomLog(room, `🚐 Delivery Van earned $30 passive income!`);
+  }
   room.day++;
   // Start periodic auto-save for the shop phase (saves immediately + every 30s)
   startShopAutosave(room);
@@ -1297,8 +1573,9 @@ io.on('connection', (socket) => {
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
     if (!room.storage) room.storage = {};
+    const maxStorage = STORAGE_CAPACITY + (room.storageCapacityBonus || 0);
     const cur = room.storage[productId] || 0;
-    const canAdd = Math.min(Math.max(0, qty), STORAGE_CAPACITY - cur);
+    const canAdd = Math.min(Math.max(0, qty), maxStorage - cur);
     if (canAdd === 0) { socket.emit('msg', { type:'error', text:'Storage is full!' }); return; }
     const cost = prod.cost * canAdd;
     if (cost > room.money) { socket.emit('msg', { type:'error', text:`Need $${cost}, only have $${room.money}!` }); return; }
@@ -1337,8 +1614,9 @@ io.on('connection', (socket) => {
     if (!room || room.phase !== 'shop') { socket.emit('msg', { type:'error', text:'Only during shop phase!' }); return; }
     const prod = ALL_PRODUCTS.find(p => p.id === productId); if (!prod) return;
     if (!room.storage) room.storage = {};
+    const maxStorage = STORAGE_CAPACITY + (room.storageCapacityBonus || 0);
     const cur = room.storage[productId] || 0;
-    const canAdd = Math.min(Math.max(0, qty || 20), STORAGE_CAPACITY - cur);
+    const canAdd = Math.min(Math.max(0, qty || 20), maxStorage - cur);
     if (canAdd === 0) { socket.emit('msg', { type:'error', text:'Storage is full!' }); return; }
     const cost = prod.cost * canAdd;
     if (cost > room.money) { socket.emit('msg', { type:'error', text:`Need $${cost}!` }); return; }
@@ -1379,6 +1657,7 @@ io.on('connection', (socket) => {
     room.money -= finalCost;
     room.upgrades.push(uid);
     if (uid === 'shelves') room.capacityBonus += 15;
+    if (uid === 'warehouse') room.storageCapacityBonus = (room.storageCapacityBonus || 0) + STORAGE_CAPACITY; // doubles it
     // Initialize any newly unlocked products
     const newProds = ALL_PRODUCTS.filter(p => p.requires === uid);
     newProds.forEach(p => {
