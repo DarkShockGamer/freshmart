@@ -2302,6 +2302,7 @@ input::placeholder { color: var(--muted); }
     <div id="day-pill">Day 1</div>
     <div id="phase-pill" class="lobby">LOBBY</div>
     <div id="header-right">
+      <button class="btn secondary xs" id="mute-btn" onclick="SFX.toggleMute()" title="Toggle sound">🔊</button>
       <button class="btn secondary xs" onclick="leaveRoom()">← Leave</button>
     </div>
   </div>
@@ -5370,6 +5371,416 @@ function showToast(msg, type='info') {
   t.textContent = msg;
   _toastTimer = setTimeout(() => { t.className = ''; }, 2800);
 }
+
+// ══════════════════════════════════════════════════
+//  🔊  SOUND ENGINE  — Web Audio API, no files
+// ══════════════════════════════════════════════════
+const SFX = (() => {
+  let ctx = null;
+  let muted = false;
+
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+
+  // Low-level helpers
+  function osc(freq, type, start, dur, gainVal, fadeOut, dest) {
+    const ac = getCtx();
+    const g  = ac.createGain();
+    const o  = ac.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, ac.currentTime + start);
+    g.gain.setValueAtTime(gainVal, ac.currentTime + start);
+    if (fadeOut) g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + start + dur);
+    o.connect(g);
+    g.connect(dest || ac.destination);
+    o.start(ac.currentTime + start);
+    o.stop(ac.currentTime + start + dur + 0.01);
+    return { osc: o, gain: g };
+  }
+
+  function noise(dur, gainVal, hipass, dest) {
+    const ac = getCtx();
+    const buf = ac.createBuffer(1, ac.sampleRate * dur, ac.sampleRate);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(gainVal, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+    if (hipass) {
+      const f = ac.createBiquadFilter();
+      f.type = 'highpass';
+      f.frequency.value = hipass;
+      src.connect(f); f.connect(g);
+    } else {
+      src.connect(g);
+    }
+    g.connect(dest || ac.destination);
+    src.start();
+    src.stop(ac.currentTime + dur + 0.01);
+  }
+
+  function play(fn) {
+    if (muted) return;
+    try { fn(); } catch(e) {}
+  }
+
+  // ── Individual sounds ─────────────────────────
+
+  /** Barcode scanner beep */
+  function scan() {
+    play(() => {
+      const ac = getCtx();
+      osc(1800, 'sine', 0,    0.04, 0.35, true);
+      osc(2200, 'sine', 0.05, 0.06, 0.25, true);
+    });
+  }
+
+  /** Card swipe — magnetic stripe whoosh */
+  function cardSwipe() {
+    play(() => {
+      const ac = getCtx();
+      // Whoosh: filtered noise sweep
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.25, ac.sampleRate);
+      const d   = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(400,  ac.currentTime);
+      bp.frequency.linearRampToValueAtTime(3500, ac.currentTime + 0.18);
+      bp.Q.value = 1.5;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.4, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
+      src.connect(bp); bp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.3);
+      // Small click at start
+      osc(200, 'square', 0, 0.015, 0.08, true);
+    });
+  }
+
+  /** Card approved — rising cheerful chime */
+  function cardApproved() {
+    play(() => {
+      [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.32]].forEach(([f, t]) => {
+        osc(f, 'sine', t, 0.3, 0.2, true);
+      });
+    });
+  }
+
+  /** Cash bill accepted — satisfying thunk */
+  function billAccept() {
+    play(() => {
+      osc(120, 'sine',   0,    0.06, 0.4, true);
+      osc(80,  'square', 0,    0.03, 0.15, true);
+      noise(0.05, 0.08, 200);
+    });
+  }
+
+  /** Change given — coin clink */
+  function changeClink() {
+    play(() => {
+      [1200, 1600, 1050].forEach((f, i) => {
+        osc(f, 'sine', i * 0.04, 0.18, 0.15, true);
+        osc(f * 2.76, 'sine', i * 0.04, 0.1, 0.06, true); // slight inharmonic for metal feel
+      });
+    });
+  }
+
+  /** Transaction complete — cash register "ka-ching!" */
+  function kaChing() {
+    play(() => {
+      // Bell
+      osc(880,  'sine',    0,    0.5,  0.3,  true);
+      osc(1760, 'sine',    0,    0.35, 0.15, true);
+      osc(2640, 'sine',    0,    0.25, 0.08, true);
+      // Drawer clunk
+      osc(90,   'square',  0.05, 0.08, 0.4,  true);
+      noise(0.12, 0.15, 300);
+    });
+  }
+
+  /** VIP customer arrives — fanfare */
+  function vipArrive() {
+    play(() => {
+      [[392, 0], [523, 0.12], [659, 0.24], [784, 0.36], [1047, 0.5]].forEach(([f, t]) => {
+        osc(f, 'triangle', t, 0.35, 0.22, true);
+      });
+      // Shimmer
+      [1500, 2000, 2500].forEach((f, i) => osc(f, 'sine', 0.5 + i*0.04, 0.18, 0.1, true));
+    });
+  }
+
+  /** Rush hour — urgent alarm stab */
+  function rushHour() {
+    play(() => {
+      for (let i = 0; i < 3; i++) {
+        osc(880, 'sawtooth', i * 0.18, 0.1, 0.25, true);
+        osc(440, 'square',   i * 0.18, 0.1, 0.12, true);
+      }
+    });
+  }
+
+  /** Flash sale — upbeat pop */
+  function flashSale() {
+    play(() => {
+      [[523,0],[659,0.08],[784,0.16],[1047,0.24],[1319,0.34]].forEach(([f,t]) => {
+        osc(f, 'triangle', t, 0.22, 0.2, true);
+      });
+    });
+  }
+
+  /** Shoplifter alert — urgent buzzer */
+  function theftAlert() {
+    play(() => {
+      for (let i = 0; i < 4; i++) {
+        osc(220, 'sawtooth', i * 0.15, 0.12, 0.35, true);
+        osc(330, 'sawtooth', i * 0.15 + 0.06, 0.06, 0.2, true);
+      }
+    });
+  }
+
+  /** Thief caught — triumphant blip */
+  function thiefCaught() {
+    play(() => {
+      [[440,0],[880,0.08],[1320,0.16]].forEach(([f,t]) => osc(f, 'sine', t, 0.2, 0.25, true));
+    });
+  }
+
+  /** Upgrade purchased — power-up sound */
+  function upgradeBuy() {
+    play(() => {
+      const freqs = [330, 440, 554, 659, 880, 1108];
+      freqs.forEach((f, i) => osc(f, 'sine', i * 0.055, 0.25, 0.18, true));
+    });
+  }
+
+  /** Store size expand — big whoosh + chord */
+  function storeExpand() {
+    play(() => {
+      const ac = getCtx();
+      // Whoosh
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.6, ac.sampleRate);
+      const d   = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(200, ac.currentTime);
+      bp.frequency.exponentialRampToValueAtTime(4000, ac.currentTime + 0.45);
+      bp.Q.value = 1;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.45, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.55);
+      src.connect(bp); bp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.65);
+      // Victory chord
+      [523, 659, 784, 1047].forEach((f, i) => osc(f, 'sine', 0.15 + i*0.04, 0.6, 0.2, true));
+    });
+  }
+
+  /** Day start — morning chime */
+  function dayStart() {
+    play(() => {
+      [[523,0],[784,0.15],[1047,0.3],[1568,0.45]].forEach(([f,t]) => {
+        osc(f, 'sine', t, 0.4, 0.18, true);
+      });
+    });
+  }
+
+  /** Day end — closing bell */
+  function dayEnd() {
+    play(() => {
+      [[1047,0],[784,0.2],[659,0.4],[523,0.6]].forEach(([f,t]) => {
+        osc(f, 'sine', t, 0.45, 0.22, true);
+      });
+      osc(262, 'sine', 0.65, 0.6, 0.15, true);
+    });
+  }
+
+  /** Error / denied — low buzz */
+  function error() {
+    play(() => {
+      osc(160, 'sawtooth', 0,    0.12, 0.3, true);
+      osc(120, 'sawtooth', 0.08, 0.12, 0.25, true);
+    });
+  }
+
+  /** Hire worker — cheerful confirm */
+  function hireWorker() {
+    play(() => {
+      [[440,0],[554,0.1],[659,0.2]].forEach(([f,t]) => osc(f, 'sine', t, 0.25, 0.2, true));
+    });
+  }
+
+  /** Customer served — quick positive ding */
+  function customerServed() {
+    play(() => {
+      osc(880, 'sine', 0,    0.12, 0.22, true);
+      osc(1100,'sine', 0.07, 0.1,  0.15, true);
+    });
+  }
+
+  /** All scanned — full scan complete chirp */
+  function allScanned() {
+    play(() => {
+      [[660,0],[880,0.08],[1320,0.17]].forEach(([f,t]) => osc(f, 'sine', t, 0.18, 0.2, true));
+    });
+  }
+
+  /** Mute toggle feedback */
+  function muteToggle(nowMuted) {
+    if (nowMuted) return; // can't play sound when muting
+    play(() => osc(440, 'sine', 0, 0.1, 0.15, true));
+  }
+
+  return {
+    scan, cardSwipe, cardApproved, billAccept, changeClink, kaChing,
+    vipArrive, rushHour, flashSale, theftAlert, thiefCaught,
+    upgradeBuy, storeExpand, dayStart, dayEnd, error, hireWorker,
+    customerServed, allScanned, muteToggle,
+    get muted() { return muted; },
+    toggleMute() {
+      muted = !muted;
+      muteToggle(muted);
+      const btn = document.getElementById('mute-btn');
+      if (btn) btn.textContent = muted ? '🔇' : '🔊';
+      localStorage.setItem('fm_muted', muted ? '1' : '0');
+    },
+    init() {
+      muted = localStorage.getItem('fm_muted') === '1';
+      const btn = document.getElementById('mute-btn');
+      if (btn) btn.textContent = muted ? '🔇' : '🔊';
+    },
+  };
+})();
+
+// ── Wire sounds into state changes ────────────────
+let _sfxPrevPhase    = null;
+let _sfxPrevTheft    = false;
+let _sfxPrevRush     = false;
+let _sfxPrevSale     = false;
+let _sfxPrevVip      = false;
+
+const _origRoomState = socket.on.bind(socket);
+socket.on('roomState', (state) => {
+  // Phase transitions
+  if (_sfxPrevPhase !== state.phase) {
+    if (state.phase === 'playing') SFX.dayStart();
+    if (state.phase === 'shop' && _sfxPrevPhase === 'playing') SFX.dayEnd();
+    _sfxPrevPhase = state.phase;
+  }
+  // Events
+  if (state.theftActive && !_sfxPrevTheft) SFX.theftAlert();
+  if (!state.theftActive && _sfxPrevTheft)  { /* caught handled in stopThief */ }
+  if (state.rushActive && !_sfxPrevRush)   SFX.rushHour();
+  if (state.saleActive && !_sfxPrevSale)   SFX.flashSale();
+  const isVip = state.activeEvent?.type === 'vip';
+  if (isVip && !_sfxPrevVip)              SFX.vipArrive();
+  _sfxPrevTheft = state.theftActive;
+  _sfxPrevRush  = state.rushActive;
+  _sfxPrevSale  = state.saleActive;
+  _sfxPrevVip   = isVip;
+});
+
+// Patch serveResult to play sound
+const _origServeResult = (data) => {
+  if (data.ok) { SFX.customerServed(); if (data.isVip) setTimeout(SFX.vipArrive, 80); }
+  else         SFX.error();
+};
+socket.on('serveResult', (data) => _origServeResult(data));
+
+// Patch checkoutDenied
+socket.on('checkoutDenied', () => SFX.error());
+socket.on('msg', ({ type }) => { if (type === 'error') SFX.error(); });
+
+// Patch stopThief button to add caught sound
+const _origStopThiefBtn = document.getElementById ? (() => {
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'theft-btn') SFX.thiefCaught();
+  });
+})() : null;
+
+// ── Patch checkout functions ───────────────────────
+const _origScanItem = scanItem;
+window.scanItem = function(el, id, prod, price, qty) {
+  SFX.scan();
+  return _origScanItem(el, id, prod, price, qty);
+};
+
+const _origCheckAllScanned = checkAllScanned;
+window.checkAllScanned = function() {
+  _origCheckAllScanned();
+  const remaining = document.querySelectorAll('#co-unscanned-side .belt-item:not(.scanned)').length;
+  if (remaining === 0 && checkoutScanned.length > 0) SFX.allScanned();
+};
+
+const _origAcceptBill = acceptBill;
+window.acceptBill = function(chip, denom) {
+  SFX.billAccept();
+  return _origAcceptBill(chip, denom);
+};
+
+const _origShowChange = showChange;
+window.showChange = function(change) {
+  if (change > 0) setTimeout(SFX.changeClink, 200);
+  return _origShowChange(change);
+};
+
+const _origDoCardSwipe = doCardSwipe;
+window.doCardSwipe = function() {
+  SFX.cardSwipe();
+  return _origDoCardSwipe();
+};
+
+// Card approved sound — patch into the timeout inside doCardSwipe
+const _origCardApproved = doCardSwipe;
+// We detect approved via the approved div getting the 'show' class
+const _coApprovedObserver = new MutationObserver((muts) => {
+  muts.forEach(m => {
+    if (m.target.classList.contains('show')) SFX.cardApproved();
+  });
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const ap = document.getElementById('co-approved');
+  if (ap) _coApprovedObserver.observe(ap, { attributes: true, attributeFilter: ['class'] });
+});
+// Also try immediately in case DOM is ready
+(() => {
+  const ap = document.getElementById('co-approved');
+  if (ap) _coApprovedObserver.observe(ap, { attributes: true, attributeFilter: ['class'] });
+})();
+
+const _origCompleteCheckout = completeCheckout;
+window.completeCheckout = function() {
+  SFX.kaChing();
+  return _origCompleteCheckout();
+};
+
+// Patch buyUpgrade click — listen on the tree container
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  // Upgrade purchase
+  if (btn.onclick && btn.getAttribute('onclick')?.includes('buyUpgrade')) {
+    // Sound fires optimistically; error toast will override feel if server rejects
+    const uid = btn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
+    if (uid && uid.startsWith('size_')) SFX.storeExpand();
+    else SFX.upgradeBuy();
+  }
+  // Hire worker
+  if (btn.getAttribute('onclick')?.includes('hireWorker')) SFX.hireWorker();
+});
+
+// Init mute state on load
+SFX.init();
 </script>
 </body>
 </html>
