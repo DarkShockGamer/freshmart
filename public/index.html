@@ -453,41 +453,13 @@ input::placeholder { color: var(--muted); }
 .stock-lo { color: var(--red); }
 .stock-ok { color: var(--green); }
 
-.qty-input {
+.price-input, .qty-input {
   width: 62px; background: var(--surf2); border: 1px solid var(--border);
   border-radius: 7px; color: var(--text); padding: 5px 8px;
   font-family: var(--mono); font-size: 12px; text-align: center; outline: none;
   display: block; margin: 0 auto;
 }
-.qty-input:focus { border-color: var(--blue); }
-/* Price stepper */
-.price-stepper {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: var(--surf2); border: 1px solid var(--border);
-  border-radius: 9px; padding: 3px; margin: 0 auto;
-}
-.price-stepper-btn {
-  width: 30px; height: 30px; border-radius: 6px; border: none; cursor: pointer;
-  font-size: 18px; font-weight: 700; line-height: 1;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .12s, transform .08s; flex-shrink: 0;
-  user-select: none; font-family: var(--font);
-}
-.price-stepper-btn.down { background: var(--red-lo); color: var(--red); }
-.price-stepper-btn.up   { background: var(--green-lo); color: var(--green); }
-.price-stepper-btn.down:hover { background: var(--red); color: #fff; }
-.price-stepper-btn.up:hover   { background: var(--green); color: #000; }
-.price-stepper-btn:active { transform: scale(.88); }
-.price-stepper input {
-  width: 54px; background: transparent; border: none; border-radius: 5px;
-  color: var(--text); padding: 4px 2px;
-  font-family: var(--mono); font-size: 13px; font-weight: 700;
-  text-align: center; outline: none;
-  -moz-appearance: textfield;
-}
-.price-stepper input::-webkit-outer-spin-button,
-.price-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.price-stepper input:focus { background: var(--surf); border-radius: 4px; }
+.price-input:focus, .qty-input:focus { border-color: var(--blue); }
 
 .cost-badge {
   display: inline-block; font-size: 10px; font-family: var(--mono);
@@ -671,7 +643,7 @@ input::placeholder { color: var(--muted); }
   border-bottom: 1px solid var(--border); display: block;
 }
 .worker-hire-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;
   margin-bottom: 16px;
 }
 .worker-hire-card {
@@ -684,7 +656,8 @@ input::placeholder { color: var(--muted); }
 .worker-hire-name { font-size: 14px; font-weight: 700; }
 .worker-hire-speed { font-size: 11px; color: var(--cyan); font-family: var(--mono); }
 .worker-hire-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.worker-hire-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.worker-hire-footer { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.worker-hire-footer .btn { margin-left: auto; min-width: 0; white-space: nowrap; flex-shrink: 0; }
 .worker-hire-cost { font-size: 13px; font-weight: 700; color: var(--green); font-family: var(--mono); }
 .worker-hire-wage { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
@@ -4045,32 +4018,6 @@ function clientDemandWeight(price, basePrice) {
   return Math.max(0.02, 1 / (ratio * ratio));
 }
 
-// ── Price stepper helpers ──────────────────────
-function stepPrice(productId, delta) {
-  const stepper = document.getElementById('ps-' + productId);
-  if (!stepper) return;
-  const input = stepper.querySelector('input');
-  const newVal = Math.max(1, Math.min(9999, (parseInt(input.value) || 1) + delta));
-  input.value = newVal;
-  socket.emit('setPrice', { productId, price: newVal });
-  updateStepperDemand(productId, newVal);
-}
-function updateStepperDemand(productId, price) {
-  if (!roomState) return;
-  const p = (roomState.products || []).find(pr => pr.id === productId);
-  if (!p) return;
-  const dw = clientDemandWeight(price, p.basePrice);
-  const pct = Math.round(dw * 100);
-  const color = dw > 0.7 ? 'var(--green)' : dw > 0.35 ? 'var(--yellow)' : 'var(--red)';
-  const text  = dw > 0.7 ? 'HIGH' : dw > 0.35 ? 'MED' : dw > 0.1 ? 'LOW' : 'NONE';
-  const row = document.getElementById('ps-' + productId)?.closest('tr');
-  if (!row) return;
-  const bar   = row.querySelector('.demand-bar-fill');
-  const label = row.querySelector('.demand-label');
-  if (bar)   { bar.style.width = pct + '%'; bar.style.background = color; }
-  if (label) { label.textContent = text + ' DEMAND'; label.style.color = color; }
-}
-
 function renderInventory(s) {
   const body = document.getElementById('inv-body');
   body.innerHTML = '';
@@ -4097,13 +4044,8 @@ function renderInventory(s) {
       </td>
       <td class="stock-cell ${stock<4?'stock-lo':'stock-ok'}">${stock}</td>
       <td style="text-align:center">
-        <div class="price-stepper" id="ps-${p.id}">
-          <button class="price-stepper-btn down" onclick="stepPrice('${p.id}',-1)" title="Lower price">−</button>
-          <input type="number" min="1" max="9999" value="${price}"
-            onchange="socket.emit('setPrice',{productId:'${p.id}',price:Math.max(1,+this.value||1)})"
-            oninput="updateStepperDemand('${p.id}',+this.value)">
-          <button class="price-stepper-btn up" onclick="stepPrice('${p.id}',1)" title="Raise price">+</button>
-        </div>
+        <input type="number" class="price-input" min="1" max="9999" value="${price}"
+              onchange="socket.emit('setPrice',{productId:'${p.id}',price:+this.value})">
         <span class="cost-badge ${marginClass}" title="Cost $${p.cost}/unit">cost $${p.cost} · ${marginSign}$${profit}/u</span>
         <div class="demand-bar-wrap" title="Demand: ${demandPct}%">
           <div class="demand-bar-fill" style="width:${demandPct}%;background:${demandColor}"></div>
@@ -5109,7 +5051,7 @@ function renderWorkers(s) {
       <div class="worker-hire-footer">
         <span class="worker-hire-cost">$${t.cost} hire</span>
         <span class="worker-hire-wage">${t.wage ? `$${t.wage}/day wage` : 'No wage'}</span>
-        <button class="btn xs blue" style="margin-left:auto" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+        <button class="btn xs blue" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
           ${!isShop || !canAfford ? 'disabled' : ''}>
           ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
@@ -5172,7 +5114,7 @@ function renderWorkers(s) {
       <div class="worker-hire-footer">
         <span class="worker-hire-cost">$${t.cost} hire</span>
         <span class="worker-hire-wage">$${t.wage}/day wage</span>
-        <button class="btn xs" style="margin-left:auto;background:var(--green);color:#000" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+        <button class="btn xs" style="background:var(--green);color:#000" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
           ${!isShop || !canAfford ? 'disabled' : ''}>
           ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
@@ -5255,7 +5197,7 @@ function renderWorkers(s) {
           <span class="worker-hire-cost">$${t.cost.toLocaleString()}</span>
           <span class="worker-hire-wage" style="color:var(--yellow)">$${t.maintenance}/day maint</span>
           ${ownedCount > 0 ? `<span style="font-size:11px;color:var(--cyan);font-weight:700;margin-left:4px">×${ownedCount}</span>` : ''}
-          <button class="btn xs" style="margin-left:auto;background:var(--cyan);color:#000"
+          <button class="btn xs" style="background:var(--cyan);color:#000"
             onclick="socket.emit('buyScoMachine',{typeId:'${t.id}'})"
             ${!isShop || !hasUnlock || !canAfford ? 'disabled' : ''}>
             ${!hasUnlock ? '🔒 Locked' : !isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost.toLocaleString()}` : 'Install'}
