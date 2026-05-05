@@ -572,8 +572,8 @@ input::placeholder { color: var(--muted); }
 .sb-section h3 { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
 
 .timer-big {
-  font-family: var(--mono); font-size: 28px; font-weight: 700;
-  color: var(--yellow); text-align: center; letter-spacing: -0.5px;
+  font-family: var(--mono); font-size: 36px; font-weight: 700;
+  color: var(--yellow); text-align: center; letter-spacing: -1px;
 }
 .timer-big.urgent { color: var(--red); animation: tpulse .5s ease-in-out infinite alternate; }
 .timer-big.shop-mode { color: var(--blue); font-size: 20px; }
@@ -598,6 +598,8 @@ input::placeholder { color: var(--muted); }
 .log-entry {
   padding: 7px 14px; font-size: 11.5px; color: var(--muted);
   border-bottom: 1px solid var(--border); line-height: 1.5;
+}
+.log-entry-new {
   animation: fadeIn .3s ease;
 }
 @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
@@ -2299,7 +2301,7 @@ input::placeholder { color: var(--muted); }
     <div class="hstat money"><span class="hl">CASH</span><span class="hv" id="h-money">$200</span></div>
     <div class="hstat rep"><span class="hl">REP</span><span class="hv" id="h-rep">100%</span></div>
     <div class="hstat"><span class="hl">STORE</span><span class="hv" id="h-score">$0</span></div>
-    <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">🕐</span><span class="hv" id="h-time">8:00 AM</span></div>
+    <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">TIME</span><span class="hv" id="h-time">2:00</span></div>
     <div id="day-pill">Day 1</div>
     <div id="phase-pill" class="lobby">LOBBY</div>
     <div id="header-right">
@@ -2475,7 +2477,7 @@ input::placeholder { color: var(--muted); }
     <!-- Sidebar -->
     <div id="sidebar">
       <div class="sb-section">
-        <h3>Store Clock</h3>
+        <h3>Day Timer</h3>
         <div class="timer-big" id="sb-timer">—</div>
       </div>
       <div class="sb-section">
@@ -2946,11 +2948,8 @@ function renderHeader(s) {
   const timerEl = document.getElementById('h-timer');
   if (s.phase === 'playing') {
     timerEl.style.display = 'flex';
-    const gt = s.gameTime;
-    if (gt) {
-      const minStr = gt.minute < 10 ? '0' + gt.minute : '' + gt.minute;
-      document.getElementById('h-time').textContent = gt.hour + ':' + minStr + ' ' + gt.ampm;
-    }
+    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
+    document.getElementById('h-time').textContent = m+':'+(sec<10?'0':'')+sec;
   } else {
     timerEl.style.display = 'none';
   }
@@ -4314,16 +4313,9 @@ function renderSidebar(s) {
   // timer
   const t = document.getElementById('sb-timer');
   if (s.phase === 'playing') {
-    const gt = s.gameTime;
-    if (gt) {
-      const minStr = gt.minute < 10 ? '0' + gt.minute : '' + gt.minute;
-      t.textContent = gt.hour + ':' + minStr + ' ' + gt.ampm;
-      // "urgent" in last hour (9 PM+) = gameMinute >= 780
-      t.className = 'timer-big' + ((gt.totalMinutes >= 780) ? ' urgent' : '');
-    } else {
-      t.textContent = '8:00 AM';
-      t.className = 'timer-big';
-    }
+    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
+    t.textContent = m+':'+(sec<10?'0':'')+sec;
+    t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
   } else if (s.phase === 'shop') {
     t.textContent = s.isMorning ? '🌅' : 'SHOP'; t.className = 'timer-big shop-mode';
   } else {
@@ -4354,20 +4346,36 @@ function renderSidebar(s) {
     });
   }
 
-  // log — only rebuild when top entry changes
+  // log — prepend only genuinely new entries; never rebuild the whole list
   const log = document.getElementById('log-area');
-  const entries = s.eventLog||[];
-  const firstEntry = entries[0]?.msg || '';
-  if (log.dataset.firstEntry !== firstEntry) {
-    log.dataset.firstEntry = firstEntry;
-    log.innerHTML = '';
-    entries.forEach(e => {
-      const el = document.createElement('div');
-      el.className = 'log-entry';
-      el.textContent = e.msg;
-      log.appendChild(el);
-    });
-  }
+  const entries = s.eventLog || [];
+  if (entries.length === 0) { log.innerHTML = ''; return; }
+
+  // Use timestamp of the newest entry as the change key
+  const topKey = (entries[0]?.t ?? '') + '|' + (entries[0]?.msg ?? '');
+  if (log.dataset.topKey === topKey) return; // nothing new
+  log.dataset.topKey = topKey;
+
+  // Find how many entries at the top are new (not yet rendered)
+  const existingKeys = new Set(
+    Array.from(log.querySelectorAll('.log-entry')).map(el => el.dataset.key)
+  );
+  const newEntries = entries.filter(e => !existingKeys.has((e.t ?? '') + '|' + e.msg));
+
+  // Prepend new entries with animation, then trim excess
+  newEntries.reverse().forEach(e => {
+    const el = document.createElement('div');
+    el.className = 'log-entry log-entry-new';
+    el.dataset.key = (e.t ?? '') + '|' + e.msg;
+    el.textContent = e.msg;
+    log.insertBefore(el, log.firstChild);
+    // Remove animation class after it plays so it doesn't re-trigger
+    setTimeout(() => el.classList.remove('log-entry-new'), 350);
+  });
+
+  // Trim to max entries shown
+  const max = entries.length;
+  while (log.children.length > max) log.removeChild(log.lastChild);
 }
 
 // ── Tab switching ──────────────────────────────────
