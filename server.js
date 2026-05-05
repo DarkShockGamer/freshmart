@@ -347,23 +347,24 @@ const DIFFICULTY_CONFIGS = {
     emoji: '🌱',
     desc: 'Relaxed store sim — generous starting cash, cheap upgrades, patient customers.',
     startMoney: 400,
-    upgradeCostMult: 0.5,       // easier to afford at new base prices
-    spawnChance: 0.55,
-    spawnInterval: 3500,
+    upgradeCostMult: 0.5,
+    // spawnChance is the late-game ceiling; early days are gated by dayScale in startDay.
+    spawnChance: 0.45,           // ~1-2 customers/tick by late game
+    spawnInterval: 4000,         // slower tick = more breathing room
     customerPatience: 1.6,
     theftLoss: 5,
     inspectPenalty: 10,
     spoilageLoss: 3,
     repLossUnserved: 3,
-    rushSpawnMult: 1.5,
+    rushSpawnMult: 2,
   },
   normal: {
     label: 'Normal',
     emoji: '🏪',
     desc: 'Balanced challenge — manage your budget carefully and react to events.',
     startMoney: 200,
-    upgradeCostMult: 1.0,       // base costs are already steep — no extra multiplier
-    spawnChance: 0.72,
+    upgradeCostMult: 1.0,
+    spawnChance: 0.60,           // ramps to ~1 per tick by mid-game
     spawnInterval: 3500,
     customerPatience: 1.0,
     theftLoss: 25,
@@ -377,9 +378,9 @@ const DIFFICULTY_CONFIGS = {
     emoji: '🔥',
     desc: 'Brutal economy — tight cash, impatient customers, punishing events.',
     startMoney: 100,
-    upgradeCostMult: 1.6,       // noticeable but not absurd on top of new base prices
-    spawnChance: 0.88,
-    spawnInterval: 2500,
+    upgradeCostMult: 1.6,
+    spawnChance: 0.78,           // busiest ceiling; still starts slow on day 1
+    spawnInterval: 3000,
     customerPatience: 0.6,
     theftLoss: 50,
     inspectPenalty: 80,
@@ -785,9 +786,30 @@ function startDay(room) {
 
   room._cInt = setInterval(() => {
     if (room.phase !== 'playing') return;
-    const boost = room.upgrades.includes('ads') ? 1.4 : 1;
-    const times = room.rushActive ? diff.rushSpawnMult : 1;
-    for (let i = 0; i < times; i++) if (Math.random() < diff.spawnChance * boost) spawnCustomer(room);
+
+    // ── Progressive customer scaling ──────────────────────────────────────
+    // Early days feel like a real small shop: mostly 1 customer at a time.
+    // Traffic grows steadily and plateaus around day 20+.
+    // dayScale ramps from 0.15 on day 1 up to 1.0 around day 19.
+    const adsBoost   = room.upgrades.includes('ads') ? 1.4 : 1;
+    const dayScale   = Math.min(1, 0.15 + (room.day - 1) * 0.045);
+    const baseChance = diff.spawnChance * dayScale * adsBoost;
+
+    // Soft floor cap: limits simultaneous customers based on day.
+    // Day 1-2: max ~2.  Day 5: max ~4.  Day 10: max ~6.  Day 20+: max 10+
+    const dayCapBase = Math.floor(1.5 + room.day * 0.45);
+    const floorCap   = Math.min(12, dayCapBase) * (room.upgrades.includes('ads') ? 1.3 : 1);
+
+    if (room.customers.length >= floorCap) {
+      // Floor is full — skip spawn this tick
+    } else if (room.rushActive) {
+      const times = diff.rushSpawnMult;
+      for (let i = 0; i < times; i++) {
+        if (room.customers.length < floorCap && Math.random() < baseChance) spawnCustomer(room);
+      }
+    } else {
+      if (Math.random() < baseChance) spawnCustomer(room);
+    }
 
     // AI workers auto-serve customers assigned to their lane
     tickAiWorkers(room);
@@ -797,7 +819,7 @@ function startDay(room) {
     tickScoMachines(room);
 
     emit(room);
-  }, diff.spawnInterval);
+  }, Math.max(diff.spawnInterval * 0.6, diff.spawnInterval - (room.day - 1) * 80));
 
   const schedEv = () => {
     const d = (18 + Math.random()*15)*1000;
