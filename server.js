@@ -655,11 +655,26 @@ function spawnCustomer(room) {
   const isVip = room.activeEvent?.type === 'vip';
   const numItems = isVip ? Math.floor(Math.random()*4)+3 : Math.floor(Math.random()*3)+1;
   const wants = [];
+
+  // Max qty per product based on base price.
+  // Cheap consumables (apples, bread) can stack; big-ticket items (ATV, TV, suit) are always qty 1.
+  function maxQtyFor(prod) {
+    const bp = prod.basePrice || 1;
+    if (bp <= 5)  return isVip ? 5 : 4;  // cheap grocery: apples, bread, water, cola, bananas
+    if (bp <= 10) return isVip ? 4 : 3;  // mid grocery: milk, eggs, cereal, cookies
+    if (bp <= 20) return isVip ? 3 : 2;  // premium grocery + cheap clothing: chicken, wipers
+    if (bp <= 50) return isVip ? 2 : 1;  // wine, lobster, truffles, t-shirt, jeans, headphones
+    return 1;                             // anything pricier — one is plenty
+  }
+
   for (let i = 0; i < numItems; i++) {
     // Pick product weighted by demand — overpriced items are rarely chosen
     const prod = weightedPick(avail, p => demandWeight(room, p));
-    if (!wants.find(w => w.id === prod.id))
-      wants.push({ id: prod.id, qty: isVip ? Math.floor(Math.random()*4)+2 : Math.floor(Math.random()*3)+1 });
+    if (!wants.find(w => w.id === prod.id)) {
+      const cap = maxQtyFor(prod);
+      const qty = cap === 1 ? 1 : Math.floor(Math.random() * cap) + 1;
+      wants.push({ id: prod.id, qty });
+    }
   }
   if (wants.length === 0) return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
@@ -1164,64 +1179,6 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     roomLog(room, `👋 ${playerName} joined!`);
     socket.emit('roomJoined', { code: roomCode, playerId: socket.id });
-    emit(room);
-  });
-
-  // ── Rejoin: restore socket→room mapping after reconnect ─────────────────
-  socket.on('rejoinRoom', ({ code, name }) => {
-    const roomCode = (code || '').toUpperCase().trim();
-    const room = rooms.get(roomCode);
-    if (!room) { socket.emit('rejoinFailed'); return; }
-
-    // If this socket ID is already in the room (shouldn't happen), just re-emit.
-    if (room.players[socket.id]) {
-      socketRoom.set(socket.id, roomCode);
-      socket.join(roomCode);
-      socket.emit('roomJoined', { code: roomCode, playerId: socket.id });
-      emit(room);
-      return;
-    }
-
-    // Find if a player with this name already exists (disconnected player rejoining)
-    const playerName = (name || '').trim().slice(0, 20) || 'Player';
-    const existingEntry = Object.entries(room.players).find(([, p]) => p.name === playerName);
-
-    if (existingEntry) {
-      // Migrate the old socket ID to the new one
-      const [oldId, playerData] = existingEntry;
-      delete room.players[oldId];
-      socketRoom.delete(oldId);
-      // If old socket was host, transfer host role
-      if (room.hostId === oldId) room.hostId = socket.id;
-      // Transfer any checkout locks
-      if (room.checkoutLocks?.[oldId]) {
-        delete room.checkoutLocks[oldId];
-        room.checkoutLocks[socket.id] = true;
-      }
-      if (room.playerCheckoutActivity?.[oldId]) {
-        room.playerCheckoutActivity[socket.id] = room.playerCheckoutActivity[oldId];
-        delete room.playerCheckoutActivity[oldId];
-      }
-      room.players[socket.id] = { ...playerData, id: socket.id };
-    } else {
-      // New player joining a running game (spectator/late join) — only allow in shop phase
-      if (room.phase !== 'lobby' && room.phase !== 'shop') {
-        socket.emit('rejoinFailed'); return;
-      }
-      const idx = Object.keys(room.players).length;
-      room.players[socket.id] = {
-        id: socket.id, name: playerName,
-        color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
-        role: PLAYER_ROLES[idx % PLAYER_ROLES.length],
-        personalScore: 0, cashierLane: null,
-      };
-    }
-
-    socketRoom.set(socket.id, roomCode);
-    socket.join(roomCode);
-    socket.emit('roomJoined', { code: roomCode, playerId: socket.id });
-    emit(room);
-    roomLog(room, `🔄 ${room.players[socket.id].name} reconnected.`);
     emit(room);
   });
 
