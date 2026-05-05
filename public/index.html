@@ -4073,6 +4073,7 @@ function doRestockFull(productId, space) {
 
 // ── Upgrades Tree ──────────────────────────────────────────────────
 const BRANCH_META = {
+  storesize:     { label: '🏗️ Store Size',         color: 'var(--yellow)', priority: -1 },
   grocery:       { label: '🥗 Grocery',          color: 'var(--green)' },
   store:         { label: '🏪 Store Ops',         color: 'var(--blue)'  },
   checkout:      { label: '🏧 Checkouts',         color: 'var(--cyan)'  },
@@ -4088,6 +4089,9 @@ const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III' };
 function renderUpgrades(s) {
   const tree = document.getElementById('upg-tree');
   const isShop = s.phase === 'shop';
+  const storeSize = s.storeSize || 0;
+  const sizeNames = ['Small Store 🏠', 'Medium Store 🏪', 'Large Store 🏬', 'Mega Store 🏢'];
+  const sizeColors = ['var(--muted)', 'var(--green)', 'var(--blue)', 'var(--yellow)'];
 
   // group by section, then tier
   const sections = {};
@@ -4099,15 +4103,73 @@ function renderUpgrades(s) {
 
   tree.innerHTML = '';
 
-  Object.entries(sections).forEach(([sectionId, tiers]) => {
+  // ── Store Size Banner ──────────────────────────────
+  const banner = document.createElement('div');
+  banner.style.cssText = `
+    background: var(--surf); border: 2px solid ${sizeColors[storeSize]};
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 14px;
+  `;
+  const nextSizeUpg = ['size_medium','size_large','size_mega'][storeSize];
+  const nextUpgDef = s.upgradeList.find(u => u.id === nextSizeUpg);
+  const nextCost = nextUpgDef ? Math.round(nextUpgDef.cost * (s.diffConfig?.upgradeCostMult || 1)) : null;
+  banner.innerHTML = `
+    <div style="font-size:36px;flex-shrink:0">${['🏠','🏪','🏬','🏢'][storeSize]}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:800;color:${sizeColors[storeSize]};letter-spacing:.5px;text-transform:uppercase">
+        Current Size: ${sizeNames[storeSize]}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5">
+        ${storeSize === 0 ? 'You\'re in a small corner store. Upgrade Store Size to unlock more departments.' :
+          storeSize === 1 ? 'Medium store: Clothing, Auto & Outdoors are now available.' :
+          storeSize === 2 ? 'Large store: Electronics, Furniture & Self-Checkout are now open.' :
+          '🎉 Mega Store — every department & tier-3 upgrade is unlocked!'}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px">SECTION SLOTS</div>
+      <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${sizeColors[storeSize]}">
+        ${['2','4','7','∞'][storeSize]}
+      </div>
+    </div>
+  `;
+  tree.appendChild(banner);
+
+  // Sort: storesize first, then others alphabetically
+  const sectionOrder = ['storesize','grocery','store','checkout','clothing','auto','outdoors','selfcheckout','electronics','furniture'];
+  const sortedEntries = Object.entries(sections).sort(([a],[b]) => {
+    const ai = sectionOrder.indexOf(a); const bi = sectionOrder.indexOf(b);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+  sortedEntries.forEach(([sectionId, tiers]) => {
     const meta = BRANCH_META[sectionId] || { label: sectionId, color: 'var(--muted)' };
+
+    // Determine the minimum requiresSize for this branch
+    const branchUpgrades = Object.values(tiers).flat();
+    const branchMinSize = Math.min(...branchUpgrades.map(u => u.requiresSize || 0));
+    const branchLocked = branchMinSize > storeSize;
+
     const branch = document.createElement('div');
     branch.className = 'upg-branch';
+    if (branchLocked) branch.style.cssText = 'opacity:.55;position:relative';
 
     const header = document.createElement('div');
     header.className = 'upg-branch-header';
     header.innerHTML = `<span class="bicon">${meta.label.split(' ')[0]}</span><span>${meta.label.slice(meta.label.indexOf(' ')+1)}</span>`;
     header.style.borderBottom = `2px solid ${meta.color}`;
+
+    if (branchLocked) {
+      const lockBadge = document.createElement('span');
+      lockBadge.style.cssText = `
+        margin-left:auto; font-size:10px; font-weight:700; color:var(--yellow);
+        background:var(--yellow-lo); border:1px solid var(--yellow);
+        border-radius:6px; padding:2px 8px; letter-spacing:.5px;
+      `;
+      lockBadge.textContent = `🔒 Needs ${sizeNames[branchMinSize]}`;
+      header.appendChild(lockBadge);
+    }
+
     branch.appendChild(header);
 
     [1, 2, 3].forEach(tier => {
@@ -4128,11 +4190,12 @@ function renderUpgrades(s) {
       upgrades.forEach(u => {
         const owned = s.upgrades.includes(u.id);
         const reqsMet = u.requires.every(r => s.upgrades.includes(r));
+        const sizeMet = (u.requiresSize || 0) <= storeSize;
         const canAfford = s.money >= u.cost;
-        const available = isShop && reqsMet && !owned;
+        const available = isShop && reqsMet && sizeMet && !owned;
 
         const card = document.createElement('div');
-        card.className = 'upg-card' + (owned ? ' owned' : reqsMet ? ' available' : ' locked');
+        card.className = 'upg-card' + (owned ? ' owned' : (reqsMet && sizeMet) ? ' available' : ' locked');
 
         // unlocks preview
         const nextUpgNames = (u.unlocks || [])
@@ -4146,6 +4209,10 @@ function renderUpgrades(s) {
           .map(r => s.upgradeList.find(x => x.id === r)?.name || r);
         const reqHtml = !reqsMet
           ? `<div class="upg-req">🔒 Requires: ${missingReqs.join(', ')}</div>` : '';
+        const sizeReqHtml = (!sizeMet && reqsMet)
+          ? `<div class="upg-req" style="color:var(--yellow)">🏗️ Needs ${sizeNames[u.requiresSize || 0]}</div>` : '';
+
+        const finalCost = Math.round(u.cost * (s.diffConfig?.upgradeCostMult || 1));
 
         card.innerHTML = `
           <span class="upg-lock">🔒</span>
@@ -4156,15 +4223,16 @@ function renderUpgrades(s) {
           </div>
           <div class="upg-desc">${u.desc}</div>
           ${reqHtml}
+          ${sizeReqHtml}
           ${unlocksHtml}
           <div class="upg-footer">
             ${owned
               ? `<span class="upg-owned-badge">✅ Owned</span>`
-              : `<span class="upg-cost">$${u.cost}</span>
-                 <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
+              : `<span class="upg-cost">$${finalCost}</span>
+                 <button class="btn xs ${available && canAfford ? (u.isStoreSize ? 'yellow' : 'blue') : 'secondary'}"
                    onclick="socket.emit('buyUpgrade','${u.id}')"
                    ${!available || !canAfford ? 'disabled' : ''}>
-                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${u.cost}` : 'Purchase'}
+                   ${!isShop ? 'Shop Phase' : !sizeMet ? '🏗️ Need Bigger Store' : !reqsMet ? 'Locked' : !canAfford ? `Need $${finalCost}` : u.isStoreSize ? '🏗️ Expand!' : 'Purchase'}
                  </button>`
             }
           </div>
