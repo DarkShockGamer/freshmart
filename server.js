@@ -475,7 +475,13 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     return lanes;
   }
 
-  const savedWorkers = save?.aiWorkers || [];
+  const savedWorkers = (save?.aiWorkers || []).map(w => {
+    // Back-fill activeAsStorcker for saves that predate this field.
+    if (w.workerType === 'stocker' && w.activeAsStorcker === undefined) {
+      return { ...w, activeAsStorcker: true };
+    }
+    return w;
+  });
   const savedScoMachines = save?.scoMachines || [];
 
   const room = {
@@ -987,7 +993,9 @@ function tickAiStockers(room) {
   room.aiWorkers.forEach(w => {
     const type = AI_WORKER_TYPES.find(t => t.id === w.typeId);
     if (!type || type.workerType !== 'stocker') return;
-    if (!w.activeAsStorcker) return; // must be activated
+    // Default to active=true for stockers — handles workers loaded from saves
+    // that predate the activeAsStorcker field, and new hires (set on line ~1354).
+    if (w.activeAsStorcker === false) return;
 
     const cooldown = AI_STOCKER_BASE_MS / (w.speed || 1.0);
     if (now - (room._aiStockerCooldowns[w.uid] || 0) < cooldown) return;
@@ -1351,7 +1359,7 @@ io.on('connection', (socket) => {
     const w = {
       uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji,
       speed: type.speed, wage: type.wage, workerType: type.workerType || 'cashier',
-      assignedLane: null, activeAsStorcker: type.workerType === 'stocker', // stockers active by default
+      assignedLane: null, activeAsStorcker: type.workerType === 'stocker' ? true : false,
     };
     room.aiWorkers.push(w);
     roomLog(room, `${type.emoji} Hired ${type.name} for $${type.cost}!`);
