@@ -656,7 +656,8 @@ input::placeholder { color: var(--muted); }
 .worker-hire-name { font-size: 14px; font-weight: 700; }
 .worker-hire-speed { font-size: 11px; color: var(--cyan); font-family: var(--mono); }
 .worker-hire-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.worker-hire-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.worker-hire-footer { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.worker-hire-footer .btn { margin-left: auto; min-width: 0; white-space: nowrap; flex-shrink: 0; }
 .worker-hire-cost { font-size: 13px; font-weight: 700; color: var(--green); font-family: var(--mono); }
 .worker-hire-wage { font-size: 11px; color: var(--muted); font-family: var(--mono); }
 
@@ -2649,23 +2650,7 @@ function show(id) {
 }
 
 // ── Socket setup ───────────────────────────────────
-socket.on('connect', () => {
-  myId = socket.id;
-  // On reconnect (myRoomCode already set), re-register with the server
-  if (myRoomCode) {
-    const savedName = document.getElementById('create-name')?.value?.trim()
-      || (roomState && Object.values(roomState.players || {}).find(p => p.id === myId)?.name)
-      || localStorage.getItem('fm_player_name')
-      || 'Player';
-    socket.emit('rejoinRoom', { code: myRoomCode, name: savedName });
-  }
-});
-
-socket.on('rejoinFailed', () => {
-  myRoomCode = null; roomState = null;
-  show('title');
-  showToast('Could not reconnect to room. Please rejoin.', 'error');
-});
+socket.on('connect', () => { myId = socket.id; });
 
 socket.on('hostLeft', () => {
   myRoomCode = null; roomState = null;
@@ -2767,11 +2752,6 @@ function showSaveIndicator() {
   }, 700);
 }
 
-// Persist player name for reconnect
-function persistPlayerName(name) {
-  try { localStorage.setItem('fm_player_name', name); } catch(e) {}
-}
-
 function doManualSave() {
   const btn = document.getElementById('manual-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = '💾 Saving...'; }
@@ -2785,7 +2765,6 @@ function doManualSave() {
 // ── Title Screen Actions ───────────────────────────
 function handleCreate() {
   pendingCreateName = document.getElementById('create-name').value.trim() || 'Player 1';
-  persistPlayerName(pendingCreateName);
   selectedSaveSlot = null;
   selectedDifficulty = 'normal';
   selectDifficulty('normal');
@@ -5072,7 +5051,7 @@ function renderWorkers(s) {
       <div class="worker-hire-footer">
         <span class="worker-hire-cost">$${t.cost} hire</span>
         <span class="worker-hire-wage">${t.wage ? `$${t.wage}/day wage` : 'No wage'}</span>
-        <button class="btn xs blue" style="margin-left:auto" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+        <button class="btn xs blue" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
           ${!isShop || !canAfford ? 'disabled' : ''}>
           ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
@@ -5135,7 +5114,7 @@ function renderWorkers(s) {
       <div class="worker-hire-footer">
         <span class="worker-hire-cost">$${t.cost} hire</span>
         <span class="worker-hire-wage">$${t.wage}/day wage</span>
-        <button class="btn xs" style="margin-left:auto;background:var(--green);color:#000" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
+        <button class="btn xs" style="background:var(--green);color:#000" onclick="socket.emit('hireWorker',{typeId:'${t.id}'})"
           ${!isShop || !canAfford ? 'disabled' : ''}>
           ${!isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost}` : 'Hire'}
         </button>
@@ -5218,7 +5197,7 @@ function renderWorkers(s) {
           <span class="worker-hire-cost">$${t.cost.toLocaleString()}</span>
           <span class="worker-hire-wage" style="color:var(--yellow)">$${t.maintenance}/day maint</span>
           ${ownedCount > 0 ? `<span style="font-size:11px;color:var(--cyan);font-weight:700;margin-left:4px">×${ownedCount}</span>` : ''}
-          <button class="btn xs" style="margin-left:auto;background:var(--cyan);color:#000"
+          <button class="btn xs" style="background:var(--cyan);color:#000"
             onclick="socket.emit('buyScoMachine',{typeId:'${t.id}'})"
             ${!isShop || !hasUnlock || !canAfford ? 'disabled' : ''}>
             ${!hasUnlock ? '🔒 Locked' : !isShop ? 'Shop phase' : !canAfford ? `Need $${t.cost.toLocaleString()}` : 'Install'}
