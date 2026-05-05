@@ -3296,6 +3296,7 @@ function renderScoMachines(s) {
           if (cardVis) cardVis.style.display = 'block';
           // Auto swipe after a short pause
           _scoScanTimers[m.uid] = setTimeout(() => {
+            SFX.bgCardSwipe();
             const cv = document.getElementById(`sco-card-${m.uid}`);
             if (cv) {
               cv.classList.remove('swiping');
@@ -3309,11 +3310,14 @@ function renderScoMachines(s) {
               }
               document.getElementById(`sco-approved-${m.uid}`)?.classList.add('show');
               card.classList.add('sco-paying');
+              SFX.bgCardApproved();
+              setTimeout(SFX.bgKaChing, 280);
             }, 700);
           }, baseDelay * 0.6);
           return;
         }
 
+        SFX.bgScan();
         const chip = pending[0];
         // Flash the scanner line
         const scanLine = card.querySelector('.sco-belt-line');
@@ -3365,6 +3369,7 @@ function renderScoMachines(s) {
       card.querySelector('.sco-conveyor').appendChild(flash);
       setTimeout(() => flash.remove(), 500);
 
+      SFX.bgConveyorStart();
       _scoScanTimers[m.uid] = setTimeout(scanNextScoItem, baseDelay * 0.5);
     }
 
@@ -3552,6 +3557,7 @@ function renderAiRegisters(s) {
           const cardVis = document.getElementById(`reg-card-${w.uid}`);
           if (cardVis) cardVis.style.display = 'block';
           _regScanTimers[w.uid] = setTimeout(() => {
+            SFX.bgCardSwipe();
             const cv = document.getElementById(`reg-card-${w.uid}`);
             if (cv) {
               cv.classList.remove('swiping');
@@ -3562,11 +3568,14 @@ function renderAiRegisters(s) {
               const cv2 = document.getElementById(`reg-card-${w.uid}`);
               if (cv2) cv2.style.display = 'none';
               document.getElementById(`reg-approved-${w.uid}`)?.classList.add('show');
+              SFX.bgCardApproved();
+              setTimeout(SFX.bgKaChing, 280);
             }, 700);
           }, baseDelay * 0.6);
           return;
         }
 
+        SFX.bgScan();
         const chip = pending[0];
         const scanLine = card.querySelector('.reg-belt-line');
         if (scanLine) {
@@ -3614,6 +3623,7 @@ function renderAiRegisters(s) {
       }
 
       _regScanTimers[w.uid] = setTimeout(scanNextRegItem, baseDelay * 0.3);
+      SFX.bgConveyorStart();
     }
 
     _regLastActivity[w.uid] = act;
@@ -5429,6 +5439,19 @@ const SFX = (() => {
     try { fn(); } catch(e) {}
   }
 
+  // bgPlay — routes all audio through a master gain at ambience level (~12%)
+  // Used for AI/SCO background sounds so they don't compete with player actions
+  function bgPlay(fn) {
+    if (muted) return;
+    try {
+      const ac = getCtx();
+      const master = ac.createGain();
+      master.gain.setValueAtTime(0.12, ac.currentTime);
+      master.connect(ac.destination);
+      fn(master);
+    } catch(e) {}
+  }
+
   // ── Individual sounds ─────────────────────────
 
   /** Barcode scanner beep */
@@ -5778,12 +5801,83 @@ const SFX = (() => {
     play(() => osc(440, 'sine', 0, 0.1, 0.15, true));
   }
 
+  // ── Background (ambience-level) variants for AI / SCO lanes ──
+  // All routed through bgPlay so they sit quietly behind the main action
+
+  /** BG: soft scanner beep for AI/SCO */
+  function bgScan() {
+    bgPlay(master => {
+      const ac = getCtx();
+      osc(1800, 'sine', 0,    0.04, 0.35, true, master);
+      osc(2200, 'sine', 0.05, 0.06, 0.25, true, master);
+    });
+  }
+
+  /** BG: card swipe whoosh for AI/SCO */
+  function bgCardSwipe() {
+    bgPlay(master => {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.22, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass';
+      bp.frequency.setValueAtTime(400, ac.currentTime);
+      bp.frequency.linearRampToValueAtTime(3000, ac.currentTime + 0.16);
+      bp.Q.value = 1.5;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.5, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.2);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(); src.stop(ac.currentTime + 0.25);
+    });
+  }
+
+  /** BG: card approved chime for AI/SCO */
+  function bgCardApproved() {
+    bgPlay(master => {
+      [[523, 0], [659, 0.1], [784, 0.2], [1047, 0.3]].forEach(([f, t]) => {
+        osc(f, 'sine', t, 0.3, 0.2, true, master);
+      });
+    });
+  }
+
+  /** BG: gentle register chime for AI/SCO complete */
+  function bgKaChing() {
+    bgPlay(master => {
+      [[659, 0, 0.28], [880, 0.06, 0.22], [1047, 0.13, 0.18]].forEach(([f, t, g]) => {
+        osc(f, 'sine', t, g, 0.5, true, master);
+      });
+      osc(330, 'sine', 0, 0.12, 0.38, true, master);
+    });
+  }
+
+  /** BG: conveyor belt motor for AI/SCO new transaction */
+  function bgConveyorStart() {
+    bgPlay(master => {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.45, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 200; bp.Q.value = 2;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.001, ac.currentTime);
+      g.gain.linearRampToValueAtTime(0.18, ac.currentTime + 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.45);
+      src.connect(bp); bp.connect(g); g.connect(master);
+      src.start(); src.stop(ac.currentTime + 0.5);
+      osc(110, 'sine', 0.05, 0.07, 0.35, true, master);
+    });
+  }
+
   return {
     scan, cardSwipe, cardApproved, billAccept, changeClink, kaChing,
     vipArrive, rushHour, flashSale, theftAlert, thiefCaught,
     upgradeBuy, storeExpand, dayStart, dayEnd, error, hireWorker,
     customerServed, allScanned, muteToggle,
     cartRoll, mistSpray, priceGun, conveyorStart, bagRustle, storeChime, itemDiscount,
+    bgScan, bgCardSwipe, bgCardApproved, bgKaChing, bgConveyorStart,
     get muted() { return muted; },
     toggleMute() {
       muted = !muted;
