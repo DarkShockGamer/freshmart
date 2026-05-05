@@ -655,26 +655,11 @@ function spawnCustomer(room) {
   const isVip = room.activeEvent?.type === 'vip';
   const numItems = isVip ? Math.floor(Math.random()*4)+3 : Math.floor(Math.random()*3)+1;
   const wants = [];
-
-  // Max qty per product based on base price.
-  // Cheap consumables (apples, bread) can stack; big-ticket items (ATV, TV, suit) are always qty 1.
-  function maxQtyFor(prod) {
-    const bp = prod.basePrice || 1;
-    if (bp <= 5)  return isVip ? 5 : 4;  // cheap grocery: apples, bread, water, cola, bananas
-    if (bp <= 10) return isVip ? 4 : 3;  // mid grocery: milk, eggs, cereal, cookies
-    if (bp <= 20) return isVip ? 3 : 2;  // premium grocery + cheap clothing: chicken, wipers
-    if (bp <= 50) return isVip ? 2 : 1;  // wine, lobster, truffles, t-shirt, jeans, headphones
-    return 1;                             // anything pricier — one is plenty
-  }
-
   for (let i = 0; i < numItems; i++) {
     // Pick product weighted by demand — overpriced items are rarely chosen
     const prod = weightedPick(avail, p => demandWeight(room, p));
-    if (!wants.find(w => w.id === prod.id)) {
-      const cap = maxQtyFor(prod);
-      const qty = cap === 1 ? 1 : Math.floor(Math.random() * cap) + 1;
-      wants.push({ id: prod.id, qty });
-    }
+    if (!wants.find(w => w.id === prod.id))
+      wants.push({ id: prod.id, qty: isVip ? Math.floor(Math.random()*4)+2 : Math.floor(Math.random()*3)+1 });
   }
   if (wants.length === 0) return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
@@ -935,7 +920,7 @@ function tickAiWorkers(room) {
     // Build activity snapshot for client animation (mirrors SCO)
     const items = customer.wants.map(wt => {
       const prod = ALL_PRODUCTS.find(p => p.id === wt.id);
-      return { emoji: prod?.emoji || '📦', name: prod?.name || wt.id, qty: wt.qty };
+      return { emoji: prod?.emoji || '📦', name: prod?.name || wt.id, qty: wt.qty, price: room.prices[wt.id] || prod?.basePrice || 0 };
     });
     w.currentActivity = {
       customerEmoji: customer.emoji,
@@ -973,7 +958,7 @@ function tickScoMachines(room) {
     // Build activity snapshot for client animation
     const items = customer.wants.map(w => {
       const prod = ALL_PRODUCTS.find(p => p.id === w.id);
-      return { emoji: prod?.emoji || '📦', name: prod?.name || w.id, qty: w.qty };
+      return { emoji: prod?.emoji || '📦', name: prod?.name || w.id, qty: w.qty, price: room.prices[w.id] || prod?.basePrice || 0 };
     });
     m.currentActivity = {
       customerEmoji: customer.emoji,
