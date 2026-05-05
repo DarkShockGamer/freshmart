@@ -5493,16 +5493,29 @@ const SFX = (() => {
     });
   }
 
-  /** Transaction complete — cash register "ka-ching!" */
+  /** Transaction complete — warm register chime (gentle, musical) */
   function kaChing() {
     play(() => {
-      // Bell
-      osc(880,  'sine',    0,    0.5,  0.3,  true);
-      osc(1760, 'sine',    0,    0.35, 0.15, true);
-      osc(2640, 'sine',    0,    0.25, 0.08, true);
-      // Drawer clunk
-      osc(90,   'square',  0.05, 0.08, 0.4,  true);
-      noise(0.12, 0.15, 300);
+      const ac = getCtx();
+      // Warm bell chord — sine waves only, soft attack
+      [[659, 0, 0.28], [880, 0.06, 0.22], [1047, 0.13, 0.18], [1319, 0.22, 0.14]].forEach(([f, t, g]) => {
+        osc(f, 'sine', t, g, 0.55, true);
+      });
+      // Soft sub-octave warmth (no square/sawtooth)
+      osc(330, 'sine', 0, 0.12, 0.4, true);
+      // Gentle coin shimmer — very short, high but quiet
+      [2093, 2637].forEach((f, i) => osc(f, 'sine', 0.18 + i * 0.05, 0.06, 0.18, true));
+      // Soft drawer "thud" — filtered noise, very short, no harsh square
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.08, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 180;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.18, ac.currentTime + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.14);
+      src.connect(lp); lp.connect(g); g.connect(ac.destination);
+      src.start(ac.currentTime + 0.04); src.stop(ac.currentTime + 0.2);
     });
   }
 
@@ -5635,6 +5648,130 @@ const SFX = (() => {
     });
   }
 
+  /** Shopping cart wheels rolling — rattly rumble */
+  function cartRoll() {
+    play(() => {
+      const ac = getCtx();
+      // Wheel rumble: low filtered noise burst
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.35, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 320; bp.Q.value = 0.7;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0, ac.currentTime);
+      g.gain.linearRampToValueAtTime(0.22, ac.currentTime + 0.06);
+      g.gain.linearRampToValueAtTime(0.18, ac.currentTime + 0.22);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.35);
+      src.connect(bp); bp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.38);
+      // Occasional metallic rattle tick
+      [0.05, 0.14, 0.25].forEach(t => osc(1800, 'sine', t, 0.04, 0.03, true));
+    });
+  }
+
+  /** Produce section mist sprayer — soft hiss */
+  function mistSpray() {
+    play(() => {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.55, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4000;
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0, ac.currentTime);
+      g.gain.linearRampToValueAtTime(0.18, ac.currentTime + 0.08);
+      g.gain.setValueAtTime(0.18, ac.currentTime + 0.38);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.55);
+      src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.6);
+      // Soft chime to signal misting — like a supermarket announcement tone
+      osc(1047, 'sine', 0, 0.08, 0.3, true);
+    });
+  }
+
+  /** Price gun click — satisfying clack */
+  function priceGun() {
+    play(() => {
+      const ac = getCtx();
+      // Sharp click
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.04, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.3));
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.5, ac.currentTime);
+      src.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.06);
+      // Label peel squeak
+      osc(2400, 'sine', 0.03, 0.07, 0.06, true);
+      osc(1800, 'sine', 0.05, 0.05, 0.05, true);
+    });
+  }
+
+  /** Conveyor belt start — smooth motor whir */
+  function conveyorStart() {
+    play(() => {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.5, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 220; bp.Q.value = 2;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.001, ac.currentTime);
+      g.gain.linearRampToValueAtTime(0.14, ac.currentTime + 0.18);
+      g.gain.setValueAtTime(0.14, ac.currentTime + 0.38);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.52);
+      src.connect(bp); bp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.56);
+      // Motor hum tone
+      osc(110, 'sine', 0.05, 0.07, 0.4, true);
+      osc(220, 'sine', 0.05, 0.04, 0.35, true);
+    });
+  }
+
+  /** Plastic bag rustle — papery crinkle */
+  function bagRustle() {
+    play(() => {
+      const ac = getCtx();
+      const buf = ac.createBuffer(1, ac.sampleRate * 0.28, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      // Crinkle: random bursts
+      for (let i = 0; i < d.length; i++) {
+        const env = Math.sin(Math.PI * i / d.length);
+        d[i] = (Math.random() * 2 - 1) * env * (Math.random() > 0.6 ? 1 : 0.2);
+      }
+      const src = ac.createBufferSource(); src.buffer = buf;
+      const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
+      const g = ac.createGain(); g.gain.setValueAtTime(0.28, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.28);
+      src.connect(hp); hp.connect(g); g.connect(ac.destination);
+      src.start(); src.stop(ac.currentTime + 0.32);
+    });
+  }
+
+  /** Intercom / PA announcement chime — classic 3-note store chime */
+  function storeChime() {
+    play(() => {
+      // Classic supermarket PA: ding-dong-ding
+      [[784, 0], [659, 0.22], [784, 0.44]].forEach(([f, t]) => {
+        osc(f, 'sine', t, 0.35, 0.28, true);
+        osc(f * 2, 'sine', t, 0.1, 0.2, true); // overtone
+      });
+    });
+  }
+
+  /** Item goes on sale / discount beep — playful pop */
+  function itemDiscount() {
+    play(() => {
+      [[880, 0], [1047, 0.1], [880, 0.2], [1319, 0.3]].forEach(([f, t]) => {
+        osc(f, 'triangle', t, 0.2, 0.15, true);
+      });
+    });
+  }
+
   /** Mute toggle feedback */
   function muteToggle(nowMuted) {
     if (nowMuted) return; // can't play sound when muting
@@ -5646,6 +5783,7 @@ const SFX = (() => {
     vipArrive, rushHour, flashSale, theftAlert, thiefCaught,
     upgradeBuy, storeExpand, dayStart, dayEnd, error, hireWorker,
     customerServed, allScanned, muteToggle,
+    cartRoll, mistSpray, priceGun, conveyorStart, bagRustle, storeChime, itemDiscount,
     get muted() { return muted; },
     toggleMute() {
       muted = !muted;
@@ -5673,7 +5811,7 @@ const _origRoomState = socket.on.bind(socket);
 socket.on('roomState', (state) => {
   // Phase transitions
   if (_sfxPrevPhase !== state.phase) {
-    if (state.phase === 'playing') SFX.dayStart();
+    if (state.phase === 'playing') { SFX.dayStart(); setTimeout(SFX.mistSpray, 600); }
     if (state.phase === 'shop' && _sfxPrevPhase === 'playing') SFX.dayEnd();
     _sfxPrevPhase = state.phase;
   }
@@ -5681,7 +5819,7 @@ socket.on('roomState', (state) => {
   if (state.theftActive && !_sfxPrevTheft) SFX.theftAlert();
   if (!state.theftActive && _sfxPrevTheft)  { /* caught handled in stopThief */ }
   if (state.rushActive && !_sfxPrevRush)   SFX.rushHour();
-  if (state.saleActive && !_sfxPrevSale)   SFX.flashSale();
+  if (state.saleActive && !_sfxPrevSale)   { SFX.flashSale(); setTimeout(SFX.storeChime, 320); }
   const isVip = state.activeEvent?.type === 'vip';
   if (isVip && !_sfxPrevVip)              SFX.vipArrive();
   _sfxPrevTheft = state.theftActive;
@@ -5709,9 +5847,12 @@ const _origStopThiefBtn = document.getElementById ? (() => {
 })() : null;
 
 // ── Patch checkout functions ───────────────────────
+let _scanCount = 0;
 const _origScanItem = scanItem;
 window.scanItem = function(el, id, prod, price, qty) {
   SFX.scan();
+  _scanCount++;
+  if (_scanCount % 4 === 0) setTimeout(SFX.cartRoll, 180); // cart rattles every 4 scans
   return _origScanItem(el, id, prod, price, qty);
 };
 
@@ -5761,8 +5902,20 @@ document.addEventListener('DOMContentLoaded', () => {
 const _origCompleteCheckout = completeCheckout;
 window.completeCheckout = function() {
   SFX.kaChing();
+  setTimeout(SFX.bagRustle, 420); // bag rustle after the register chime
   return _origCompleteCheckout();
 };
+
+// Conveyor belt starts when checkout opens
+const _origOpenCheckout = openCheckout;
+window.openCheckout = function(customer) {
+  SFX.conveyorStart();
+  return _origOpenCheckout(customer);
+};
+
+// Store chime on flash sale (in addition to existing flashSale SFX)
+let _sfxSaleChimeDebounce = 0;
+const _origFlashSaleWire = socket.on.bind(socket);
 
 // Patch buyUpgrade click — listen on the tree container
 document.addEventListener('click', (e) => {
@@ -5772,8 +5925,8 @@ document.addEventListener('click', (e) => {
   if (btn.onclick && btn.getAttribute('onclick')?.includes('buyUpgrade')) {
     // Sound fires optimistically; error toast will override feel if server rejects
     const uid = btn.getAttribute('onclick').match(/'([^']+)'/)?.[1];
-    if (uid && uid.startsWith('size_')) SFX.storeExpand();
-    else SFX.upgradeBuy();
+    if (uid && uid.startsWith('size_')) { SFX.storeExpand(); setTimeout(SFX.storeChime, 500); }
+    else { SFX.upgradeBuy(); setTimeout(SFX.priceGun, 120); }
   }
   // Hire worker
   if (btn.getAttribute('onclick')?.includes('hireWorker')) SFX.hireWorker();
