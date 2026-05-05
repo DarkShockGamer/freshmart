@@ -634,26 +634,38 @@ function spawnCustomer(room) {
   }
   if (wants.length === 0) return;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
-  const basePatience = 15 + Math.floor(Math.random() * 12);
-  const patience = Math.max(6, Math.round(basePatience * diff.customerPatience));
+  // Patience scales with basket size — someone with 5 items waited longer to shop,
+  // so they'll wait longer at the register too. Base is much more generous than before.
+  const itemCount = wants.reduce((sum, w) => sum + w.qty, 0);
+  const basePatience = 35 + Math.floor(Math.random() * 20) + itemCount * 4;
+  const patience = Math.max(20, Math.round(basePatience * diff.customerPatience));
   const c = {
     id: room.nextCustomerId++,
     name: CUSTOMER_NAMES[Math.floor(Math.random()*CUSTOMER_NAMES.length)],
     emoji: CUSTOMER_EMOJIS[Math.floor(Math.random()*CUSTOMER_EMOJIS.length)],
     wants, patience, maxPatience: patience, spawnTime: Date.now(), isVip,
   };
+  // Store timeout ID so we can cancel/pause it when a player starts checkout
+  c._patienceTimer = null;
+  function startPatienceTimer(cust, ms) {
+    if (cust._patienceTimer) clearTimeout(cust._patienceTimer);
+    cust._patienceTimer = setTimeout(() => {
+      // Never leave while being actively checked out by any agent
+      if (cust.attendedBy) return;
+      const idx = room.customers.findIndex(x => x.id === cust.id);
+      if (idx !== -1) {
+        const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
+        room.reputation = Math.max(0, room.reputation - repLoss);
+        roomLog(room, `😤 ${cust.name} left unserved! Rep -${repLoss}`);
+        room.customers.splice(idx, 1);
+        if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
+        emit(room);
+      }
+    }, ms);
+  }
+  c._startPatienceTimer = startPatienceTimer;
   room.customers.push(c);
-  setTimeout(() => {
-    const idx = room.customers.findIndex(x => x.id === c.id);
-    if (idx !== -1) {
-      const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
-      room.reputation = Math.max(0, room.reputation - repLoss);
-      roomLog(room, `😤 ${c.name} left unserved! Rep -${repLoss}`);
-      room.customers.splice(idx, 1);
-      if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
-      emit(room);
-    }
-  }, patience * 1000);
+  startPatienceTimer(c, patience * 1000);
 }
 
 function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
@@ -888,6 +900,8 @@ function tickAiWorkers(room) {
 
     // Claim: mark attendedBy so clients see the overlay immediately
     customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
+    // Cancel patience timer — customer is now being served
+    if (customer._patienceTimer) { clearTimeout(customer._patienceTimer); customer._patienceTimer = null; }
     room._aiWorkerClaims[w.uid] = { customerId: customer.id, claimedAt: now };
 
     // Build activity snapshot for client animation (mirrors SCO)
@@ -926,6 +940,8 @@ function tickScoMachines(room) {
 
     m.lastServeAt = now;
     customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
+    // Cancel patience timer — customer is being processed by SCO
+    if (customer._patienceTimer) { clearTimeout(customer._patienceTimer); customer._patienceTimer = null; }
     // Build activity snapshot for client animation
     const items = customer.wants.map(w => {
       const prod = ALL_PRODUCTS.find(p => p.id === w.id);
@@ -1182,7 +1198,11 @@ io.on('connection', (socket) => {
     if (room.checkoutLocks[socket.id]) {
       if (customerId != null) {
         const c = room.customers.find(c => c.id === customerId);
-        if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+        if (c && !c.attendedBy) {
+          c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+          // Cancel patience timer — customer will never leave while being served
+          if (c._patienceTimer) { clearTimeout(c._patienceTimer); c._patienceTimer = null; }
+        }
         if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
         if (c) {
           const items = c.wants.map(w => {
@@ -1217,7 +1237,11 @@ io.on('connection', (socket) => {
     room.checkoutLocks[socket.id] = true;
     if (customerId != null) {
       const c = room.customers.find(c => c.id === customerId);
-      if (c && !c.attendedBy) c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+      if (c && !c.attendedBy) {
+        c.attendedBy = { type: 'player', name: p?.name || 'Player', emoji: '🧑‍💼' };
+        // Cancel patience timer — customer will never leave while being checked out
+        if (c._patienceTimer) { clearTimeout(c._patienceTimer); c._patienceTimer = null; }
+      }
       // Broadcast player checkout activity to all clients
       if (!room.playerCheckoutActivity) room.playerCheckoutActivity = {};
       if (c) {
@@ -1249,7 +1273,15 @@ io.on('connection', (socket) => {
     if (room.checkoutLocks[socket.id]) {
       delete room.checkoutLocks[socket.id];
       if (room.playerCheckoutActivity) delete room.playerCheckoutActivity[socket.id];
-      room.customers.forEach(c => { if (c.attendedBy?.type === 'player') c.attendedBy = null; });
+      // When a player abandons a customer mid-checkout, give them a generous grace
+      // period (30s) to be re-claimed rather than vanishing instantly
+      room.customers.forEach(c => {
+        if (c.attendedBy?.type === 'player') {
+          c.attendedBy = null;
+          // Restart patience timer with a 30-second grace window
+          if (c._startPatienceTimer) c._startPatienceTimer(c, 30000);
+        }
+      });
       emit(room);
     }
   });
