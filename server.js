@@ -475,13 +475,7 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     return lanes;
   }
 
-  const savedWorkers = (save?.aiWorkers || []).map(w => {
-    // Back-fill activeAsStorcker for saves that predate this field.
-    if (w.workerType === 'stocker' && w.activeAsStorcker === undefined) {
-      return { ...w, activeAsStorcker: true };
-    }
-    return w;
-  });
+  const savedWorkers = save?.aiWorkers || [];
   const savedScoMachines = save?.scoMachines || [];
 
   const room = {
@@ -688,7 +682,7 @@ function spawnCustomer(room) {
 }
 
 function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
-  if (room.phase !== 'playing') return { ok: false, msg: 'Game not active' };
+  if (room.phase !== 'playing' && room.phase !== 'closing') return { ok: false, msg: 'Game not active' };
   const idx = room.customers.findIndex(c => c.id === cid);
   if (idx === -1) return { ok: false, msg: 'Customer already gone!' };
   const c = room.customers[idx];
@@ -871,7 +865,7 @@ const AI_SERVE_BASE_MS = 8000; // base time between AI serves (at speed 1.0)
 const AI_CLAIM_DISPLAY_MS = 2000; // ms to show "attending" overlay before serving
 
 function tickAiWorkers(room) {
-  if (!room.aiWorkers || room.phase !== 'playing') return;
+  if (!room.aiWorkers || (room.phase !== 'playing' && room.phase !== 'closing')) return;
   if (!room._aiWorkerCooldowns) room._aiWorkerCooldowns = {};
   if (!room._aiWorkerClaims) room._aiWorkerClaims = {};
 
@@ -942,7 +936,7 @@ function tickAiWorkers(room) {
 const SCO_SERVE_BASE_MS = 10000; // base time between SCO serves at speed 1.0
 
 function tickScoMachines(room) {
-  if (!room.scoMachines || room.phase !== 'playing') return;
+  if (!room.scoMachines || (room.phase !== 'playing' && room.phase !== 'closing')) return;
   const now = Date.now();
 
   room.scoMachines.forEach(m => {
@@ -984,7 +978,7 @@ function tickScoMachines(room) {
 
 // AI Stocker logic: finds the most-depleted shelf product and moves stock from storage
 function tickAiStockers(room) {
-  if (!room.aiWorkers || room.phase !== 'playing') return;
+  if (!room.aiWorkers || (room.phase !== 'playing' && room.phase !== 'closing')) return;
   if (!room._aiStockerCooldowns) room._aiStockerCooldowns = {};
   const now = Date.now();
   const unlocked = getUnlockedProducts(room.upgrades);
@@ -993,9 +987,7 @@ function tickAiStockers(room) {
   room.aiWorkers.forEach(w => {
     const type = AI_WORKER_TYPES.find(t => t.id === w.typeId);
     if (!type || type.workerType !== 'stocker') return;
-    // Default to active=true for stockers — handles workers loaded from saves
-    // that predate the activeAsStorcker field, and new hires (set on line ~1354).
-    if (w.activeAsStorcker === false) return;
+    if (!w.activeAsStorcker) return; // must be activated
 
     const cooldown = AI_STOCKER_BASE_MS / (w.speed || 1.0);
     if (now - (room._aiStockerCooldowns[w.uid] || 0) < cooldown) return;
@@ -1029,7 +1021,38 @@ function tickAiStockers(room) {
 }
 
 function endDay(room) {
+  // Stop spawning & timer — no new customers after closing time.
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
+  room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
+
+  // Enter 'closing' phase: in-progress transactions (AI workers, SCO, player) finish before shop phase.
+  room.phase = 'closing';
+  roomLog(room, `\uD83D\uDD14 Closing time! Finishing active transactions\u2026`);
+  emit(room);
+
+  // Poll until all attended customers are served (or 30s safety timeout).
+  const CLOSING_POLL_MS = 300;
+  const CLOSING_MAX_MS  = 30000;
+  const closingStart = Date.now();
+
+  room._closingPoll = setInterval(() => {
+    tickAiWorkers(room);
+    tickScoMachines(room);
+    emit(room);
+
+    const attendedLeft = (room.customers || []).filter(c => c.attendedBy).length;
+    const playerInTx   = Object.keys(room.checkoutLocks || {}).length > 0;
+    const elapsed      = Date.now() - closingStart;
+
+    if ((attendedLeft === 0 && !playerInTx) || elapsed >= CLOSING_MAX_MS) {
+      clearInterval(room._closingPoll);
+      room._closingPoll = null;
+      finalizeDay(room);
+    }
+  }, CLOSING_POLL_MS);
+}
+
+function finalizeDay(room) {
   room.phase = 'shop';
   // Clear all pending patience timers before wiping customers
   if (room._patienceTimers) { room._patienceTimers.forEach(tid => clearTimeout(tid)); room._patienceTimers.clear(); }
@@ -1070,6 +1093,7 @@ function endDay(room) {
 }
 
 function stopRoom(room) {
+  if (room._closingPoll) { clearInterval(room._closingPoll); room._closingPoll = null; }
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   stopShopAutosave(room);
 }
@@ -1213,7 +1237,7 @@ io.on('connection', (socket) => {
 
   socket.on('lockCheckout', ({ customerId }) => {
     const room = rooms.get(socketRoom.get(socket.id));
-    if (!room || room.phase !== 'playing') return;
+    if (!room || (room.phase !== 'playing' && room.phase !== 'closing')) return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
     const lanes = getCheckoutLanes(room.upgrades);
     const p = room.players[socket.id];
@@ -1359,7 +1383,7 @@ io.on('connection', (socket) => {
     const w = {
       uid: room.nextWorkerId++, typeId: type.id, name: type.name, emoji: type.emoji,
       speed: type.speed, wage: type.wage, workerType: type.workerType || 'cashier',
-      assignedLane: null, activeAsStorcker: type.workerType === 'stocker' ? true : false,
+      assignedLane: null, activeAsStorcker: type.workerType === 'stocker', // stockers active by default
     };
     room.aiWorkers.push(w);
     roomLog(room, `${type.emoji} Hired ${type.name} for $${type.cost}!`);
@@ -1711,7 +1735,7 @@ io.on('connection', function devLayer(socket) {
         break;
       }
       case 'skipDay': {
-        if (room.phase === 'playing') {
+        if (room.phase === 'playing' || room.phase === 'closing') {
           endDay(room);
           socket.emit('devResult', { ok: true, msg: 'Day ended' });
         } else {
