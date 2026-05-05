@@ -572,8 +572,8 @@ input::placeholder { color: var(--muted); }
 .sb-section h3 { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
 
 .timer-big {
-  font-family: var(--mono); font-size: 36px; font-weight: 700;
-  color: var(--yellow); text-align: center; letter-spacing: -1px;
+  font-family: var(--mono); font-size: 28px; font-weight: 700;
+  color: var(--yellow); text-align: center; letter-spacing: -0.5px;
 }
 .timer-big.urgent { color: var(--red); animation: tpulse .5s ease-in-out infinite alternate; }
 .timer-big.shop-mode { color: var(--blue); font-size: 20px; }
@@ -2299,7 +2299,7 @@ input::placeholder { color: var(--muted); }
     <div class="hstat money"><span class="hl">CASH</span><span class="hv" id="h-money">$200</span></div>
     <div class="hstat rep"><span class="hl">REP</span><span class="hv" id="h-rep">100%</span></div>
     <div class="hstat"><span class="hl">STORE</span><span class="hv" id="h-score">$0</span></div>
-    <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">TIME</span><span class="hv" id="h-time">2:00</span></div>
+    <div class="hstat timer" id="h-timer" style="display:none"><span class="hl">🕐</span><span class="hv" id="h-time">8:00 AM</span></div>
     <div id="day-pill">Day 1</div>
     <div id="phase-pill" class="lobby">LOBBY</div>
     <div id="header-right">
@@ -2475,7 +2475,7 @@ input::placeholder { color: var(--muted); }
     <!-- Sidebar -->
     <div id="sidebar">
       <div class="sb-section">
-        <h3>Day Timer</h3>
+        <h3>Store Clock</h3>
         <div class="timer-big" id="sb-timer">—</div>
       </div>
       <div class="sb-section">
@@ -2946,8 +2946,11 @@ function renderHeader(s) {
   const timerEl = document.getElementById('h-timer');
   if (s.phase === 'playing') {
     timerEl.style.display = 'flex';
-    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
-    document.getElementById('h-time').textContent = m+':'+(sec<10?'0':'')+sec;
+    const gt = s.gameTime;
+    if (gt) {
+      const minStr = gt.minute < 10 ? '0' + gt.minute : '' + gt.minute;
+      document.getElementById('h-time').textContent = gt.hour + ':' + minStr + ' ' + gt.ampm;
+    }
   } else {
     timerEl.style.display = 'none';
   }
@@ -4311,9 +4314,16 @@ function renderSidebar(s) {
   // timer
   const t = document.getElementById('sb-timer');
   if (s.phase === 'playing') {
-    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
-    t.textContent = m+':'+(sec<10?'0':'')+sec;
-    t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
+    const gt = s.gameTime;
+    if (gt) {
+      const minStr = gt.minute < 10 ? '0' + gt.minute : '' + gt.minute;
+      t.textContent = gt.hour + ':' + minStr + ' ' + gt.ampm;
+      // "urgent" in last hour (9 PM+) = gameMinute >= 780
+      t.className = 'timer-big' + ((gt.totalMinutes >= 780) ? ' urgent' : '');
+    } else {
+      t.textContent = '8:00 AM';
+      t.className = 'timer-big';
+    }
   } else if (s.phase === 'shop') {
     t.textContent = s.isMorning ? '🌅' : 'SHOP'; t.className = 'timer-big shop-mode';
   } else {
