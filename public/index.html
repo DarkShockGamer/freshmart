@@ -345,6 +345,153 @@ input::placeholder { color: var(--muted); }
 .tab-pane::-webkit-scrollbar { width: 4px; }
 .tab-pane::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+/* ── Lane Queue System ── */
+#lane-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.lane-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  min-height: 100px;
+  position: relative;
+  transition: background .2s;
+}
+.lane-row:last-child { border-bottom: none; }
+.lane-row.my-lane { background: rgba(16,185,129,.04); }
+.lane-row.my-lane .lane-cashier-col { border-right-color: var(--green); }
+
+/* Left column: cashier station */
+.lane-cashier-col {
+  width: 130px;
+  flex-shrink: 0;
+  border-right: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 8px;
+  background: var(--surf);
+  position: relative;
+}
+.lane-num-badge {
+  position: absolute;
+  top: 5px; left: 6px;
+  font-size: 9px; font-weight: 800; letter-spacing: .5px;
+  color: var(--muted); text-transform: uppercase;
+}
+.lane-cashier-emoji { font-size: 26px; line-height: 1; }
+.lane-cashier-name  { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.3; }
+.lane-cashier-sub   { font-size: 10px; color: var(--muted); text-align: center; }
+.lane-cashier-col .lane-serve-btn {
+  background: var(--green); color: #000; border: none; border-radius: 8px;
+  padding: 5px 10px; font-size: 11px; font-weight: 800; cursor: pointer;
+  margin-top: 4px; width: 100%;
+  transition: opacity .15s, transform .1s;
+}
+.lane-cashier-col .lane-serve-btn:hover { opacity: .85; transform: translateY(-1px); }
+.lane-cashier-col .lane-serve-btn:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.lane-cashier-col .lane-serve-btn.ai-btn { background: var(--orange); }
+.lane-cashier-col .lane-serve-btn.sco-btn { background: var(--cyan); }
+
+/* Right scrolling queue area */
+.lane-queue-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 8px 10px;
+  position: relative;
+}
+.lane-queue-area::-webkit-scrollbar { height: 4px; }
+.lane-queue-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Empty lane message */
+.lane-empty-msg {
+  color: var(--muted); font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; gap: 6px; opacity: .6;
+  white-space: nowrap;
+}
+
+/* Queue customer mini-card */
+.queue-pos-label {
+  font-size: 8px; font-weight: 800; color: var(--muted); letter-spacing: 1px;
+  text-transform: uppercase; text-align: center; margin-bottom: 4px;
+  white-space: nowrap;
+}
+.queue-cust-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 7px;
+  background: var(--surf);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  width: 86px;
+  flex-shrink: 0;
+  cursor: default;
+  position: relative;
+  transition: border-color .15s, transform .1s, box-shadow .15s;
+}
+.queue-cust-card.front-of-queue {
+  border-color: var(--green);
+  box-shadow: 0 0 0 2px rgba(16,185,129,.18);
+  cursor: pointer;
+}
+.queue-cust-card.front-of-queue:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16,185,129,.22);
+}
+.queue-cust-card.vip { border-color: var(--yellow); }
+.queue-cust-card.front-of-queue.vip { box-shadow: 0 0 0 2px rgba(234,179,8,.22); }
+.queue-cust-card.attended { opacity: .55; cursor: default; }
+.queue-cust-card.attended:hover { transform: none; }
+.qcc-emoji    { font-size: 22px; line-height: 1; }
+.qcc-name     { font-size: 10px; font-weight: 700; text-align: center; line-height: 1.2; }
+.qcc-items    { font-size: 9px; color: var(--muted); text-align: center; }
+.qcc-pbar-bg  { width: 100%; height: 4px; background: var(--surf2); border-radius: 2px; overflow: hidden; }
+.qcc-pbar     { height: 100%; border-radius: 2px; transition: width 1s linear; }
+.qcc-pbar.ok  { background: var(--green); }
+.qcc-pbar.warn{ background: var(--yellow); }
+.qcc-pbar.bad { background: var(--red); }
+.qcc-attended-badge {
+  font-size: 8px; color: var(--orange); font-weight: 700;
+  background: var(--orange-lo); border: 1px solid var(--orange);
+  border-radius: 4px; padding: 1px 5px; text-align: center;
+}
+.qcc-attended-badge.worker { color: var(--orange); border-color: var(--orange); background: var(--orange-lo); }
+.qcc-attended-badge.sco { color: var(--cyan); border-color: var(--cyan); background: rgba(6,182,212,.12); }
+
+/* Arrow between cards */
+.queue-arrow {
+  font-size: 14px; color: var(--border); flex-shrink: 0;
+  margin: 0 2px; align-self: center;
+}
+.queue-overflow {
+  font-size: 11px; color: var(--muted); font-weight: 700;
+  background: var(--surf2); border: 1px dashed var(--border);
+  border-radius: 8px; padding: 6px 10px; white-space: nowrap; flex-shrink: 0;
+  align-self: center; margin-left: 4px;
+}
+
+/* Lane capacity bar at top */
+.lane-cap-bar {
+  position: absolute;
+  bottom: 0; left: 130px; right: 0;
+  height: 2px;
+  background: var(--border);
+}
+.lane-cap-fill {
+  height: 100%;
+  transition: width .4s, background .4s;
+}
+
 /* ── Customers ── */
 #customer-grid {
   display: grid;
@@ -2373,30 +2520,11 @@ input::placeholder { color: var(--muted); }
 
       <!-- Customers -->
       <div class="tab-pane active" id="pane-customers">
-        <div id="no-customers">
-          <div class="emoji">😴</div>
-          <p>No customers right now...</p>
-          <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
-        </div>
-        <div id="customer-grid"></div>
-        <!-- Player Registers zone -->
-        <div id="player-registers-zone">
-          <div class="player-registers-zone-header">
-            <span class="player-registers-zone-title">🧑‍💼 Player Registers</span>
-            <span class="player-registers-zone-sub" id="player-registers-zone-sub">Players checking out customers</span>
-          </div>
-          <div id="player-registers-row"></div>
-        </div>
-        <!-- AI Worker Registers zone -->
-        <div id="registers-zone" style="display:none">
-          <div class="registers-zone-header">
-            <span class="registers-zone-title">🧑‍💼 Registers</span>
-            <span class="registers-zone-sub" id="registers-zone-sub">AI workers checking out customers</span>
-          </div>
-          <div id="registers-row"></div>
-        </div>
-        <!-- Self-checkout machines zone -->
-        <div id="sco-zone" style="display:none">
+        <!-- Lane Queue View -->
+        <div id="lane-view"></div>
+
+        <!-- SCO machines shown below lanes -->
+        <div id="sco-zone" style="display:none;margin-top:0;border-top:2px solid var(--border);padding-top:14px;margin:0 14px 14px">
           <div class="sco-zone-header">
             <span class="sco-zone-title">🤖 Self-Checkout Machines</span>
             <span class="sco-zone-sub" id="sco-zone-sub">Customers scan their own items</span>
@@ -3036,77 +3164,195 @@ function renderShopBanner(s) {
 }
 
 // ── Customers ──────────────────────────────────────
-function renderCustomers(s) {
-  const grid = document.getElementById('customer-grid');
-  const noC  = document.getElementById('no-customers');
+function renderCustomers(s) { renderLaneView(s); }
 
-  if (!s.customers.length) {
-    noC.style.display = 'block';
-    grid.innerHTML = '';
-    return;
-  }
-  noC.style.display = 'none';
+// ── Lane Queue View ────────────────────────────────
+function renderLaneView(s) {
+  const view = document.getElementById('lane-view');
+  if (!view) return;
 
-  const existIds = new Set([...grid.querySelectorAll('.ccard')].map(c => Number(c.dataset.id)));
-  const incomingIds = new Set(s.customers.map(c => c.id));
+  const queues      = s.laneQueues || [];
+  const numLanes    = queues.length || (s.checkoutLanes || 1);
+  const maxQ        = s.maxQueuePerLane || 8;
+  const players     = s.players || {};
+  const aiWorkers   = s.aiWorkers || [];
+  const isPlaying   = s.phase === 'playing';
+  const isShop      = s.phase === 'shop';
 
-  // remove gone
-  existIds.forEach(id => { if (!incomingIds.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove(); });
+  // Build lane→player map
+  const lanePlayer = {};
+  Object.values(players).forEach(p => { if (p.cashierLane) lanePlayer[p.cashierLane] = p; });
 
-  s.customers.forEach(c => {
-    const pct = Math.round((c.patience / c.maxPatience) * 100);
-    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
-    const att = c.attendedBy;
-    const takenByOther = att && !(checkoutCustomer && checkoutCustomer.id === c.id);
-    let card = grid.querySelector(`[data-id="${c.id}"]`);
+  // AI cashiers per lane
+  const laneAi = {};
+  aiWorkers.filter(w => w.assignedLane && (w.workerType || 'cashier') === 'cashier')
+           .forEach(w => { laneAi[w.assignedLane] = w; });
 
-    if (!card) {
-      card = document.createElement('div');
+  // Remove rows for lanes that no longer exist
+  [...view.querySelectorAll('.lane-row[data-lane]')].forEach(row => {
+    if (+row.dataset.lane > numLanes) row.remove();
+  });
+
+  for (let laneNum = 1; laneNum <= numLanes; laneNum++) {
+    const laneIdx  = laneNum - 1;
+    const queue    = queues[laneIdx] || [];
+    const player   = lanePlayer[laneNum] || null;
+    const aiW      = laneAi[laneNum] || null;
+    const isMe     = player && player.id === myId;
+    const isMyLane = isMe;
+
+    let row = view.querySelector(`.lane-row[data-lane="${laneNum}"]`);
+    if (!row) {
+      row = document.createElement('div');
+      row.dataset.lane = laneNum;
+      row.className = 'lane-row';
+      row.innerHTML = `
+        <div class="lane-cashier-col" id="lcol-${laneNum}">
+          <span class="lane-num-badge">Lane ${laneNum}</span>
+          <div class="lane-cashier-emoji" id="lcash-emoji-${laneNum}">🏪</div>
+          <div class="lane-cashier-name" id="lcash-name-${laneNum}">Open</div>
+          <div class="lane-cashier-sub"  id="lcash-sub-${laneNum}"></div>
+          <button class="lane-serve-btn" id="lcash-btn-${laneNum}" style="display:none">Serve</button>
+        </div>
+        <div class="lane-queue-area" id="lqueue-${laneNum}"></div>
+        <div class="lane-cap-bar"><div class="lane-cap-fill" id="lcap-${laneNum}"></div></div>
+      `;
+      view.appendChild(row);
+    }
+
+    row.className = 'lane-row' + (isMyLane ? ' my-lane' : '');
+
+    // ── Cashier column ───────────────────────────
+    const emojiEl = document.getElementById(`lcash-emoji-${laneNum}`);
+    const nameEl  = document.getElementById(`lcash-name-${laneNum}`);
+    const subEl   = document.getElementById(`lcash-sub-${laneNum}`);
+    const btn     = document.getElementById(`lcash-btn-${laneNum}`);
+    const col     = document.getElementById(`lcol-${laneNum}`);
+
+    if (aiW) {
+      emojiEl.textContent = aiW.emoji;
+      nameEl.textContent  = aiW.name;
+      subEl.textContent   = `⚡×${aiW.speed} AI cashier`;
+      col.style.borderRightColor = 'var(--orange)';
+      const front = queue[0];
+      btn.style.display = 'none'; // AI handles its own lane
+    } else if (player) {
+      emojiEl.textContent = player.name[0].toUpperCase();
+      emojiEl.style.cssText = `width:32px;height:32px;border-radius:50%;background:${player.color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#000;flex-shrink:0`;
+      nameEl.textContent  = player.name;
+      subEl.innerHTML     = (isMe ? '<span style="color:var(--green);font-weight:700">(you)</span>' : 'cashier')
+        + (isMe ? ` <button onclick="socket.emit('setCashierLane',{lane:null})" style="font-size:9px;background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:1px 5px;cursor:pointer;margin-left:3px">Leave</button>` : '');
+      col.style.borderRightColor = isMe ? 'var(--green)' : 'var(--border)';
+      if (isMe && isPlaying) {
+        const front = queue.find(c => !c.attendedBy);
+        btn.style.display = 'block';
+        btn.textContent = front ? `✅ Serve ${front.emoji}` : '— Ready —';
+        btn.disabled = !front;
+        btn.className = 'lane-serve-btn';
+        btn.onclick = front ? () => openCheckout(front) : null;
+      } else {
+        btn.style.display = 'none';
+      }
+    } else {
+      // Unclaimed lane
+      if (emojiEl.style.cssText) { emojiEl.style.cssText = ''; }
+      emojiEl.textContent = '🏪';
+      nameEl.textContent  = 'Open';
+      subEl.textContent   = isPlaying ? 'No cashier' : '';
+      col.style.borderRightColor = 'var(--border)';
+      if (isPlaying && !aiW) {
+        btn.style.display = 'block';
+        btn.textContent = '🧑‍💼 Staff Lane';
+        btn.disabled = false;
+        btn.className = 'lane-serve-btn';
+        btn.onclick = () => {
+          socket.emit('setCashierLane', { lane: laneNum });
+        };
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    // ── Capacity bar ─────────────────────────────
+    const fill = document.getElementById(`lcap-${laneNum}`);
+    if (fill) {
+      const pct = Math.min(100, Math.round((queue.length / maxQ) * 100));
+      fill.style.width = pct + '%';
+      fill.style.background = pct >= 90 ? 'var(--red)' : pct >= 60 ? 'var(--yellow)' : 'var(--green)';
+    }
+
+    // ── Queue area ───────────────────────────────
+    const qArea = document.getElementById(`lqueue-${laneNum}`);
+    if (!qArea) continue;
+
+    if (!isPlaying) {
+      qArea.innerHTML = `<div class="lane-empty-msg">🏪 ${isShop ? 'Shop phase — store not open' : 'Waiting for store to open…'}</div>`;
+      continue;
+    }
+    if (queue.length === 0) {
+      qArea.innerHTML = `<div class="lane-empty-msg">✨ No customers — lane is free</div>`;
+      continue;
+    }
+
+    // Show up to 5 cards, then "+N more"
+    const SHOW_MAX = 5;
+    const visible = queue.slice(0, SHOW_MAX);
+    qArea.innerHTML = '';
+
+    visible.forEach((c, qi) => {
+      const pct = Math.round((c.patience / c.maxPatience) * 100);
+      const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+      const isFront  = qi === 0;
+      const att      = c.attendedBy;
+      const isBeingServedByMe = checkoutCustomer && checkoutCustomer.id === c.id;
+
+      if (qi > 0) {
+        const arr = document.createElement('div');
+        arr.className = 'queue-arrow';
+        arr.textContent = '‹';
+        qArea.appendChild(arr);
+      }
+
+      const card = document.createElement('div');
       card.dataset.id = c.id;
+      let cardClass = 'queue-cust-card';
+      if (isFront && !att) cardClass += ' front-of-queue';
+      if (c.isVip) cardClass += ' vip';
+      if (att && !isBeingServedByMe) cardClass += ' attended';
+      card.className = cardClass;
 
-      const wantsHtml = c.wants.map(w => {
-        const prod = s.products.find(p => p.id === w.id);
-        return `<span class="wtag">${prod?.emoji||'?'} ${prod?.name||w.id} ×${w.qty}</span>`;
-      }).join('');
+      const itemCount = c.wants.reduce((s, w) => s + w.qty, 0);
+      const attBadge = att && !isBeingServedByMe
+        ? `<div class="qcc-attended-badge ${att.type}">${att.emoji || '🤖'} ${att.name.split(' ')[0]}</div>`
+        : (isFront && !att ? `<div style="font-size:8px;color:var(--green);font-weight:700">← NEXT</div>` : '');
 
       card.innerHTML = `
-        <div class="ccard-top">
-          <span class="cemoji">${c.emoji}</span>
-          <div>
-            <div class="cname">${c.isVip ? '⭐ ' : ''}${c.name}</div>
-            <div class="ctype">${c.isVip ? 'VIP — 2× payout!' : c.wants.length+' item'+(c.wants.length>1?'s':'')}</div>
-          </div>
-        </div>
-        <div class="cwants">${wantsHtml}</div>
-        <div class="serve-label">🛒 CLICK TO CHECKOUT</div>
-        <div class="attended-badge" style="display:none"></div>
-        <div class="pbar ok" style="width:100%"></div>
+        <div style="font-size:9px;color:var(--muted);font-weight:700;position:absolute;top:3px;left:0;right:0;text-align:center">#${qi+1}</div>
+        <div class="qcc-emoji" style="margin-top:6px">${c.isVip ? '⭐' : c.emoji}</div>
+        <div class="qcc-name">${c.name}</div>
+        <div class="qcc-items">${itemCount} item${itemCount!==1?'s':''}</div>
+        ${attBadge}
+        <div class="qcc-pbar-bg"><div class="qcc-pbar ${barClass}" style="width:${pct}%"></div></div>
       `;
-      grid.appendChild(card);
+
+      if (isFront && !att && isMe && isPlaying) {
+        card.style.cursor = 'pointer';
+        card.onclick = () => openCheckout(c);
+      }
+
+      qArea.appendChild(card);
+    });
+
+    if (queue.length > SHOW_MAX) {
+      const ov = document.createElement('div');
+      ov.className = 'queue-overflow';
+      ov.textContent = `+${queue.length - SHOW_MAX} more`;
+      qArea.appendChild(ov);
     }
+  }
+}
 
-    // Update dynamic state on both new and existing cards
-    const bar = card.querySelector('.pbar');
-    if (bar) { bar.className = 'pbar '+barClass; bar.style.width = pct+'%'; }
 
-    const badge = card.querySelector('.attended-badge');
-    const serveLabel = card.querySelector('.serve-label');
-
-    if (takenByOther) {
-      const typeClass = att.type === 'worker' ? 'worker' : att.type === 'sco' ? 'sco' : '';
-      badge.className = 'attended-badge' + (typeClass ? ' '+typeClass : '');
-      badge.style.display = 'flex';
-      badge.textContent = att.emoji + ' ' + att.name + ' is handling this';
-      if (serveLabel) serveLabel.style.display = 'none';
-      card.className = 'ccard attended' + (c.isVip?' vip':'');
-      card.onclick = null;
-    } else {
-      badge.style.display = 'none';
-      if (serveLabel) serveLabel.style.display = '';
-      card.className = 'ccard' + (c.isVip?' vip':'') + (pct<25?' urgent':'');
-      card.onclick = () => openCheckout(c);
-    }
-  });}
 
 // ── Self-Checkout Machines ─────────────────────────
 // Track which machines had activity to detect new transactions
@@ -4260,7 +4506,7 @@ function updateStockerTabBadge(s) {
 }
 
 function renderTabContent(tab, s) {
-  if (tab === 'customers')  { renderCustomers(s); renderPlayerRegisters(s); renderAiRegisters(s); renderScoMachines(s); }
+  if (tab === 'customers')  { renderLaneView(s); renderScoMachines(s); }
   if (tab === 'stocker')    renderStocker(s);
   if (tab === 'inventory')  renderInventory(s);
   if (tab === 'shop')       renderShop(s);
