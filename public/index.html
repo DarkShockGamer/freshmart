@@ -6115,12 +6115,11 @@ SFX.init();
 
 <script>
 (function() {
-  // ── Config ────────────────────────────────────────────────────
-  const DEV_TOKEN = 'fm-dev-9x2k7p';  // must match server DEV_TOKEN
-  const UNLOCK_PASS = 'freshdev2025';  // your personal password
-
   // ── State ─────────────────────────────────────────────────────
+  // No credentials stored client-side. The server issues a per-session
+  // token after verifying the password — only that token is kept in memory.
   let _devUnlocked = false;
+  let _devSessionToken = null;
 
   // ── Helpers ───────────────────────────────────────────────────
   const panel = document.getElementById('_dp');
@@ -6132,20 +6131,28 @@ SFX.init();
   }
 
   function devCmd(cmd, payload = {}) {
-    socket.emit('devCmd', { token: DEV_TOKEN, cmd, payload });
+    if (!_devSessionToken) { devMsg('Not authenticated', false); return; }
+    socket.emit('devCmd', { token: _devSessionToken, cmd, payload });
   }
 
   socket.on('devResult', ({ ok, msg: m }) => devMsg(m, ok));
+
+  // Server responds with a session token (or failure) after devAuth
+  socket.on('devAuthResult', ({ ok, token }) => {
+    if (ok && token) {
+      _devSessionToken = token;
+      _devUnlocked = true;
+      panel.classList.add('_vis');
+    }
+    // wrong password — silently do nothing
+  });
 
   function openPanel() {
     if (_devUnlocked) { panel.classList.add('_vis'); return; }
     const pw = prompt('🔒');  // blank prompt — no hints
     if (pw === null) return;
-    if (pw === UNLOCK_PASS) {
-      _devUnlocked = true;
-      panel.classList.add('_vis');
-    }
-    // wrong password — silently do nothing
+    // Send password to server for validation — never compared client-side
+    socket.emit('devAuth', { password: pw });
   }
 
   // ── Key combo: Ctrl + Shift + D ───────────────────────────────
