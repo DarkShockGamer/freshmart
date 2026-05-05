@@ -682,7 +682,7 @@ function spawnCustomer(room) {
 }
 
 function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
-  if (room.phase !== 'playing' && room.phase !== 'closing') return { ok: false, msg: 'Game not active' };
+  if (room.phase !== 'playing') return { ok: false, msg: 'Game not active' };
   const idx = room.customers.findIndex(c => c.id === cid);
   if (idx === -1) return { ok: false, msg: 'Customer already gone!' };
   const c = room.customers[idx];
@@ -865,7 +865,7 @@ const AI_SERVE_BASE_MS = 8000; // base time between AI serves (at speed 1.0)
 const AI_CLAIM_DISPLAY_MS = 2000; // ms to show "attending" overlay before serving
 
 function tickAiWorkers(room) {
-  if (!room.aiWorkers || (room.phase !== 'playing' && room.phase !== 'closing')) return;
+  if (!room.aiWorkers || room.phase !== 'playing') return;
   if (!room._aiWorkerCooldowns) room._aiWorkerCooldowns = {};
   if (!room._aiWorkerClaims) room._aiWorkerClaims = {};
 
@@ -936,7 +936,7 @@ function tickAiWorkers(room) {
 const SCO_SERVE_BASE_MS = 10000; // base time between SCO serves at speed 1.0
 
 function tickScoMachines(room) {
-  if (!room.scoMachines || (room.phase !== 'playing' && room.phase !== 'closing')) return;
+  if (!room.scoMachines || room.phase !== 'playing') return;
   const now = Date.now();
 
   room.scoMachines.forEach(m => {
@@ -978,7 +978,7 @@ function tickScoMachines(room) {
 
 // AI Stocker logic: finds the most-depleted shelf product and moves stock from storage
 function tickAiStockers(room) {
-  if (!room.aiWorkers || (room.phase !== 'playing' && room.phase !== 'closing')) return;
+  if (!room.aiWorkers || room.phase !== 'playing') return;
   if (!room._aiStockerCooldowns) room._aiStockerCooldowns = {};
   const now = Date.now();
   const unlocked = getUnlockedProducts(room.upgrades);
@@ -1021,38 +1021,7 @@ function tickAiStockers(room) {
 }
 
 function endDay(room) {
-  // Stop spawning & timer — no new customers after closing time.
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
-  room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
-
-  // Enter 'closing' phase: in-progress transactions (AI workers, SCO, player) finish before shop phase.
-  room.phase = 'closing';
-  roomLog(room, `\uD83D\uDD14 Closing time! Finishing active transactions\u2026`);
-  emit(room);
-
-  // Poll until all attended customers are served (or 30s safety timeout).
-  const CLOSING_POLL_MS = 300;
-  const CLOSING_MAX_MS  = 30000;
-  const closingStart = Date.now();
-
-  room._closingPoll = setInterval(() => {
-    tickAiWorkers(room);
-    tickScoMachines(room);
-    emit(room);
-
-    const attendedLeft = (room.customers || []).filter(c => c.attendedBy).length;
-    const playerInTx   = Object.keys(room.checkoutLocks || {}).length > 0;
-    const elapsed      = Date.now() - closingStart;
-
-    if ((attendedLeft === 0 && !playerInTx) || elapsed >= CLOSING_MAX_MS) {
-      clearInterval(room._closingPoll);
-      room._closingPoll = null;
-      finalizeDay(room);
-    }
-  }, CLOSING_POLL_MS);
-}
-
-function finalizeDay(room) {
   room.phase = 'shop';
   // Clear all pending patience timers before wiping customers
   if (room._patienceTimers) { room._patienceTimers.forEach(tid => clearTimeout(tid)); room._patienceTimers.clear(); }
@@ -1093,7 +1062,6 @@ function finalizeDay(room) {
 }
 
 function stopRoom(room) {
-  if (room._closingPoll) { clearInterval(room._closingPoll); room._closingPoll = null; }
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   stopShopAutosave(room);
 }
@@ -1199,6 +1167,64 @@ io.on('connection', (socket) => {
     emit(room);
   });
 
+  // ── Rejoin: restore socket→room mapping after reconnect ─────────────────
+  socket.on('rejoinRoom', ({ code, name }) => {
+    const roomCode = (code || '').toUpperCase().trim();
+    const room = rooms.get(roomCode);
+    if (!room) { socket.emit('rejoinFailed'); return; }
+
+    // If this socket ID is already in the room (shouldn't happen), just re-emit.
+    if (room.players[socket.id]) {
+      socketRoom.set(socket.id, roomCode);
+      socket.join(roomCode);
+      socket.emit('roomJoined', { code: roomCode, playerId: socket.id });
+      emit(room);
+      return;
+    }
+
+    // Find if a player with this name already exists (disconnected player rejoining)
+    const playerName = (name || '').trim().slice(0, 20) || 'Player';
+    const existingEntry = Object.entries(room.players).find(([, p]) => p.name === playerName);
+
+    if (existingEntry) {
+      // Migrate the old socket ID to the new one
+      const [oldId, playerData] = existingEntry;
+      delete room.players[oldId];
+      socketRoom.delete(oldId);
+      // If old socket was host, transfer host role
+      if (room.hostId === oldId) room.hostId = socket.id;
+      // Transfer any checkout locks
+      if (room.checkoutLocks?.[oldId]) {
+        delete room.checkoutLocks[oldId];
+        room.checkoutLocks[socket.id] = true;
+      }
+      if (room.playerCheckoutActivity?.[oldId]) {
+        room.playerCheckoutActivity[socket.id] = room.playerCheckoutActivity[oldId];
+        delete room.playerCheckoutActivity[oldId];
+      }
+      room.players[socket.id] = { ...playerData, id: socket.id };
+    } else {
+      // New player joining a running game (spectator/late join) — only allow in shop phase
+      if (room.phase !== 'lobby' && room.phase !== 'shop') {
+        socket.emit('rejoinFailed'); return;
+      }
+      const idx = Object.keys(room.players).length;
+      room.players[socket.id] = {
+        id: socket.id, name: playerName,
+        color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
+        role: PLAYER_ROLES[idx % PLAYER_ROLES.length],
+        personalScore: 0, cashierLane: null,
+      };
+    }
+
+    socketRoom.set(socket.id, roomCode);
+    socket.join(roomCode);
+    socket.emit('roomJoined', { code: roomCode, playerId: socket.id });
+    emit(room);
+    roomLog(room, `🔄 ${room.players[socket.id].name} reconnected.`);
+    emit(room);
+  });
+
   socket.on('setName', ({ name }) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room || !room.players[socket.id]) return;
@@ -1237,7 +1263,7 @@ io.on('connection', (socket) => {
 
   socket.on('lockCheckout', ({ customerId }) => {
     const room = rooms.get(socketRoom.get(socket.id));
-    if (!room || (room.phase !== 'playing' && room.phase !== 'closing')) return;
+    if (!room || room.phase !== 'playing') return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
     const lanes = getCheckoutLanes(room.upgrades);
     const p = room.players[socket.id];
@@ -1735,7 +1761,7 @@ io.on('connection', function devLayer(socket) {
         break;
       }
       case 'skipDay': {
-        if (room.phase === 'playing' || room.phase === 'closing') {
+        if (room.phase === 'playing') {
           endDay(room);
           socket.emit('devResult', { ok: true, msg: 'Day ended' });
         } else {
