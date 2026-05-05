@@ -6029,5 +6029,172 @@ document.addEventListener('click', (e) => {
 // Init mute state on load
 SFX.init();
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- DEV PANEL — not visible in source unless you know to look              -->
+<!-- Activate: Ctrl+Shift+D  →  password prompt  →  floating panel         -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<style>
+#_dp {
+  display:none; position:fixed; bottom:16px; right:16px; z-index:99999;
+  background:#1a1a2e; border:1.5px solid #7c3aed; border-radius:10px;
+  padding:14px 16px; width:280px; font-family:monospace; font-size:12px;
+  color:#e0d7ff; box-shadow:0 4px 32px #0008; user-select:none;
+}
+#_dp._vis { display:block; }
+#_dp h3 { margin:0 0 10px; font-size:13px; color:#a78bfa; letter-spacing:.05em; }
+#_dp .drow { display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+#_dp .drow label { flex:0 0 100px; color:#c4b5fd; }
+#_dp .drow input[type=number] {
+  flex:1; background:#2d2b55; border:1px solid #5b21b6; color:#e0d7ff;
+  border-radius:5px; padding:3px 6px; font-family:monospace; font-size:12px;
+}
+#_dp .dbtn {
+  background:#5b21b6; color:#f5f3ff; border:none; border-radius:6px;
+  padding:4px 10px; cursor:pointer; font-size:12px; font-family:monospace;
+  transition:background .15s;
+}
+#_dp .dbtn:hover { background:#7c3aed; }
+#_dp .dbtn.red { background:#7f1d1d; }
+#_dp .dbtn.red:hover { background:#b91c1c; }
+#_dp .dbtn.grn { background:#14532d; }
+#_dp .dbtn.grn:hover { background:#166534; }
+#_dp #_dmsg {
+  margin-top:8px; padding:4px 8px; border-radius:5px; font-size:11px;
+  background:#2d2b55; color:#86efac; min-height:20px;
+}
+#_dp .dsep { border:none; border-top:1px solid #3730a3; margin:8px 0; }
+#_dp .dclose {
+  position:absolute; top:8px; right:10px; background:none; border:none;
+  color:#7c3aed; font-size:16px; cursor:pointer; line-height:1;
+}
+</style>
+
+<div id="_dp">
+  <button class="dclose" id="_dpclose" title="Close">✕</button>
+  <h3>⚙ DEV PANEL</h3>
+
+  <div class="drow">
+    <label>Add Money</label>
+    <input type="number" id="_damt" value="10000" min="1" style="width:80px">
+    <button class="dbtn grn" id="_dbAddMoney">Add</button>
+  </div>
+  <div class="drow">
+    <label>Set Money</label>
+    <input type="number" id="_dsetamt" value="999999" min="0">
+    <button class="dbtn" id="_dbSetMoney">Set</button>
+  </div>
+  <div class="drow">
+    <label>Reputation</label>
+    <input type="number" id="_drep" value="100" min="0" max="100">
+    <button class="dbtn" id="_dbSetRep">Set</button>
+  </div>
+  <div class="drow">
+    <label>Set Day</label>
+    <input type="number" id="_dday" value="1" min="1">
+    <button class="dbtn" id="_dbSetDay">Set</button>
+  </div>
+  <div class="drow">
+    <label>Spawn Customers</label>
+    <input type="number" id="_dspawn" value="5" min="1" max="20">
+    <button class="dbtn" id="_dbSpawn">Spawn</button>
+  </div>
+
+  <hr class="dsep">
+
+  <div class="drow" style="flex-wrap:wrap;gap:6px;">
+    <button class="dbtn grn" id="_dbUnlock">Unlock All Upgrades</button>
+    <button class="dbtn grn" id="_dbFillStorage">Fill Storage</button>
+    <button class="dbtn grn" id="_dbFillShelves">Fill Shelves</button>
+    <button class="dbtn red" id="_dbSkipDay">Skip Day →</button>
+    <button class="dbtn" id="_dbToggleEvents">Toggle Events</button>
+  </div>
+
+  <div id="_dmsg">Ready.</div>
+</div>
+
+<script>
+(function() {
+  // ── Config ────────────────────────────────────────────────────
+  const DEV_TOKEN = 'fm-dev-9x2k7p';  // must match server DEV_TOKEN
+  const UNLOCK_PASS = 'freshdev2025';  // your personal password
+
+  // ── State ─────────────────────────────────────────────────────
+  let _devUnlocked = false;
+
+  // ── Helpers ───────────────────────────────────────────────────
+  const panel = document.getElementById('_dp');
+  const msg   = document.getElementById('_dmsg');
+
+  function devMsg(text, ok = true) {
+    msg.textContent = text;
+    msg.style.color = ok ? '#86efac' : '#fca5a5';
+  }
+
+  function devCmd(cmd, payload = {}) {
+    socket.emit('devCmd', { token: DEV_TOKEN, cmd, payload });
+  }
+
+  socket.on('devResult', ({ ok, msg: m }) => devMsg(m, ok));
+
+  function openPanel() {
+    if (_devUnlocked) { panel.classList.add('_vis'); return; }
+    const pw = prompt('🔒');  // blank prompt — no hints
+    if (pw === null) return;
+    if (pw === UNLOCK_PASS) {
+      _devUnlocked = true;
+      panel.classList.add('_vis');
+    }
+    // wrong password — silently do nothing
+  }
+
+  // ── Key combo: Ctrl + Shift + D ───────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      openPanel();
+    }
+  });
+
+  // ── Close button ──────────────────────────────────────────────
+  document.getElementById('_dpclose').addEventListener('click', () => {
+    panel.classList.remove('_vis');
+  });
+
+  // ── Button wiring ─────────────────────────────────────────────
+  document.getElementById('_dbAddMoney').addEventListener('click', () => {
+    devCmd('addMoney', { amount: +document.getElementById('_damt').value });
+  });
+  document.getElementById('_dbSetMoney').addEventListener('click', () => {
+    devCmd('setMoney', { amount: +document.getElementById('_dsetamt').value });
+  });
+  document.getElementById('_dbSetRep').addEventListener('click', () => {
+    devCmd('setReputation', { value: +document.getElementById('_drep').value });
+  });
+  document.getElementById('_dbSetDay').addEventListener('click', () => {
+    devCmd('setDay', { value: +document.getElementById('_dday').value });
+  });
+  document.getElementById('_dbSpawn').addEventListener('click', () => {
+    devCmd('spawnCustomers', { count: +document.getElementById('_dspawn').value });
+  });
+  document.getElementById('_dbUnlock').addEventListener('click', () => {
+    devCmd('unlockAllUpgrades');
+  });
+  document.getElementById('_dbFillStorage').addEventListener('click', () => {
+    devCmd('fillStorage');
+  });
+  document.getElementById('_dbFillShelves').addEventListener('click', () => {
+    devCmd('fillShelves');
+  });
+  document.getElementById('_dbSkipDay').addEventListener('click', () => {
+    devCmd('skipDay');
+  });
+  document.getElementById('_dbToggleEvents').addEventListener('click', () => {
+    devCmd('noEvents');
+  });
+})();
+</script>
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+
 </body>
 </html>
