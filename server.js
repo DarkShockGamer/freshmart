@@ -512,8 +512,6 @@ function emit(room) {
     storageCapacity: STORAGE_CAPACITY,
     shelfCapacity: BASE_SHELF_CAPACITY + (room.capacityBonus || 0),
     customers: room.customers,
-    laneQueues: room.laneQueues || [],
-    maxQueuePerLane: MAX_QUEUE_PER_LANE,
     eventLog: room.eventLog.slice(0, 15),
     activeEvent: room.activeEvent, upgrades: room.upgrades,
     dayTimer: room.dayTimer,
@@ -560,24 +558,10 @@ function weightedPick(arr, weightFn) {
   return arr[arr.length - 1];
 }
 
-// ── Lane queue helpers ────────────────────────────────────────────
-// Returns the lane queues array, initialising if needed
-function getLaneQueues(room) {
-  const lanes = getCheckoutLanes(room.upgrades);
-  if (!room.laneQueues || room.laneQueues.length !== lanes) {
-    const prev = room.laneQueues || [];
-    room.laneQueues = [];
-    for (let i = 0; i < lanes; i++) room.laneQueues.push(prev[i] || []);
-  }
-  return room.laneQueues;
-}
-
-// Max customers that can queue per lane
-const MAX_QUEUE_PER_LANE = 8;
-
 function spawnCustomer(room) {
   if (room.phase !== 'playing') return;
   const unlocked = getUnlockedProducts(room.upgrades);
+  // Filter to in-stock, on-shelf items that have any demand at all
   const avail = unlocked.filter(p =>
     (room.inventory[p.id] || 0) > 0 &&
     room.shelves[p.id] &&
@@ -585,60 +569,33 @@ function spawnCustomer(room) {
   );
   if (avail.length === 0) return;
 
-  // Pick shortest lane that isn't full
-  const queues = getLaneQueues(room);
-  const laneOptions = queues
-    .map((q, i) => ({ i, len: q.length }))
-    .filter(x => x.len < MAX_QUEUE_PER_LANE)
-    .sort((a, b) => a.len - b.len);
-  if (laneOptions.length === 0) return; // all lanes full
-
-  // 70% join shortest, 30% pick random non-full lane (realistic behaviour)
-  const pick = Math.random() < 0.7
-    ? laneOptions[0]
-    : laneOptions[Math.floor(Math.random() * laneOptions.length)];
-  const laneIdx = pick.i;
-
   const isVip = room.activeEvent?.type === 'vip';
   const numItems = isVip ? Math.floor(Math.random()*4)+3 : Math.floor(Math.random()*3)+1;
   const wants = [];
   for (let i = 0; i < numItems; i++) {
+    // Pick product weighted by demand — overpriced items are rarely chosen
     const prod = weightedPick(avail, p => demandWeight(room, p));
     if (!wants.find(w => w.id === prod.id))
       wants.push({ id: prod.id, qty: isVip ? Math.floor(Math.random()*4)+2 : Math.floor(Math.random()*3)+1 });
   }
   if (wants.length === 0) return;
-
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
-  const basePatience = 20 + Math.floor(Math.random() * 15);
-  // Patience scales with queue position — people at the back are more patient
-  const posBonus = queues[laneIdx].length * 4;
-  const patience = Math.max(8, Math.round((basePatience + posBonus) * diff.customerPatience));
-
+  const basePatience = 15 + Math.floor(Math.random() * 12);
+  const patience = Math.max(6, Math.round(basePatience * diff.customerPatience));
   const c = {
     id: room.nextCustomerId++,
     name: CUSTOMER_NAMES[Math.floor(Math.random()*CUSTOMER_NAMES.length)],
     emoji: CUSTOMER_EMOJIS[Math.floor(Math.random()*CUSTOMER_EMOJIS.length)],
     wants, patience, maxPatience: patience, spawnTime: Date.now(), isVip,
-    laneIdx, // which lane they joined
-    attendedBy: null,
   };
-  queues[laneIdx].push(c);
-
-  // Flat list kept for backward-compat with serve/find helpers
   room.customers.push(c);
-
   setTimeout(() => {
-    // Customer gives up if still in queue
-    const qArr = room.laneQueues?.[c.laneIdx];
-    const qi = qArr ? qArr.findIndex(x => x.id === c.id) : -1;
-    if (qi !== -1) {
-      qArr.splice(qi, 1);
-      const fi = room.customers.findIndex(x => x.id === c.id);
-      if (fi !== -1) room.customers.splice(fi, 1);
+    const idx = room.customers.findIndex(x => x.id === c.id);
+    if (idx !== -1) {
       const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
       room.reputation = Math.max(0, room.reputation - repLoss);
-      roomLog(room, `😤 ${c.name} left Lane ${c.laneIdx+1} queue! Rep -${repLoss}`);
+      roomLog(room, `😤 ${c.name} left unserved! Rep -${repLoss}`);
+      room.customers.splice(idx, 1);
       if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
       emit(room);
     }
@@ -667,27 +624,18 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
   room.totalScore += total;
   room.reputation = Math.max(0, Math.min(100, room.reputation + (hasIssues ? -2 : 1)));
 
+  // Stats tracking
   if (room.stats) {
     room.stats.customersServed = (room.stats.customersServed||0) + 1;
     room.stats.totalRevenue = (room.stats.totalRevenue||0) + total;
     if (c.isVip) room.stats.vipServed = (room.stats.vipServed||0) + 1;
   }
 
-  // Remove from lane queue
-  const laneIdx = c.laneIdx ?? 0;
-  const qArr = room.laneQueues?.[laneIdx];
-  if (qArr) {
-    const qi = qArr.findIndex(x => x.id === cid);
-    if (qi !== -1) qArr.splice(qi, 1);
-  }
-  // Remove from flat list
-  room.customers.splice(idx, 1);
-
-  const tag = c.isVip ? ' ⭐VIP×2' : '';
-  const sTag = room.saleActive ? ' 🏷️+50%' : '';
-
   if (isAi && aiWorker) {
     if (room.stats) room.stats.aiRevenue = (room.stats.aiRevenue||0) + total;
+    room.customers.splice(idx, 1);
+    const tag = c.isVip ? ' ⭐VIP×2' : '';
+    const sTag = room.saleActive ? ' 🏷️+50%' : '';
     roomLog(room, `🤖 ${aiWorker.name} served ${c.name}${tag} — $${total}${sTag}`);
     return { ok: true, earned: total, isVip: c.isVip };
   }
@@ -706,8 +654,12 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
     }
   }
 
+  // Release checkout lock for this player
   if (room.checkoutLocked === sid) room.checkoutLocked = null;
 
+  room.customers.splice(idx, 1);
+  const tag = c.isVip ? ' ⭐VIP×2' : '';
+  const sTag = room.saleActive ? ' 🏷️+50%' : '';
   roomLog(room, `✅ ${p?.name||'?'} served ${c.name}${tag} — $${total}${sTag}`);
   return { ok: true, earned: total, isVip: c.isVip };
 }
@@ -772,9 +724,6 @@ function startDay(room) {
   room.phase = 'playing';
   room.dayTimer = 120;
   room.customers = [];
-  room.laneQueues = [];
-  const lanes = getCheckoutLanes(room.upgrades);
-  for (let i = 0; i < lanes; i++) room.laneQueues.push([]);
   room.checkoutLocked = null;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   roomLog(room, `📅 Day ${room.day} open! You have 2 minutes.`);
@@ -821,45 +770,51 @@ function tickAiWorkers(room) {
 
   const now = Date.now();
   const lanes = getCheckoutLanes(room.upgrades);
-  const queues = getLaneQueues(room);
 
   room.aiWorkers.forEach(w => {
-    const type = (room.aiWorkerTypes || []).find ? null : null; // workerType check via stored field
-    if (w.workerType === 'stocker') return; // handled by tickAiStockers
     if (!w.assignedLane || w.assignedLane > lanes) {
       w.currentActivity = null;
       return;
     }
-    const laneIdx = w.assignedLane - 1;
-    const queue = queues[laneIdx] || [];
+    if (!room.customers.length) {
+      w.currentActivity = null;
+      return;
+    }
 
-    // Phase 2: worker already claimed — serve after display delay
+    // Phase 2: worker already claimed a customer — serve them after display delay
     const claim = room._aiWorkerClaims[w.uid];
     if (claim) {
       if (now - claim.claimedAt >= AI_CLAIM_DISPLAY_MS) {
         delete room._aiWorkerClaims[w.uid];
         room._aiWorkerCooldowns[w.uid] = now;
         const customer = room.customers.find(c => c.id === claim.customerId);
-        if (customer) serveCustomer(room, customer.id, null, true, w);
+        if (customer) {
+          serveCustomer(room, customer.id, null, true, w);
+        }
         w.currentActivity = null;
       }
-      return;
+      return; // still in display window
     }
 
-    // Phase 1: cooldown, then claim front of THIS lane's queue
+    // Phase 1: cooldown check, then claim an unattended customer
     const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
     if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) {
+      // Keep currentActivity null while on cooldown (idle)
       if (!room._aiWorkerClaims[w.uid]) w.currentActivity = null;
       return;
     }
 
-    // Front of this lane's queue (not already attended)
-    const customer = queue.find(c => !c.attendedBy);
-    if (!customer) { w.currentActivity = null; return; }
+    const customer = room.customers.find(c => !c.attendedBy);
+    if (!customer) {
+      w.currentActivity = null;
+      return;
+    }
 
+    // Claim: mark attendedBy so clients see the overlay immediately
     customer.attendedBy = { type: 'worker', name: w.name, emoji: w.emoji };
     room._aiWorkerClaims[w.uid] = { customerId: customer.id, claimedAt: now };
 
+    // Build activity snapshot for client animation (mirrors SCO)
     const items = customer.wants.map(wt => {
       const prod = ALL_PRODUCTS.find(p => p.id === wt.id);
       return { emoji: prod?.emoji || '📦', name: prod?.name || wt.id, qty: wt.qty };
@@ -880,25 +835,22 @@ const SCO_SERVE_BASE_MS = 10000; // base time between SCO serves at speed 1.0
 function tickScoMachines(room) {
   if (!room.scoMachines || room.phase !== 'playing') return;
   const now = Date.now();
-  const queues = getLaneQueues(room);
 
-  room.scoMachines.forEach((m, mi) => {
-    // SCO machines serve as an extra "virtual lane" — pick front of any queue
+  room.scoMachines.forEach(m => {
+    if (!room.customers.length) {
+      m.currentActivity = null;
+      return;
+    }
     const cooldown = SCO_SERVE_BASE_MS / (m.speed || 1.0);
     const lastServe = m.lastServeAt || 0;
     if (now - lastServe < cooldown) return;
 
-    // Pick the front unattended customer from the longest queue
-    let customer = null;
-    let bestLen = -1;
-    queues.forEach(q => {
-      const front = q.find(c => !c.attendedBy);
-      if (front && q.length > bestLen) { customer = front; bestLen = q.length; }
-    });
-    if (!customer) { m.currentActivity = null; return; }
+    const customer = room.customers.find(c => !c.attendedBy);
+    if (!customer) return;
 
     m.lastServeAt = now;
     customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
+    // Build activity snapshot for client animation
     const items = customer.wants.map(w => {
       const prod = ALL_PRODUCTS.find(p => p.id === w.id);
       return { emoji: prod?.emoji || '📦', name: prod?.name || w.id, qty: w.qty };
@@ -966,7 +918,7 @@ function tickAiStockers(room) {
 function endDay(room) {
   clearInterval(room._cInt); clearInterval(room._dInt); clearTimeout(room._eTimeout); clearTimeout(room.theftTimeout);
   room.phase = 'shop';
-  room.customers = []; room.laneQueues = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
+  room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
   room._aiStockerCooldowns = {};
@@ -1039,7 +991,7 @@ function resetRoom(room) {
   });
   Object.assign(room, {
     phase: 'lobby', money: room.diff?.startMoney || 200, day: 1, totalScore: 0, reputation: 100,
-    inventory: inv, prices, shelves, storage, customers: [], eventLog: [], laneQueues: [],
+    inventory: inv, prices, shelves, storage, customers: [], eventLog: [],
     activeEvent: null, upgrades: [], nextCustomerId: 1, dayTimer: 120,
     rushActive: false, saleActive: false, theftActive: false,
     theftTimeout: null, capacityBonus: 0, _cInt: null, _dInt: null, _eTimeout: null,
@@ -1311,6 +1263,8 @@ io.on('connection', (socket) => {
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
+    // If player doesn't hold a lock yet (race condition: lockCheckout may not
+    // have arrived before serveCustomer), try to acquire one now.
     if (!room.checkoutLocks[socket.id]) {
       const lanes = getCheckoutLanes(room.upgrades);
       const activeLocks = Object.keys(room.checkoutLocks)
@@ -1321,22 +1275,8 @@ io.on('connection', (socket) => {
       }
       room.checkoutLocks[socket.id] = true;
     }
-    // Resolve cid: if null/undefined, serve front of player's assigned lane
-    let resolvedCid = cid;
-    if (!resolvedCid) {
-      const p = room.players[socket.id];
-      const laneIdx = p?.cashierLane ? p.cashierLane - 1 : 0;
-      const q = room.laneQueues?.[laneIdx] || [];
-      const front = q.find(c => !c.attendedBy);
-      if (front) resolvedCid = front.id;
-    }
-    if (!resolvedCid) {
-      socket.emit('serveResult', { ok: false, msg: 'No customer at the front of your lane!' });
-      delete room.checkoutLocks[socket.id];
-      return;
-    }
-    const result = serveCustomer(room, resolvedCid, socket.id);
-    delete room.checkoutLocks[socket.id];
+    const result = serveCustomer(room, cid, socket.id);
+    delete room.checkoutLocks[socket.id]; // release after serve
     if (room.playerCheckoutActivity) delete room.playerCheckoutActivity[socket.id];
     socket.emit('serveResult', result);
     if (result.ok) emit(room);
