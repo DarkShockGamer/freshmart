@@ -4073,19 +4073,15 @@ function doRestockFull(productId, space) {
 
 // ── Upgrades Tree ──────────────────────────────────────────────────
 const BRANCH_META = {
-  grocery:       { label: '🥗 Grocery',          color: 'var(--green)'  },
-  store:         { label: '🏪 Store Ops',         color: 'var(--blue)'   },
-  checkout:      { label: '🏧 Checkouts',         color: 'var(--cyan)'   },
-  selfcheckout:  { label: '🤖 Self-Checkout',     color: 'var(--cyan)'   },
-  clothing:      { label: '👕 Clothing',           color: 'var(--cyan)'   },
+  grocery:       { label: '🥗 Grocery',          color: 'var(--green)' },
+  store:         { label: '🏪 Store Ops',         color: 'var(--blue)'  },
+  checkout:      { label: '🏧 Checkouts',         color: 'var(--cyan)'  },
+  selfcheckout:  { label: '🤖 Self-Checkout',     color: 'var(--cyan)'  },
+  clothing:      { label: '👕 Clothing',           color: 'var(--cyan)'  },
   electronics:   { label: '📱 Electronics',        color: 'var(--orange)' },
   auto:          { label: '🚗 Automotive',         color: 'var(--yellow)' },
   outdoors:      { label: '🏹 Outdoors',           color: 'var(--red)'    },
   furniture:     { label: '🛋️ Furniture',         color: 'var(--muted)'  },
-  pharmacy:      { label: '💊 Pharmacy',           color: '#a78bfa'       },
-  pet:           { label: '🐾 Pet Shop',           color: '#fb923c'       },
-  bakery:        { label: '🥐 Bakery',             color: '#fbbf24'       },
-  toys:          { label: '🧸 Toys & Games',       color: '#f472b6'       },
 };
 const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III' };
 
@@ -4132,9 +4128,7 @@ function renderUpgrades(s) {
       upgrades.forEach(u => {
         const owned = s.upgrades.includes(u.id);
         const reqsMet = u.requires.every(r => s.upgrades.includes(r));
-        const costMult = s.diffConfig?.upgradeCostMult ?? 1;
-        const finalCost = Math.round(u.cost * costMult);
-        const canAfford = s.money >= finalCost;
+        const canAfford = s.money >= u.cost;
         const available = isShop && reqsMet && !owned;
 
         const card = document.createElement('div');
@@ -4166,11 +4160,11 @@ function renderUpgrades(s) {
           <div class="upg-footer">
             ${owned
               ? `<span class="upg-owned-badge">✅ Owned</span>`
-              : `<span class="upg-cost">$${finalCost}</span>
+              : `<span class="upg-cost">$${u.cost}</span>
                  <button class="btn xs ${available && canAfford ? 'blue' : 'secondary'}"
                    onclick="socket.emit('buyUpgrade','${u.id}')"
                    ${!available || !canAfford ? 'disabled' : ''}>
-                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${finalCost}` : 'Purchase'}
+                   ${!isShop ? 'Shop Phase' : !reqsMet ? 'Locked' : !canAfford ? `Need $${u.cost}` : 'Purchase'}
                  </button>`
             }
           </div>
