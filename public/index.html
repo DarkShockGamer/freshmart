@@ -2677,8 +2677,9 @@ socket.on('roomState', (state) => {
   renderAll(state);
 });
 
-socket.on('serveResult', ({ ok, earned, isVip, msg }) => {
+socket.on('serveResult', ({ ok, earned, isVip, msg, requiresCard, total }) => {
   if (ok) showToast(`+$${earned}${isVip ? ' ⭐ VIP BONUS!' : ''}`, isVip ? 'vip' : 'success');
+  else if (requiresCard) showToast(`💳 Card required for $${total}+ purchases! Select card payment.`, 'error');
   else showToast(msg, 'error');
 });
 
@@ -4666,6 +4667,13 @@ function checkAllScanned() {
 }
 
 function autoSelectPayMethod(method) {
+  // Purchases over $100 must use card — cash is unrealistic for large amounts
+  const effectiveTotal = getEffectiveTotal();
+  if (effectiveTotal > 100 && method === 'cash') {
+    method = 'card';
+    showToast('💳 Purchase over $100 — card payment required!', 'info');
+  }
+
   checkoutPayMethod    = method;
   checkoutTendered     = 0;
   checkoutCardApproved = false;
@@ -4900,8 +4908,9 @@ function doCardSwipe() {
 function completeCheckout() {
   if (!checkoutCanComplete || !checkoutCustomer) return;
   const cid = checkoutCustomer.id;
+  const paymentMethod = checkoutPayMethod || 'cash';
   closeCheckout();
-  socket.emit('serveCustomer', cid);
+  socket.emit('serveCustomer', { cid, paymentMethod });
 }
 
 function abandonCheckout() {
@@ -4934,8 +4943,14 @@ function startCoPatienceBar(customer) {
     barText.textContent = secLeft + 's';
     if (pct === 0) {
       clearInterval(_coPatienceInterval);
-      closeCheckout();
-      showToast(`${customer.name} lost patience and left!`, 'error');
+      // Only close checkout if the customer is no longer being attended.
+      // Once opened, the checkout overlay means the customer IS being served —
+      // the server-side timer will also wait, so we just freeze the bar at 0.
+      if (!checkoutCustomer) {
+        closeCheckout();
+        showToast(`${customer.name} lost patience and left!`, 'error');
+      }
+      // else: customer is actively being served — bar stays at 0, no close
     }
   }
   tick();
