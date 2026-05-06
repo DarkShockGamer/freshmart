@@ -741,6 +741,50 @@ function assignCustomerToLane(room, customer) {
   room.laneQueues[shortest].push(customer.id);
 }
 
+// Periodically move customers from long lanes to shorter ones.
+// Runs every tick but only shuffles when imbalance exceeds a threshold.
+function maybeRebalanceLanes(room) {
+  if (!room.laneQueues) return;
+  const openLanes = getOpenLanes(room);
+  if (openLanes.length < 2) return;
+
+  // Build current queue lengths (only unattended customers — don't yank mid-service)
+  const lengths = {};
+  openLanes.forEach(ln => {
+    const q = (room.laneQueues[ln] || []).filter(id => {
+      const c = room.customers.find(x => x.id === id);
+      return c && (!c.attendedBy || c.attendedBy.type === 'sco'); // sco-claimed are still moveable if not started
+    });
+    lengths[ln] = q.length;
+  });
+
+  const maxLen = Math.max(...Object.values(lengths));
+  const minLen = Math.min(...Object.values(lengths));
+  // Only rebalance when one lane has 2+ more customers than another
+  if (maxLen - minLen < 2) return;
+
+  const longLane  = openLanes.find(ln => lengths[ln] === maxLen);
+  const shortLane = openLanes.find(ln => lengths[ln] === minLen);
+  if (!longLane || !shortLane || longLane === shortLane) return;
+
+  // Move the last (most recently joined) unattended customer from long to short
+  const longQ = room.laneQueues[longLane] || [];
+  // Find last unattended customer in long lane
+  let movedIdx = -1;
+  for (let i = longQ.length - 1; i >= 0; i--) {
+    const c = room.customers.find(x => x.id === longQ[i]);
+    if (c && !c.attendedBy) { movedIdx = i; break; }
+  }
+  if (movedIdx === -1) return;
+
+  const custId = longQ[movedIdx];
+  room.laneQueues[longLane].splice(movedIdx, 1);
+  if (!room.laneQueues[shortLane]) room.laneQueues[shortLane] = [];
+  room.laneQueues[shortLane].push(custId);
+  const c = room.customers.find(x => x.id === custId);
+  if (c) c.laneId = shortLane;
+}
+
 // Rebalance all customers across currently open lanes
 function rebalanceLanes(room) {
   if (!room.laneQueues) room.laneQueues = {};
@@ -959,6 +1003,8 @@ function startDay(room) {
     tickAiStockers(room);
     // Self-checkout machines auto-serve customers
     tickScoMachines(room);
+    // Periodically rebalance lanes so customers move to shorter queues
+    maybeRebalanceLanes(room);
 
     emit(room);
   }, SPAWN_TICK_MS);
@@ -1185,6 +1231,37 @@ function endDay(room) {
   room.phase = 'shop';
   // Clear all pending patience timers before wiping customers
   if (room._patienceTimers) { room._patienceTimers.forEach(tid => clearTimeout(tid)); room._patienceTimers.clear(); }
+
+  // ── Drain remaining customers at close-of-day so no one is left stranded ──
+  // Auto-serve all unattended customers (player-locked ones get processed client-side).
+  const _closing = room.customers.filter(c => !c.attendedBy || c.attendedBy.type !== 'player');
+  if (_closing.length > 0) {
+    let _closingRev = 0;
+    _closing.forEach(c => {
+      let _t = 0;
+      for (const w of c.wants) {
+        const _av = room.inventory[w.id] || 0;
+        const _qty = Math.min(w.qty, _av);
+        _t += (room.prices[w.id] || 0) * _qty;
+        room.inventory[w.id] = Math.max(0, _av - _qty);
+      }
+      let _mult = 1;
+      if (room.saleActive) _mult *= 1.5;
+      if (room.upgrades.includes('loyalty')) _mult *= 1.15;
+      if (c.isVip) _mult *= 2;
+      _t = Math.round(_t * _mult);
+      _closingRev += _t;
+      room.money += _t;
+      room.totalScore += _t;
+      if (room.stats) {
+        room.stats.customersServed = (room.stats.customersServed || 0) + 1;
+        room.stats.totalRevenue = (room.stats.totalRevenue || 0) + _t;
+        if (c.isVip) room.stats.vipServed = (room.stats.vipServed || 0) + 1;
+      }
+    });
+    if (_closingRev > 0) roomLog(room, `🔔 Store closed — rushed ${_closing.length} remaining customer${_closing.length > 1 ? 's' : ''} through checkout. +${_closingRev}`);
+  }
+
   room.customers = []; room.rushActive = false; room.saleActive = false; room.theftActive = false; room.activeEvent = null;
   room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
