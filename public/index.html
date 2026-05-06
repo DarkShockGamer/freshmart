@@ -2609,7 +2609,7 @@ input::placeholder { color: var(--muted); }
           <thead>
             <tr>
               <th></th><th>Product</th>
-              <th class="center">Stock</th><th class="center">Price ($) — Cost &amp; Margin</th><th class="center">Shelf</th>
+              <th class="center">Stock</th><th class="center">Price</th><th class="center">Cost &amp; Margin</th><th class="center">Shelf</th>
             </tr>
           </thead>
           <tbody id="inv-body"></tbody>
@@ -4432,31 +4432,29 @@ function renderInventory(s) {
       </td>
       <td class="stock-cell ${stock<4?'stock-lo':'stock-ok'}">${stock}</td>
       <td style="text-align:center">
-        <div class="price-cell-wrap">
-          <div style="display:flex;align-items:center;gap:6px;justify-content:center">
-            <div class="price-stepper">
-              <button class="price-step-btn down" title="Price -1"
-                onclick="(function(btn){
-                  var inp=btn.closest('.price-stepper').querySelector('input');
-                  var v=Math.max(1,+inp.value-1); inp.value=v;
-                  socket.emit('setPrice',{productId:'${p.id}',price:v});
-                })(this)">−</button>
-              <input type="number" min="1" max="9999" value="${price}"
-                onchange="socket.emit('setPrice',{productId:'${p.id}',price:Math.max(1,+this.value)})">
-              <button class="price-step-btn up" title="Price +1"
-                onclick="(function(btn){
-                  var inp=btn.closest('.price-stepper').querySelector('input');
-                  var v=Math.min(9999,+inp.value+1); inp.value=v;
-                  socket.emit('setPrice',{productId:'${p.id}',price:v});
-                })(this)">+</button>
-            </div>
-            <span class="cost-badge ${marginClass}" title="Cost $${p.cost}/unit">cost $${p.cost} · ${marginSign}$${profit}/u</span>
-          </div>
-          <div class="demand-bar-wrap" title="Demand: ${demandPct}%" style="margin-top:4px">
-            <div class="demand-bar-fill" style="width:${demandPct}%;background:${demandColor}"></div>
-          </div>
-          <div class="demand-label" style="color:${demandColor}">${demandText} DEMAND</div>
+        <div class="price-stepper">
+          <button class="price-step-btn down" title="Price -1"
+            onclick="(function(btn){
+              var inp=btn.closest('.price-stepper').querySelector('input');
+              var v=Math.max(1,+inp.value-1); inp.value=v;
+              socket.emit('setPrice',{productId:'${p.id}',price:v});
+            })(this)">−</button>
+          <input type="number" min="1" max="9999" value="${price}"
+            onchange="socket.emit('setPrice',{productId:'${p.id}',price:Math.max(1,+this.value)})">
+          <button class="price-step-btn up" title="Price +1"
+            onclick="(function(btn){
+              var inp=btn.closest('.price-stepper').querySelector('input');
+              var v=Math.min(9999,+inp.value+1); inp.value=v;
+              socket.emit('setPrice',{productId:'${p.id}',price:v});
+            })(this)">+</button>
         </div>
+      </td>
+      <td style="text-align:center">
+        <span class="cost-badge ${marginClass}" title="Cost $${p.cost}/unit">cost $${p.cost} · ${marginSign}$${profit}/u</span>
+        <div class="demand-bar-wrap" title="Demand: ${demandPct}%" style="margin-top:4px">
+          <div class="demand-bar-fill" style="width:${demandPct}%;background:${demandColor}"></div>
+        </div>
+        <div class="demand-label" style="color:${demandColor}">${demandText} DEMAND</div>
       </td>
       <td style="text-align:center">
         <button class="toggle ${on?'on':''}" onclick="socket.emit('toggleShelf',{productId:'${p.id}'})"></button>
