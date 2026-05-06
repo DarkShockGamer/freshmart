@@ -704,6 +704,19 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null, paymentMet
   const idx = room.customers.findIndex(c => c.id === cid);
   if (idx === -1) return { ok: false, msg: 'Customer already gone!' };
   const c = room.customers[idx];
+
+  // Guard: never let AI/SCO steal a customer a human player has open at their register
+  if (isAi && c.attendedBy && c.attendedBy.type === 'player') {
+    return { ok: false, msg: 'Customer is being served by a player' };
+  }
+  // Guard: two players can't serve the same customer
+  if (!isAi && c.attendedBy && c.attendedBy.type === 'player') {
+    const myActivity = room.playerCheckoutActivity?.[sid];
+    if (!myActivity || myActivity.customerName !== c.name) {
+      return { ok: false, msg: 'Customer already being served by another cashier!' };
+    }
+  }
+
   let total = 0, hasIssues = false;
   for (const w of c.wants) {
     const avail = room.inventory[w.id] || 0;
@@ -928,7 +941,8 @@ function tickAiWorkers(room) {
         delete room._aiWorkerClaims[w.uid];
         room._aiWorkerCooldowns[w.uid] = now;
         const customer = room.customers.find(c => c.id === claim.customerId);
-        if (customer) {
+        // Only serve if the customer hasn't been picked up by a human player since
+        if (customer && (!customer.attendedBy || customer.attendedBy.type !== 'player')) {
           serveCustomer(room, customer.id, null, true, w);
         }
         w.currentActivity = null;
@@ -944,8 +958,9 @@ function tickAiWorkers(room) {
       return;
     }
 
-    const customer = room.customers.find(c => !c.attendedBy);
-    if (!customer) {
+    // Skip customers already being served by a human player
+    const customer = room.customers.find(c => !c.attendedBy || c.attendedBy.type !== 'player');
+    if (!customer || (customer.attendedBy && customer.attendedBy.type === 'player')) {
       w.currentActivity = null;
       return;
     }
@@ -987,8 +1002,9 @@ function tickScoMachines(room) {
     const lastServe = m.lastServeAt || 0;
     if (now - lastServe < cooldown) return;
 
-    const customer = room.customers.find(c => !c.attendedBy);
-    if (!customer) return;
+    // Skip customers being served by a human player
+    const customer = room.customers.find(c => !c.attendedBy || c.attendedBy.type !== 'player');
+    if (!customer || (customer.attendedBy && customer.attendedBy.type === 'player')) return;
 
     m.lastServeAt = now;
     customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
