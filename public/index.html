@@ -2745,7 +2745,7 @@ input::placeholder { color: var(--muted); }
         </div>
 
         <!-- Scan-all shortcut -->
-        <button id="co-scan-all-btn" onclick="checkoutScanAll()">⚡ Scan All Items</button>
+        <button id="co-scan-all-btn" onclick="checkoutScanAll()" style="display:none">⚡ Scan All Items</button>
 
         <!-- Payment section — shown after all items scanned -->
         <div id="co-payment-section">
@@ -4896,6 +4896,11 @@ function openCheckout(customer) {
 
   // Patience bar animation
   startCoPatienceBar(customer);
+
+  // Show Scan All button only if upgrade is owned
+  const scanAllBtn = document.getElementById('co-scan-all-btn');
+  const hasScanAll = roomState?.upgrades?.includes('scan_all_unlock');
+  scanAllBtn.style.display = hasScanAll ? '' : 'none';
 
   document.getElementById('checkout-overlay').classList.add('active');
 }
