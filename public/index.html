@@ -1072,9 +1072,9 @@ input::placeholder { color: var(--muted); }
   font-size: 11px; color: var(--muted); font-weight: 600;
 }
 #player-registers-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 /* Player register card — green theme, mirrors .register-card */
@@ -1086,20 +1086,158 @@ input::placeholder { color: var(--muted); }
   position: relative;
   transition: border-color .2s, box-shadow .2s;
   display: flex;
+  flex-direction: row;  /* register left, lane queue right */
+  align-items: stretch;
+}
+
+/* The register block (left side) — fixed width, column layout */
+.preg-register-block {
+  display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  width: 360px;
+  border-right: 2px solid var(--border);
+  position: relative;
 }
-.preg-card.active-preg {
+
+/* The customer queue lane (right side) — stretches to fill remaining space */
+.preg-lane-queue {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 58px,
+      rgba(255,255,255,.025) 58px,
+      rgba(255,255,255,.025) 60px
+    ),
+    var(--surf2);
+  padding: 10px 14px;
+  overflow-x: auto;
+  min-height: 110px;
+  position: relative;
+}
+.preg-lane-queue::-webkit-scrollbar { height: 4px; }
+.preg-lane-queue::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Empty lane message */
+.preg-lane-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.preg-lane-empty-icon { font-size: 22px; opacity: 0.5; }
+
+/* Customer token in the queue lane */
+.preg-queue-token {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surf);
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+  flex-shrink: 0;
+  min-width: 54px;
+  position: relative;
+  margin-right: 8px;
+}
+.preg-queue-token:hover {
   border-color: var(--green);
-  box-shadow: 0 0 0 2px rgba(16,185,129,.12);
+  box-shadow: 0 0 0 2px rgba(16,185,129,.18);
+  transform: translateY(-2px);
 }
-.preg-card.is-me {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(99,102,241,.10);
+.preg-queue-token.attended {
+  border-color: var(--border);
+  opacity: 0.5;
+  cursor: default;
+}
+.preg-queue-token.vip-tok {
+  border-color: gold;
+  background: rgba(255,215,0,.06);
+}
+.preg-queue-token.urgent-tok {
+  border-color: var(--red);
+}
+.preg-queue-token-emoji  { font-size: 22px; line-height: 1; }
+.preg-queue-token-name   { font-size: 8px; font-weight: 700; color: var(--fg); white-space: nowrap; max-width: 60px; overflow: hidden; text-overflow: ellipsis; }
+.preg-queue-token-items  { font-size: 7px; color: var(--muted); font-family: var(--mono); }
+.preg-queue-token-pbar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 1px;
+}
+.preg-queue-token-pfill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .5s linear;
+}
+.preg-queue-token-pfill.ok   { background: var(--green); }
+.preg-queue-token-pfill.warn { background: var(--yellow); }
+.preg-queue-token-pfill.bad  { background: var(--red); }
+
+/* Lane header label strip */
+.preg-lane-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px 0 14px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.preg-lane-header-label {
+  flex: 1;
+}
+.preg-lane-count-badge {
+  background: var(--surf);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.preg-lane-count-badge.has-customers {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-lo);
+}
+.preg-card.active-preg .preg-register-block {
+  border-right-color: var(--green);
+  box-shadow: inset -3px 0 0 rgba(16,185,129,.18);
+}
+.preg-card.is-me .preg-register-block {
+  border-right-color: var(--blue);
+  box-shadow: inset -3px 0 0 rgba(99,102,241,.12);
   opacity: .78;
 }
-.preg-card.is-me.active-preg {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 2px rgba(99,102,241,.18);
+.preg-card.is-me.active-preg .preg-register-block {
+  border-right-color: var(--blue);
+  box-shadow: inset -3px 0 0 rgba(99,102,241,.20);
 }
 
 .preg-card-header {
@@ -1344,14 +1482,14 @@ input::placeholder { color: var(--muted); }
 }
 
 /* ── Player Register Closed/Unclaimed State ── */
-.preg-unclaimed {
+.preg-unclaimed .preg-register-block {
   opacity: .5;
 }
 .preg-closed-overlay {
   position: absolute;
   inset: 0;
   background: rgba(10, 14, 20, 0.70);
-  border-radius: 15px;
+  border-radius: 0;
   z-index: 10;
   align-items: center;
   justify-content: center;
@@ -3755,67 +3893,83 @@ function renderPlayerRegisters(s) {
       card.dataset.lane = laneNum;
       card.className = 'preg-card';
       card.innerHTML = `
-        <div class="preg-card-header">
-          <div class="preg-player-dot" id="preg-dot-${laneNum}" style="background:var(--muted)">?</div>
-          <div style="flex:1;min-width:0">
-            <div class="preg-player-name" id="preg-name-${laneNum}">Available</div>
-            <div class="preg-player-sub" id="preg-sub-${laneNum}">Lane ${laneNum} — open register</div>
+        <div class="preg-register-block">
+          <div class="preg-card-header">
+            <div class="preg-player-dot" id="preg-dot-${laneNum}" style="background:var(--muted)">?</div>
+            <div style="flex:1;min-width:0">
+              <div class="preg-player-name" id="preg-name-${laneNum}">Available</div>
+              <div class="preg-player-sub" id="preg-sub-${laneNum}">Lane ${laneNum} — open register</div>
+            </div>
+            <span class="preg-lane-badge">Lane ${laneNum}</span>
+            <span class="preg-me-badge" id="preg-me-${laneNum}" style="display:none">YOU</span>
           </div>
-          <span class="preg-lane-badge">Lane ${laneNum}</span>
-          <span class="preg-me-badge" id="preg-me-${laneNum}" style="display:none">YOU</span>
-        </div>
 
-        <div class="preg-cust-bar" id="preg-custbar-${laneNum}">
-          <span class="preg-cust-emoji"></span>
-          <span class="preg-cust-name"></span>
-          <span class="preg-cust-items"></span>
-        </div>
+          <div class="preg-cust-bar" id="preg-custbar-${laneNum}">
+            <span class="preg-cust-emoji"></span>
+            <span class="preg-cust-name"></span>
+            <span class="preg-cust-items"></span>
+          </div>
 
-        <div class="preg-body">
-          <div class="preg-conveyor">
-            <div class="preg-belt-label">🛒 Conveyor Belt</div>
-            <div class="preg-belt-area">
-              <div class="preg-belt-line" id="preg-beltline-${laneNum}"></div>
-              <div class="preg-items-unscanned" id="preg-unscanned-${laneNum}"></div>
-              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
-              <div class="preg-items-scanned" id="preg-scanned-${laneNum}"></div>
-              <div class="preg-idle-msg" id="preg-idle-${laneNum}">
-                <span class="preg-idle-icon">🧑‍💼</span>
-                READY
+          <div class="preg-body">
+            <div class="preg-conveyor">
+              <div class="preg-belt-label">🛒 Conveyor Belt</div>
+              <div class="preg-belt-area">
+                <div class="preg-belt-line" id="preg-beltline-${laneNum}"></div>
+                <div class="preg-items-unscanned" id="preg-unscanned-${laneNum}"></div>
+                <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+                <div class="preg-items-scanned" id="preg-scanned-${laneNum}"></div>
+                <div class="preg-idle-msg" id="preg-idle-${laneNum}">
+                  <span class="preg-idle-icon">🧑‍💼</span>
+                  READY
+                </div>
+              </div>
+            </div>
+            <div class="preg-register">
+              <div class="preg-total-display">
+                <div class="preg-total-label">Total Due</div>
+                <div class="preg-total-amount" id="preg-total-${laneNum}">$0.00</div>
+                <div class="preg-items-receipt" id="preg-receipt-${laneNum}"></div>
+              </div>
+              <div class="preg-payment-area" id="preg-pay-${laneNum}">
+                <div class="preg-pay-idle">
+                  <span class="preg-pay-idle-icon">💳</span>
+                  Awaiting<br>payment
+                </div>
+                <div class="preg-card-vis" id="preg-cardvis-${laneNum}">
+                  <div class="preg-card-chip"></div>
+                  <div class="preg-card-num">•••• ••••</div>
+                  <div class="preg-card-brand">VISA</div>
+                </div>
+                <div class="preg-swipe-terminal">▼ SWIPE ▼</div>
+                <div class="preg-approved" id="preg-approved-${laneNum}">
+                  <span class="preg-approved-icon">✅</span>
+                  APPROVED
+                </div>
               </div>
             </div>
           </div>
-          <div class="preg-register">
-            <div class="preg-total-display">
-              <div class="preg-total-label">Total Due</div>
-              <div class="preg-total-amount" id="preg-total-${laneNum}">$0.00</div>
-              <div class="preg-items-receipt" id="preg-receipt-${laneNum}"></div>
-            </div>
-            <div class="preg-payment-area" id="preg-pay-${laneNum}">
-              <div class="preg-pay-idle">
-                <span class="preg-pay-idle-icon">💳</span>
-                Awaiting<br>payment
-              </div>
-              <div class="preg-card-vis" id="preg-cardvis-${laneNum}">
-                <div class="preg-card-chip"></div>
-                <div class="preg-card-num">•••• ••••</div>
-                <div class="preg-card-brand">VISA</div>
-              </div>
-              <div class="preg-swipe-terminal">▼ SWIPE ▼</div>
-              <div class="preg-approved" id="preg-approved-${laneNum}">
-                <span class="preg-approved-icon">✅</span>
-                APPROVED
-              </div>
+
+          <!-- Closed overlay — shown when no player has claimed this lane -->
+          <div class="preg-closed-overlay" id="preg-closed-${laneNum}" style="display:none">
+            <div class="preg-closed-sign">
+              <span style="font-size:26px">🚫</span>
+              <div class="preg-closed-text">CLOSED</div>
+              <div class="preg-closed-sub">Available — not yet claimed</div>
             </div>
           </div>
         </div>
 
-        <!-- Closed overlay — shown when no player has claimed this lane -->
-        <div class="preg-closed-overlay" id="preg-closed-${laneNum}" style="display:none">
-          <div class="preg-closed-sign">
-            <span style="font-size:26px">🚫</span>
-            <div class="preg-closed-text">CLOSED</div>
-            <div class="preg-closed-sub">Available — not yet claimed</div>
+        <!-- Customer queue lane stretching to the right -->
+        <div class="preg-lane-wrap" style="display:flex;flex-direction:column;flex:1;min-width:0;border-left:none">
+          <div class="preg-lane-header">
+            <span class="preg-lane-header-label">◀ customers in line</span>
+            <span class="preg-lane-count-badge" id="preg-lcount-${laneNum}">0 waiting</span>
+          </div>
+          <div class="preg-lane-queue" id="preg-queue-${laneNum}">
+            <div class="preg-lane-empty" id="preg-qempty-${laneNum}">
+              <span class="preg-lane-empty-icon">🏬</span>
+              No queue
+            </div>
           </div>
         </div>
       `;
@@ -3860,6 +4014,7 @@ function renderPlayerRegisters(s) {
       card.classList.add('preg-unclaimed');
       if (closedOverlay) closedOverlay.style.display = 'flex';
       if (custBar) custBar.style.display = 'none';
+      renderLaneQueue(laneNum, null, s);
       continue;
     }
 
@@ -3890,6 +4045,7 @@ function renderPlayerRegisters(s) {
       if (cardVis) { cardVis.classList.remove('swiping'); cardVis.style.display = 'none'; }
       clearTimeout(_pregScanTimers[pid]);
       _pregLastActivity[pid] = null;
+      renderLaneQueue(laneNum, p, s);
       continue;
     }
 
@@ -4012,7 +4168,102 @@ function renderPlayerRegisters(s) {
     }
 
     _pregLastActivity[pid] = act;
+
+    // ── Render the customer queue lane ─────────────────────────────
+    // All unattended customers show in every open lane's queue (they can go to any register).
+    // Customers currently being served by this lane's player show first, others queue behind.
+    renderLaneQueue(laneNum, p, s);
   }
+}
+
+function renderLaneQueue(laneNum, player, s) {
+  const queueEl  = document.getElementById(`preg-queue-${laneNum}`);
+  const emptyEl  = document.getElementById(`preg-qempty-${laneNum}`);
+  const countEl  = document.getElementById(`preg-lcount-${laneNum}`);
+  if (!queueEl) return;
+
+  const customers = s.customers || [];
+  // Show all waiting customers (not attended by AI/SCO), sorted: attended-by-this-player first
+  const myPid = player?.id;
+  const queue = customers.filter(c =>
+    !c.attendedBy || c.attendedBy.type === 'player'
+  ).sort((a, b) => {
+    // Current player's customer goes first (at front of line = rightmost = register side)
+    const aIsMe = a.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === a.name;
+    const bIsMe = b.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === b.name;
+    if (aIsMe && !bIsMe) return -1;
+    if (bIsMe && !aIsMe) return 1;
+    // Then sort by patience ascending (most urgent first)
+    return a.patience - b.patience;
+  });
+
+  if (countEl) {
+    countEl.textContent = queue.length > 0 ? `${queue.length} waiting` : '0 waiting';
+    countEl.className = 'preg-lane-count-badge' + (queue.length > 0 ? ' has-customers' : '');
+  }
+
+  // Track which customer ids are already rendered
+  const existingIds = new Set([...queueEl.querySelectorAll('.preg-queue-token')].map(t => +t.dataset.cid));
+  const incomingIds = new Set(queue.map(c => c.id));
+
+  // Remove stale tokens
+  existingIds.forEach(id => {
+    if (!incomingIds.has(id)) queueEl.querySelector(`.preg-queue-token[data-cid="${id}"]`)?.remove();
+  });
+
+  if (queue.length === 0) {
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // Add/update tokens — render right-to-left (first customer closest to register on left)
+  queue.forEach((c, idx) => {
+    const pct = Math.round((c.patience / c.maxPatience) * 100);
+    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+    const isAttended = !!c.attendedBy;
+    const isVip = c.isVip;
+    const isUrgent = pct < 25;
+    const totalItems = c.wants.reduce((t, w) => t + w.qty, 0);
+
+    let tok = queueEl.querySelector(`.preg-queue-token[data-cid="${c.id}"]`);
+    if (!tok) {
+      tok = document.createElement('div');
+      tok.dataset.cid = c.id;
+      tok.innerHTML = `
+        <div class="preg-queue-token-emoji">${c.emoji}</div>
+        <div class="preg-queue-token-name">${c.name}</div>
+        <div class="preg-queue-token-items">${totalItems} item${totalItems !== 1 ? 's' : ''}</div>
+        <div class="preg-queue-token-pbar"><div class="preg-queue-token-pfill ok" style="width:100%"></div></div>
+      `;
+      // Insert in correct position (tokens already sorted by idx)
+      const existing = queueEl.querySelectorAll('.preg-queue-token');
+      if (idx < existing.length) {
+        queueEl.insertBefore(tok, existing[idx]);
+      } else {
+        queueEl.appendChild(tok);
+      }
+    }
+
+    // Update classes
+    tok.className = 'preg-queue-token' +
+      (isAttended ? ' attended' : '') +
+      (isVip ? ' vip-tok' : '') +
+      (isUrgent && !isAttended ? ' urgent-tok' : '');
+
+    // Update patience bar
+    const fill = tok.querySelector('.preg-queue-token-pfill');
+    if (fill) { fill.style.width = pct + '%'; fill.className = 'preg-queue-token-pfill ' + barClass; }
+
+    // Clickable only if not attended
+    if (!isAttended) {
+      tok.style.cursor = 'pointer';
+      tok.onclick = () => openCheckout(c);
+    } else {
+      tok.style.cursor = 'default';
+      tok.onclick = null;
+    }
+  });
 }
 
 
