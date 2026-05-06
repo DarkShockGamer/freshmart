@@ -248,6 +248,37 @@ const UPGRADES = [
     requiresSize: 2,
   },
 
+  // ══════════════ REGISTER UPGRADES BRANCH ══════════════
+  {
+    id: 'register_training', name: 'Register Training', emoji: '🎓', cost: 600, tier: 1, section: 'register',
+    desc: 'Train all AI cashiers to work 25% faster. Reduces their serve cooldown.',
+    requires: [], unlocks: ['barcode_scanners', 'express_checkout'],
+  },
+  {
+    id: 'barcode_scanners', name: 'Barcode Scanners', emoji: '📡', cost: 1000, tier: 2, section: 'register',
+    desc: 'Upgrade to laser barcode scanners. AI cashiers serve 40% faster, player Scan All is instant.',
+    requires: ['register_training'], unlocks: ['automated_bagging'],
+    requiresSize: 1,
+  },
+  {
+    id: 'express_checkout', name: 'Express Lane Signs', emoji: '⚡', cost: 900, tier: 2, section: 'register',
+    desc: 'Add express lane signs. Customers with small baskets skip to front of queue, boosting throughput.',
+    requires: ['register_training'], unlocks: ['price_checker'],
+    requiresSize: 1,
+  },
+  {
+    id: 'automated_bagging', name: 'Automated Bagging', emoji: '🛍️', cost: 2200, tier: 3, section: 'register',
+    desc: 'Robotic bagging arms on every register. AI cashiers serve 30% faster on top of all prior bonuses.',
+    requires: ['barcode_scanners'], unlocks: [],
+    requiresSize: 2,
+  },
+  {
+    id: 'price_checker', name: 'Price Checker Kiosks', emoji: '🏷️', cost: 1800, tier: 3, section: 'register',
+    desc: 'Customers resolve their own price queries. All customers gain +30% patience at checkout.',
+    requires: ['express_checkout'], unlocks: [],
+    requiresSize: 2,
+  },
+
   // ══════════════ SELF-CHECKOUT BRANCH ══════════════
   {
     id: 'sco_unlock', name: 'Self-Checkout Area', emoji: '🤖', cost: 2500, tier: 1, section: 'selfcheckout',
@@ -691,7 +722,10 @@ function spawnCustomer(room) {
   // so they'll wait longer at the register too. Base is much more generous than before.
   const itemCount = wants.reduce((sum, w) => sum + w.qty, 0);
   const basePatience = 35 + Math.floor(Math.random() * 20) + itemCount * 4;
-  const patience = Math.max(20, Math.round(basePatience * diff.customerPatience));
+  let rawPatience = Math.max(20, Math.round(basePatience * diff.customerPatience));
+  // Price Checker Kiosks upgrade: customers are 30% more patient at checkout
+  if (room.upgrades.includes('price_checker')) rawPatience = Math.round(rawPatience * 1.30);
+  const patience = rawPatience;
   const c = {
     id: room.nextCustomerId++,
     name: CUSTOMER_NAMES[Math.floor(Math.random()*CUSTOMER_NAMES.length)],
@@ -738,7 +772,13 @@ function assignCustomerToLane(room, customer) {
   });
   customer.laneId = shortest;
   if (!room.laneQueues[shortest]) room.laneQueues[shortest] = [];
-  room.laneQueues[shortest].push(customer.id);
+  // Express Lane Signs: single-item customers jump to front of the queue
+  const totalItems = customer.wants.reduce((s, w) => s + w.qty, 0);
+  if (room.upgrades && room.upgrades.includes('express_checkout') && totalItems === 1) {
+    room.laneQueues[shortest].unshift(customer.id);
+  } else {
+    room.laneQueues[shortest].push(customer.id);
+  }
 }
 
 // Periodically move customers from long lanes to shorter ones.
@@ -1068,7 +1108,12 @@ function tickAiWorkers(room) {
     }
 
     // Phase 1: cooldown check, then claim an unattended customer
-    const cooldown = AI_SERVE_BASE_MS / (w.speed || 1.0);
+    // Register upgrades stack multiplicatively on top of worker speed
+    let registerSpeedMult = 1.0;
+    if (room.upgrades.includes('register_training')) registerSpeedMult *= 1.25;
+    if (room.upgrades.includes('barcode_scanners'))  registerSpeedMult *= 1.40;
+    if (room.upgrades.includes('automated_bagging')) registerSpeedMult *= 1.30;
+    const cooldown = AI_SERVE_BASE_MS / ((w.speed || 1.0) * registerSpeedMult);
     if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) {
       // Keep currentActivity null while on cooldown (idle)
       if (!room._aiWorkerClaims[w.uid]) w.currentActivity = null;
