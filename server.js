@@ -33,6 +33,15 @@ const ALL_PRODUCTS = [
   { id: 'wine',     name: 'Wine',        emoji: '🍷', cost: 8,  basePrice: 18, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
   { id: 'lobster',  name: 'Lobster',     emoji: '🦞', cost: 15, basePrice: 35, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
   { id: 'truffle',  name: 'Truffles',    emoji: '🍄', cost: 20, basePrice: 50, category: 'Grocery', section: 'grocery', requires: 'grocery_l4' },
+  // ── Unlocked via grocery_l5 ──
+  { id: 'sushi',    name: 'Sushi Pack',  emoji: '🍱', cost: 12, basePrice: 26, category: 'Grocery', section: 'grocery', requires: 'grocery_l5' },
+  { id: 'tacos',    name: 'Taco Kit',    emoji: '🌮', cost: 6,  basePrice: 14, category: 'Grocery', section: 'grocery', requires: 'grocery_l5' },
+  { id: 'pasta',    name: 'Fresh Pasta', emoji: '🍝', cost: 5,  basePrice: 12, category: 'Grocery', section: 'grocery', requires: 'grocery_l5' },
+  { id: 'curry',    name: 'Curry Sauce', emoji: '🫕', cost: 7,  basePrice: 16, category: 'Grocery', section: 'grocery', requires: 'grocery_l5' },
+  // ── Unlocked via grocery_l6 ──
+  { id: 'wagyu',    name: 'Wagyu Beef',  emoji: '🥩', cost: 40, basePrice: 90, category: 'Grocery', section: 'grocery', requires: 'grocery_l6' },
+  { id: 'champagne',name: 'Champagne',   emoji: '🍾', cost: 25, basePrice: 60, category: 'Grocery', section: 'grocery', requires: 'grocery_l6' },
+  { id: 'honeycomb',name: 'Raw Honeycomb',emoji: '🍯',cost: 18, basePrice: 42, category: 'Grocery', section: 'grocery', requires: 'grocery_l6' },
 
   // ── Clothing section ──
   { id: 'tshirt',   name: 'T-Shirt',     emoji: '👕', cost: 5,  basePrice: 18, category: 'Clothing', section: 'clothing', requires: 'clothing_l1' },
@@ -108,9 +117,21 @@ const UPGRADES = [
   },
   {
     id: 'grocery_l4', name: 'Gourmet Market', emoji: '🦞', cost: 2000, tier: 3, section: 'grocery',
-    desc: 'Unlock wine, lobster & truffles. Highest-margin food items in the game.',
-    requires: ['grocery_l3'], unlocks: [],
+    desc: 'Unlock wine, lobster & truffles. Premium food items with top margins.',
+    requires: ['grocery_l3'], unlocks: ['grocery_l5'],
     requiresSize: 2,
+  },
+  {
+    id: 'grocery_l5', name: 'International Aisle', emoji: '🌍', cost: 4000, tier: 4, section: 'grocery',
+    desc: 'Unlock sushi packs, taco kits, fresh pasta & curry sauce. Global flavors bring in food-savvy shoppers.',
+    requires: ['grocery_l4'], unlocks: ['grocery_l6'],
+    requiresSize: 3,
+  },
+  {
+    id: 'grocery_l6', name: 'Farm-to-Table', emoji: '🌿', cost: 8000, tier: 5, section: 'grocery',
+    desc: 'Unlock wagyu beef, champagne & raw honeycomb. The rarest, highest-margin items in the entire store.',
+    requires: ['grocery_l5'], unlocks: [],
+    requiresSize: 3,
   },
 
   // ══════════════ STORE UPGRADES BRANCH ══════════════
