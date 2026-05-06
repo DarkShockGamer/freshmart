@@ -629,13 +629,21 @@ function schedPatienceTimer(room, cust, ms) {
   const existing = room._patienceTimers.get(cust.id);
   if (existing) clearTimeout(existing);
   const tid = setTimeout(() => {
-    // Never fire while customer is actively being served
-    if (cust.attendedBy) return;
-    const idx = room.customers.findIndex(x => x.id === cust.id);
+    // Never remove a customer while they are actively being attended —
+    // re-check the live customer object from the array (not the closure) so
+    // we always see the latest attendedBy value.
+    const liveCustomer = room.customers.find(x => x.id === cust.id);
+    if (!liveCustomer) { room._patienceTimers.delete(cust.id); return; }
+    if (liveCustomer.attendedBy) {
+      // Still being served — reschedule a short poll and keep waiting
+      schedPatienceTimer(room, liveCustomer, 3000);
+      return;
+    }
+    const idx = room.customers.indexOf(liveCustomer);
     if (idx !== -1) {
       const repLoss = (room.diff || DIFFICULTY_CONFIGS.normal).repLossUnserved;
       room.reputation = Math.max(0, room.reputation - repLoss);
-      roomLog(room, `😤 ${cust.name} left unserved! Rep -${repLoss}`);
+      roomLog(room, `😤 ${liveCustomer.name} left unserved! Rep -${repLoss}`);
       room.customers.splice(idx, 1);
       if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
       room._patienceTimers.delete(cust.id);
@@ -691,7 +699,7 @@ function spawnCustomer(room) {
   schedPatienceTimer(room, c, patience * 1000);
 }
 
-function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
+function serveCustomer(room, cid, sid, isAi = false, aiWorker = null, paymentMethod = 'cash') {
   if (room.phase !== 'playing') return { ok: false, msg: 'Game not active' };
   const idx = room.customers.findIndex(c => c.id === cid);
   if (idx === -1) return { ok: false, msg: 'Customer already gone!' };
@@ -709,6 +717,16 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null) {
   if (room.upgrades.includes('loyalty')) mult *= 1.15;
   if (c.isVip) mult *= 2;
   total = Math.round(total * mult);
+
+  // Enforce card-only for purchases over $100
+  if (!isAi && total > 100 && paymentMethod !== 'card') {
+    // Restore inventory — sale is being rejected, put stock back on shelves
+    for (const w of c.wants) {
+      const taken = Math.min(w.qty, (room.inventory[w.id] || 0) + w.qty);
+      room.inventory[w.id] = (room.inventory[w.id] || 0) + taken;
+    }
+    return { ok: false, msg: `Purchases over $100 require card payment! Total: $${total}`, requiresCard: true, total };
+  }
   room.money += total;
   room.totalScore += total;
   room.reputation = Math.max(0, Math.min(100, room.reputation + (hasIssues ? -2 : 1)));
@@ -1403,7 +1421,16 @@ io.on('connection', (socket) => {
     emit(room);
   });
 
-  socket.on('serveCustomer', (cid) => {
+  socket.on('serveCustomer', (payload) => {
+    // Support both legacy (plain cid) and new ({ cid, paymentMethod }) format
+    let cid, paymentMethod;
+    if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+      cid = payload.cid;
+      paymentMethod = payload.paymentMethod || 'cash';
+    } else {
+      cid = payload;
+      paymentMethod = 'cash';
+    }
     const room = rooms.get(socketRoom.get(socket.id));
     if (!room) return;
     if (!room.checkoutLocks) room.checkoutLocks = {};
@@ -1419,7 +1446,12 @@ io.on('connection', (socket) => {
       }
       room.checkoutLocks[socket.id] = true;
     }
-    const result = serveCustomer(room, cid, socket.id);
+    const result = serveCustomer(room, cid, socket.id, false, null, paymentMethod || 'cash');
+    if (!result.ok && result.requiresCard) {
+      // Don't release the lock — player can retry with card
+      socket.emit('serveResult', result);
+      return;
+    }
     delete room.checkoutLocks[socket.id]; // release after serve
     if (room.playerCheckoutActivity) delete room.playerCheckoutActivity[socket.id];
     socket.emit('serveResult', result);
