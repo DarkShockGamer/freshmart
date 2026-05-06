@@ -3573,6 +3573,7 @@ function renderScoLaneQueue(uid, s) {
     tok.style.cursor = 'default';
     tok.onclick = null; // SCO lane — customers self-checkout, not player-clickable
   });
+}
 
 // ── AI Worker Registers ────────────────────────────
 const _regLastActivity = {};
@@ -3897,7 +3898,7 @@ function renderAiLaneQueue(uid, laneId, s) {
     tok.style.cursor = 'default';
     tok.onclick = null; // AI lane — not player-clickable
   });
-
+}
 
 // ── Player Registers ──────────────────────────────
 // Track activity per player for animation continuity
