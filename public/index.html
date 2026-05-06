@@ -800,8 +800,8 @@ input::placeholder { color: var(--muted); }
   font-size: 11px; color: var(--muted); font-weight: 600;
 }
 #registers-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
 }
 
@@ -1579,8 +1579,8 @@ input::placeholder { color: var(--muted); }
   font-size: 11px; color: var(--muted); font-weight: 600;
 }
 #sco-machines-row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
 }
 
@@ -3087,8 +3087,10 @@ function renderHeader(s) {
   const timerEl = document.getElementById('h-timer');
   if (s.phase === 'playing') {
     timerEl.style.display = 'flex';
-    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
-    document.getElementById('h-time').textContent = m+':'+(sec<10?'0':'')+sec;
+    const gt = s.gameTime;
+    if (gt) {
+      document.getElementById('h-time').textContent = gt.hour + ':' + (gt.minute < 10 ? '0' : '') + gt.minute + ' ' + gt.ampm;
+    }
   } else {
     timerEl.style.display = 'none';
   }
@@ -3368,6 +3370,8 @@ function renderScoMachines(s) {
       if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
       clearTimeout(_scoScanTimers[m.uid]);
       _scoLastActivity[m.uid] = null;
+      // Still update SCO lane queue so tokens clear on day end
+      renderScoLaneQueue(m.uid, s);
       return;
     }
 
@@ -3709,6 +3713,8 @@ function renderAiRegisters(s) {
       if (cardEl) { cardEl.classList.remove('swiping'); cardEl.style.display = 'none'; }
       clearTimeout(_regScanTimers[w.uid]);
       _regLastActivity[w.uid] = null;
+      // Still update lane queue so tokens clear on day end
+      renderAiLaneQueue(w.uid, w.assignedLane, s);
       return;
     }
 
@@ -4647,9 +4653,14 @@ function renderSidebar(s) {
   // timer
   const t = document.getElementById('sb-timer');
   if (s.phase === 'playing') {
-    const m = Math.floor(s.dayTimer/60), sec = s.dayTimer%60;
-    t.textContent = m+':'+(sec<10?'0':'')+sec;
-    t.className = 'timer-big' + (s.dayTimer<20?' urgent':'');
+    const gt = s.gameTime;
+    if (gt) {
+      const isClosing = gt.totalMinutes >= 780; // last 60 game-mins (~15s real)
+      t.textContent = gt.hour + ':' + (gt.minute < 10 ? '0' : '') + gt.minute + ' ' + gt.ampm;
+      t.className = 'timer-big' + (isClosing ? ' urgent' : '');
+    } else {
+      t.textContent = '—'; t.className = 'timer-big';
+    }
   } else if (s.phase === 'shop') {
     t.textContent = s.isMorning ? '🌅' : 'SHOP'; t.className = 'timer-big shop-mode';
   } else {
