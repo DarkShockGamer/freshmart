@@ -402,6 +402,7 @@ input::placeholder { color: var(--muted); }
 }
 .attended-badge.worker { color: var(--blue); background: var(--blue-lo); border-color: var(--blue); }
 .attended-badge.sco    { color: var(--cyan); background: rgba(6,182,212,.12); border-color: var(--cyan); }
+.attended-badge.player { color: var(--green); background: rgba(16,185,129,.12); border-color: var(--green); }
 
 /* ── Attending overlay (blurs card content, shows label centered) ── */
 .ccard.attended .ccard-inner { filter: blur(2.5px); pointer-events: none; }
@@ -3144,7 +3145,7 @@ function renderCustomers(s) {
     const serveLabel = card.querySelector('.serve-label');
 
     if (takenByOther) {
-      const typeClass = att.type === 'worker' ? 'worker' : att.type === 'sco' ? 'sco' : '';
+      const typeClass = att.type === 'worker' ? 'worker' : att.type === 'sco' ? 'sco' : att.type === 'player' ? 'player' : '';
       badge.className = 'attended-badge' + (typeClass ? ' '+typeClass : '');
       badge.style.display = 'flex';
       badge.textContent = att.emoji + ' ' + att.name + ' is handling this';
