@@ -243,9 +243,21 @@ const UPGRADES = [
   },
   {
     id: 'checkout_l4', name: 'Fourth Checkout Lane', emoji: '🏢', cost: 4500, tier: 3, section: 'checkout',
-    desc: 'Open a 4th lane. Maximum throughput for a booming store.',
-    requires: ['checkout_l3'], unlocks: [],
+    desc: 'Open a 4th lane. Serious throughput for a booming store.',
+    requires: ['checkout_l3'], unlocks: ['checkout_l5'],
     requiresSize: 2,
+  },
+  {
+    id: 'checkout_l5', name: 'Fifth Checkout Lane', emoji: '🏦', cost: 8000, tier: 4, section: 'checkout',
+    desc: 'Open a 5th checkout lane. Assign an extra player or AI cashier to crush rush hour.',
+    requires: ['checkout_l4'], unlocks: ['checkout_l6'],
+    requiresSize: 3,
+  },
+  {
+    id: 'checkout_l6', name: 'Sixth Checkout Lane', emoji: '🏛️', cost: 15000, tier: 4, section: 'checkout',
+    desc: 'Open a 6th checkout lane — the ultimate checkout floor. Never leave a customer waiting again.',
+    requires: ['checkout_l5'], unlocks: [],
+    requiresSize: 3,
   },
 
   // ══════════════ REGISTER UPGRADES BRANCH ══════════════
@@ -269,14 +281,38 @@ const UPGRADES = [
   {
     id: 'automated_bagging', name: 'Automated Bagging', emoji: '🛍️', cost: 2200, tier: 3, section: 'register',
     desc: 'Robotic bagging arms on every register. AI cashiers serve 30% faster on top of all prior bonuses.',
-    requires: ['barcode_scanners'], unlocks: [],
+    requires: ['barcode_scanners'], unlocks: ['cashier_headsets'],
     requiresSize: 2,
   },
   {
     id: 'price_checker', name: 'Price Checker Kiosks', emoji: '🏷️', cost: 1800, tier: 3, section: 'register',
     desc: 'Customers resolve their own price queries. All customers gain +30% patience at checkout.',
-    requires: ['express_checkout'], unlocks: [],
+    requires: ['express_checkout'], unlocks: ['smart_queue_display'],
     requiresSize: 2,
+  },
+  {
+    id: 'cashier_headsets', name: 'Cashier Headsets', emoji: '🎧', cost: 3500, tier: 4, section: 'register',
+    desc: 'AI cashiers communicate instantly via headset. Cuts their response-claim delay in half — they snap to customers much faster.',
+    requires: ['automated_bagging'], unlocks: ['veteran_cashier'],
+    requiresSize: 2,
+  },
+  {
+    id: 'smart_queue_display', name: 'Smart Queue Display', emoji: '📊', cost: 3000, tier: 4, section: 'register',
+    desc: 'Digital boards guide customers to the shortest lane automatically. Reduces idle AI cashier time by distributing queues evenly.',
+    requires: ['price_checker'], unlocks: ['veteran_cashier'],
+    requiresSize: 2,
+  },
+  {
+    id: 'veteran_cashier', name: 'Veteran Cashier Program', emoji: '🏅', cost: 6000, tier: 5, section: 'register',
+    desc: 'Elite cashier training for all AI workers. AI cashiers operate 50% faster on top of all prior bonuses. Players also scan items 20% quicker.',
+    requires: ['cashier_headsets', 'smart_queue_display'], unlocks: ['double_shift_registers'],
+    requiresSize: 3,
+  },
+  {
+    id: 'double_shift_registers', name: 'Double-Shift Registers', emoji: '⏱️', cost: 10000, tier: 5, section: 'register',
+    desc: 'Registers never go idle. AI cashiers keep serving back-to-back with virtually no cooldown between customers.',
+    requires: ['veteran_cashier'], unlocks: [],
+    requiresSize: 3,
   },
 
   // ══════════════ SELF-CHECKOUT BRANCH ══════════════
@@ -503,6 +539,8 @@ function createRoom(hostId, hostName, save = null, difficulty = 'normal') {
     if (upgs.includes('checkout_l2')) lanes = 2;
     if (upgs.includes('checkout_l3')) lanes = 3;
     if (upgs.includes('checkout_l4')) lanes = 4;
+    if (upgs.includes('checkout_l5')) lanes = 5;
+    if (upgs.includes('checkout_l6')) lanes = 6;
     return lanes;
   }
 
@@ -575,6 +613,8 @@ function getCheckoutLanes(upgs) {
   if (upgs.includes('checkout_l2')) lanes = 2;
   if (upgs.includes('checkout_l3')) lanes = 3;
   if (upgs.includes('checkout_l4')) lanes = 4;
+  if (upgs.includes('checkout_l5')) lanes = 5;
+  if (upgs.includes('checkout_l6')) lanes = 6;
   return lanes;
 }
 
@@ -800,8 +840,10 @@ function maybeRebalanceLanes(room) {
 
   const maxLen = Math.max(...Object.values(lengths));
   const minLen = Math.min(...Object.values(lengths));
+  // Smart Queue Display: rebalance even when lanes differ by just 1 customer
+  const rebalanceThreshold = (room.upgrades && room.upgrades.includes('smart_queue_display')) ? 1 : 2;
   // Only rebalance when one lane has 2+ more customers than another
-  if (maxLen - minLen < 2) return;
+  if (maxLen - minLen < rebalanceThreshold) return;
 
   const longLane  = openLanes.find(ln => lengths[ln] === maxLen);
   const shortLane = openLanes.find(ln => lengths[ln] === minLen);
@@ -1091,10 +1133,13 @@ function tickAiWorkers(room) {
       return;
     }
 
+    // Headsets reduce how long the "attending" overlay is shown before serving
+    const claimDisplayMs = room.upgrades.includes('cashier_headsets') ? AI_CLAIM_DISPLAY_MS * 0.5 : AI_CLAIM_DISPLAY_MS;
+
     // Phase 2: worker already claimed a customer — serve them after display delay
     const claim = room._aiWorkerClaims[w.uid];
     if (claim) {
-      if (now - claim.claimedAt >= AI_CLAIM_DISPLAY_MS) {
+      if (now - claim.claimedAt >= claimDisplayMs) {
         delete room._aiWorkerClaims[w.uid];
         room._aiWorkerCooldowns[w.uid] = now;
         const customer = room.customers.find(c => c.id === claim.customerId);
@@ -1113,6 +1158,8 @@ function tickAiWorkers(room) {
     if (room.upgrades.includes('register_training')) registerSpeedMult *= 1.25;
     if (room.upgrades.includes('barcode_scanners'))  registerSpeedMult *= 1.40;
     if (room.upgrades.includes('automated_bagging')) registerSpeedMult *= 1.30;
+    if (room.upgrades.includes('veteran_cashier'))   registerSpeedMult *= 1.50;
+    if (room.upgrades.includes('double_shift_registers')) registerSpeedMult *= 2.00;
     const cooldown = AI_SERVE_BASE_MS / ((w.speed || 1.0) * registerSpeedMult);
     if (now - (room._aiWorkerCooldowns[w.uid] || 0) < cooldown) {
       // Keep currentActivity null while on cooldown (idle)
