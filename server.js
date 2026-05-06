@@ -958,8 +958,22 @@ function tickAiWorkers(room) {
       return;
     }
 
-    // Skip customers already being served by a human player
-    const customer = room.customers.find(c => !c.attendedBy || c.attendedBy.type !== 'player');
+    // Skip customers already being served by a human player or locked at checkout
+    const lockedIds = new Set(
+      room.customers
+        .filter(c => c.attendedBy?.type === 'player')
+        .map(c => c.id)
+    );
+    if (room.playerCheckoutActivity) {
+      Object.values(room.playerCheckoutActivity).forEach(act => {
+        const lc = room.customers.find(c => c.name === act.customerName);
+        if (lc) lockedIds.add(lc.id);
+      });
+    }
+    const customer = room.customers.find(c =>
+      !lockedIds.has(c.id) &&
+      (!c.attendedBy || c.attendedBy.type !== 'player')
+    );
     if (!customer || (customer.attendedBy && customer.attendedBy.type === 'player')) {
       w.currentActivity = null;
       return;
@@ -1002,9 +1016,25 @@ function tickScoMachines(room) {
     const lastServe = m.lastServeAt || 0;
     if (now - lastServe < cooldown) return;
 
-    // Skip customers being served by a human player
-    const customer = room.customers.find(c => !c.attendedBy || c.attendedBy.type !== 'player');
-    if (!customer || (customer.attendedBy && customer.attendedBy.type === 'player')) return;
+    // Skip customers being served by a human player OR locked by a player at checkout
+    const lockedCustomerIds = new Set(
+      room.customers
+        .filter(c => c.attendedBy?.type === 'player')
+        .map(c => c.id)
+    );
+    // Also skip any customer whose id is the one a player has locked (via checkoutLocks + playerCheckoutActivity)
+    if (room.playerCheckoutActivity) {
+      Object.values(room.playerCheckoutActivity).forEach(act => {
+        // find the customer by name match as a fallback
+        const lc = room.customers.find(c => c.name === act.customerName);
+        if (lc) lockedCustomerIds.add(lc.id);
+      });
+    }
+    const customer = room.customers.find(c =>
+      !lockedCustomerIds.has(c.id) &&
+      (!c.attendedBy || c.attendedBy.type === 'sco')
+    );
+    if (!customer) return;
 
     m.lastServeAt = now;
     customer.attendedBy = { type: 'sco', name: m.name, emoji: m.emoji };
