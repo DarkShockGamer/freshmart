@@ -593,6 +593,7 @@ function emit(room) {
     aiWorkerTypes: AI_WORKER_TYPES,
     scoMachines: room.scoMachines || [],
     scoTypes: SELF_CHECKOUT_TYPES,
+    laneQueues: room.laneQueues || {},
     stats: room.stats || {},
   });
 }
@@ -645,6 +646,11 @@ function schedPatienceTimer(room, cust, ms) {
       room.reputation = Math.max(0, room.reputation - repLoss);
       roomLog(room, `😤 ${liveCustomer.name} left unserved! Rep -${repLoss}`);
       room.customers.splice(idx, 1);
+      if (room.laneQueues) {
+        Object.keys(room.laneQueues).forEach(ln => {
+          room.laneQueues[ln] = (room.laneQueues[ln] || []).filter(id => id !== cust.id);
+        });
+      }
       if (room.stats) room.stats.customersLost = (room.stats.customersLost||0) + 1;
       room._patienceTimers.delete(cust.id);
       emit(room);
@@ -693,10 +699,68 @@ function spawnCustomer(room) {
     wants, patience, maxPatience: patience, spawnTime: Date.now(), isVip,
   };
   room.customers.push(c);
+  // Assign to shortest open lane
+  assignCustomerToLane(room, c);
   // Use room-level Map to store timers — never put functions/timers on customer objects
   // (they'd get serialized/stripped by Socket.IO and cause silent crashes)
   if (!room._patienceTimers) room._patienceTimers = new Map();
   schedPatienceTimer(room, c, patience * 1000);
+}
+
+// ─── Lane Management ──────────────────────────────────────────────
+// Returns all open lane numbers (player lanes + AI lanes + SCO lanes)
+function getOpenLanes(room) {
+  const lanes = getCheckoutLanes(room.upgrades);
+  const open = [];
+  // Player lanes
+  Object.values(room.players).forEach(p => { if (p.cashierLane && p.cashierLane <= lanes) open.push(p.cashierLane); });
+  // AI worker lanes
+  (room.aiWorkers || []).forEach(w => { if (w.assignedLane && w.assignedLane <= lanes && !open.includes(w.assignedLane)) open.push(w.assignedLane); });
+  // SCO machines each get their own virtual lane beyond checkout lanes
+  (room.scoMachines || []).forEach(m => { const vl = `sco_${m.uid}`; if (!open.includes(vl)) open.push(vl); });
+  return open;
+}
+
+// Assign a customer to the lane with the shortest queue
+function assignCustomerToLane(room, customer) {
+  const openLanes = getOpenLanes(room);
+  if (!openLanes.length) {
+    // No open lanes — put in a holding pool (lane 'waiting')
+    customer.laneId = 'waiting';
+    return;
+  }
+  if (!room.laneQueues) room.laneQueues = {};
+  // Find shortest lane
+  let shortest = null, shortLen = Infinity;
+  openLanes.forEach(ln => {
+    const q = (room.laneQueues[ln] || []).length;
+    if (q < shortLen) { shortLen = q; shortest = ln; }
+  });
+  customer.laneId = shortest;
+  if (!room.laneQueues[shortest]) room.laneQueues[shortest] = [];
+  room.laneQueues[shortest].push(customer.id);
+}
+
+// Rebalance all customers across currently open lanes
+function rebalanceLanes(room) {
+  if (!room.laneQueues) room.laneQueues = {};
+  const openLanes = getOpenLanes(room);
+  // Collect all unattended (not mid-checkout) customers
+  const unattended = room.customers.filter(c => !c.attendedBy || c.attendedBy.type !== 'player');
+  // Clear all lane queues
+  Object.keys(room.laneQueues).forEach(k => { room.laneQueues[k] = []; });
+
+  if (!openLanes.length) {
+    unattended.forEach(c => { c.laneId = 'waiting'; });
+    return;
+  }
+  // Redistribute evenly
+  unattended.forEach((c, i) => {
+    const ln = openLanes[i % openLanes.length];
+    c.laneId = ln;
+    if (!room.laneQueues[ln]) room.laneQueues[ln] = [];
+    room.laneQueues[ln].push(c.id);
+  });
 }
 
 function serveCustomer(room, cid, sid, isAi = false, aiWorker = null, paymentMethod = 'cash') {
@@ -778,6 +842,12 @@ function serveCustomer(room, cid, sid, isAi = false, aiWorker = null, paymentMet
   if (room.checkoutLocked === sid) room.checkoutLocked = null;
 
   room.customers.splice(idx, 1);
+  // Remove from lane queue
+  if (room.laneQueues) {
+    Object.keys(room.laneQueues).forEach(ln => {
+      room.laneQueues[ln] = (room.laneQueues[ln] || []).filter(id => id !== cid);
+    });
+  }
   const tag = c.isVip ? ' ⭐VIP×2' : '';
   const sTag = room.saleActive ? ' 🏷️+50%' : '';
   roomLog(room, `✅ ${p?.name||'?'} served ${c.name}${tag} — $${total}${sTag}`);
@@ -852,6 +922,7 @@ function startDay(room) {
   room.dayTimer = GAME_MINUTES_PER_DAY; // keep in sync as minutes remaining (for legacy)
   room.gameMinute = 0; // 0 = 8:00 AM
   room.customers = [];
+  room.laneQueues = {};
   room.checkoutLocked = null;
   const diff = room.diff || DIFFICULTY_CONFIGS.normal;
   roomLog(room, `📅 Day ${room.day} open! Store hours: 8:00 AM – 10:00 PM.`);
@@ -970,10 +1041,12 @@ function tickAiWorkers(room) {
         if (lc) lockedIds.add(lc.id);
       });
     }
-    const customer = room.customers.find(c =>
-      !lockedIds.has(c.id) &&
-      (!c.attendedBy || c.attendedBy.type !== 'player')
-    );
+    // Only pick from this worker's lane queue
+    const laneId = w.assignedLane;
+    const laneQueue = (room.laneQueues || {})[laneId] || [];
+    const customer = laneQueue
+      .map(id => room.customers.find(c => c.id === id))
+      .find(c => c && !lockedIds.has(c.id) && (!c.attendedBy || c.attendedBy.type !== 'player'));
     if (!customer || (customer.attendedBy && customer.attendedBy.type === 'player')) {
       w.currentActivity = null;
       return;
@@ -1030,10 +1103,12 @@ function tickScoMachines(room) {
         if (lc) lockedCustomerIds.add(lc.id);
       });
     }
-    const customer = room.customers.find(c =>
-      !lockedCustomerIds.has(c.id) &&
-      (!c.attendedBy || c.attendedBy.type === 'sco')
-    );
+    // Only pick from this SCO machine's virtual lane queue
+    const scoLaneId = `sco_${m.uid}`;
+    const scoLaneQueue = (room.laneQueues || {})[scoLaneId] || [];
+    const customer = scoLaneQueue
+      .map(id => room.customers.find(c => c.id === id))
+      .find(c => c && !lockedCustomerIds.has(c.id) && (!c.attendedBy || c.attendedBy.type === 'sco'));
     if (!customer) return;
 
     m.lastServeAt = now;
@@ -1114,6 +1189,7 @@ function endDay(room) {
   room.checkoutLocked = null; room.checkoutLocks = {}; room.playerCheckoutActivity = {};
   room._aiWorkerCooldowns = {};
   room._aiStockerCooldowns = {};
+  room.laneQueues = {};
   if (room.stats) room.stats.daysCompleted = (room.stats.daysCompleted||0) + 1;
 
   // Pay AI worker wages
@@ -1409,6 +1485,7 @@ io.on('connection', (socket) => {
       currentActivity: null,
     };
     room.scoMachines.push(m);
+    rebalanceLanes(room);
     roomLog(room, `${type.emoji} Installed ${type.name} self-checkout for $${type.cost}!`);
     emit(room);
   });
@@ -1423,6 +1500,7 @@ io.on('connection', (socket) => {
     const refund = Math.round((type?.cost || 0) * 0.4);
     room.money += refund;
     room.scoMachines.splice(idx, 1);
+    rebalanceLanes(room);
     roomLog(room, `${m.emoji} Sold ${m.name} for $${refund} (40% refund).`);
     emit(room);
   });
@@ -1462,6 +1540,7 @@ io.on('connection', (socket) => {
     const w = room.aiWorkers.find(w => w.uid === uid);
     if (!w) return;
     w.assignedLane = lane;
+    rebalanceLanes(room);
     const msg = lane ? `${w.emoji} ${w.name} assigned to Lane ${lane}` : `${w.emoji} ${w.name} removed from checkout`;
     roomLog(room, msg);
     emit(room);
@@ -1661,6 +1740,7 @@ io.on('connection', (socket) => {
     if (lane === null) {
       // Release
       p.cashierLane = null;
+      rebalanceLanes(room);
       roomLog(room, `🧑‍💼 ${p.name} left the cashier.`);
       emit(room);
       return;
@@ -1681,6 +1761,7 @@ io.on('connection', (socket) => {
 
     // Release previous lane
     p.cashierLane = laneNum;
+    rebalanceLanes(room);
     roomLog(room, `🧑‍💼 ${p.name} is now cashier on Lane ${laneNum}.`);
     emit(room);
   });
@@ -1729,6 +1810,7 @@ io.on('connection', (socket) => {
     if (room.players[sock.id]) room.players[sock.id].cashierLane = null;
     delete room.players[sock.id];
     sock.leave(code);
+    rebalanceLanes(room);
 
     if (room.hostId === sock.id) {
       // Host left — kick everyone back to title
