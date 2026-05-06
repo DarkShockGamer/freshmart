@@ -283,13 +283,18 @@ const UPGRADES = [
 
   // ══════════════ REGISTER UPGRADES BRANCH ══════════════
   {
-    id: 'register_training', name: 'Register Training', emoji: '🎓', cost: 600, tier: 1, section: 'register',
-    desc: 'Train all AI cashiers to work 25% faster. Reduces their serve cooldown.',
-    requires: [], unlocks: ['barcode_scanners', 'express_checkout'],
+    id: 'scan_all_unlock', name: 'Scan All Button', emoji: '⚡', cost: 1000, tier: 1, section: 'register',
+    desc: 'Unlock the Scan All Items button at the register. Scans your entire belt at once instead of tapping each item.',
+    requires: [], unlocks: ['register_training'],
   },
   {
-    id: 'barcode_scanners', name: 'Barcode Scanners', emoji: '📡', cost: 1000, tier: 2, section: 'register',
-    desc: 'Upgrade to laser barcode scanners. AI cashiers serve 40% faster, player Scan All is instant.',
+    id: 'register_training', name: 'Register Training', emoji: '🎓', cost: 600, tier: 2, section: 'register',
+    desc: 'Train all AI cashiers to work 25% faster. Reduces their serve cooldown.',
+    requires: ['scan_all_unlock'], unlocks: ['barcode_scanners', 'express_checkout'],
+  },
+  {
+    id: 'barcode_scanners', name: 'Barcode Scanners', emoji: '📡', cost: 1000, tier: 3, section: 'register',
+    desc: 'Upgrade to laser barcode scanners. AI cashiers serve 40% faster, Scan All becomes near-instant.',
     requires: ['register_training'], unlocks: ['automated_bagging'],
     requiresSize: 1,
   },
