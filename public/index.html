@@ -598,6 +598,8 @@ input::placeholder { color: var(--muted); }
 .tier-1 { background: var(--green-lo); color: var(--green); border: 1px solid var(--green); }
 .tier-2 { background: var(--blue-lo); color: var(--blue); border: 1px solid var(--blue); }
 .tier-3 { background: var(--orange-lo); color: var(--orange); border: 1px solid var(--orange); }
+.tier-4 { background: #4b1fa822; color: #b47fff; border: 1px solid #b47fff; }
+.tier-5 { background: #7c1a2e33; color: #ff6fa8; border: 1px solid #ff6fa8; }
 
 .upg-desc  { font-size: 11px; color: var(--muted); line-height: 1.5; flex: 1; }
 .upg-unlocks { font-size: 10px; color: var(--cyan); margin-top: 2px; }
@@ -4555,7 +4557,7 @@ const BRANCH_META = {
   outdoors:      { label: '🏹 Outdoors',           color: 'var(--red)'    },
   furniture:     { label: '🛋️ Furniture',         color: 'var(--muted)'  },
 };
-const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III' };
+const TIER_LABELS = { 1: 'Tier I', 2: 'Tier II', 3: 'Tier III', 4: 'Tier IV', 5: 'Tier V' };
 
 function renderUpgrades(s) {
   const tree = document.getElementById('upg-tree');
@@ -4643,7 +4645,7 @@ function renderUpgrades(s) {
 
     branch.appendChild(header);
 
-    [1, 2, 3].forEach(tier => {
+    [1, 2, 3, 4, 5].forEach(tier => {
       const upgrades = tiers[tier];
       if (!upgrades) return;
 
