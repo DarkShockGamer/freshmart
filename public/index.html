@@ -2516,12 +2516,11 @@ input::placeholder { color: var(--muted); }
 
       <!-- Customers -->
       <div class="tab-pane active" id="pane-customers">
-        <div id="no-customers">
+        <div id="no-customers" style="display:none">
           <div class="emoji">😴</div>
           <p>No customers right now...</p>
           <p style="font-size:12px;margin-top:6px">They'll arrive once the store opens!</p>
         </div>
-        <div id="customer-grid"></div>
         <!-- Player Registers zone -->
         <div id="player-registers-zone">
           <div class="player-registers-zone-header">
@@ -3227,76 +3226,13 @@ function renderShopBanner(s) {
 
 // ── Customers ──────────────────────────────────────
 function renderCustomers(s) {
-  const grid = document.getElementById('customer-grid');
-  const noC  = document.getElementById('no-customers');
-
-  if (!s.customers.length) {
+  const noC = document.getElementById('no-customers');
+  if (!s.customers.length && s.phase === 'playing') {
     noC.style.display = 'block';
-    grid.innerHTML = '';
-    return;
+  } else {
+    noC.style.display = 'none';
   }
-  noC.style.display = 'none';
-
-  const existIds = new Set([...grid.querySelectorAll('.ccard')].map(c => Number(c.dataset.id)));
-  const incomingIds = new Set(s.customers.map(c => c.id));
-
-  // remove gone
-  existIds.forEach(id => { if (!incomingIds.has(id)) grid.querySelector(`[data-id="${id}"]`)?.remove(); });
-
-  s.customers.forEach(c => {
-    const pct = Math.round((c.patience / c.maxPatience) * 100);
-    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
-    const att = c.attendedBy;
-    const takenByOther = att && !(checkoutCustomer && checkoutCustomer.id === c.id);
-    let card = grid.querySelector(`[data-id="${c.id}"]`);
-
-    if (!card) {
-      card = document.createElement('div');
-      card.dataset.id = c.id;
-
-      const wantsHtml = c.wants.map(w => {
-        const prod = s.products.find(p => p.id === w.id);
-        return `<span class="wtag">${prod?.emoji||'?'} ${prod?.name||w.id} ×${w.qty}</span>`;
-      }).join('');
-
-      card.innerHTML = `
-        <div class="ccard-top">
-          <span class="cemoji">${c.emoji}</span>
-          <div>
-            <div class="cname">${c.isVip ? '⭐ ' : ''}${c.name}</div>
-            <div class="ctype">${c.isVip ? 'VIP — 2× payout!' : c.wants.length+' item'+(c.wants.length>1?'s':'')}</div>
-          </div>
-        </div>
-        <div class="cwants">${wantsHtml}</div>
-        <div class="serve-label">🛒 CLICK TO CHECKOUT</div>
-        <div class="attended-badge" style="display:none"></div>
-        <div class="pbar ok" style="width:100%"></div>
-      `;
-      grid.appendChild(card);
-    }
-
-    // Update dynamic state on both new and existing cards
-    const bar = card.querySelector('.pbar');
-    if (bar) { bar.className = 'pbar '+barClass; bar.style.width = pct+'%'; }
-
-    const badge = card.querySelector('.attended-badge');
-    const serveLabel = card.querySelector('.serve-label');
-
-    if (takenByOther) {
-      const typeClass = att.type === 'worker' ? 'worker' : att.type === 'sco' ? 'sco' : att.type === 'player' ? 'player' : '';
-      badge.className = 'attended-badge' + (typeClass ? ' '+typeClass : '');
-      badge.style.display = 'flex';
-      badge.textContent = att.emoji + ' ' + att.name + ' is handling this';
-      if (serveLabel) serveLabel.style.display = 'none';
-      card.className = 'ccard attended' + (c.isVip?' vip':'');
-      card.onclick = null;
-    } else {
-      badge.style.display = 'none';
-      if (serveLabel) serveLabel.style.display = '';
-      card.className = 'ccard' + (c.isVip?' vip':'') + (pct<25?' urgent':'');
-      card.onclick = () => openCheckout(c);
-    }
-  });}
+}
 
 // ── Self-Checkout Machines ─────────────────────────
 // Track which machines had activity to detect new transactions
@@ -3334,61 +3270,78 @@ function renderScoMachines(s) {
       card = document.createElement('div');
       card.dataset.uid = m.uid;
       card.className   = 'sco-machine-card';
+      card.style.cssText = 'flex-direction:row;align-items:stretch;';
       card.innerHTML   = `
-        <div class="sco-machine-header">
-          <span class="sco-machine-emoji">${m.emoji}</span>
-          <div style="flex:1;min-width:0">
-            <div class="sco-machine-name">${m.name}</div>
-            <div class="sco-machine-speed">⚡ ×${m.speed} speed</div>
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:360px;border-right:2px solid var(--border);">
+          <div class="sco-machine-header">
+            <span class="sco-machine-emoji">${m.emoji}</span>
+            <div style="flex:1;min-width:0">
+              <div class="sco-machine-name">${m.name}</div>
+              <div class="sco-machine-speed">⚡ ×${m.speed} speed</div>
+            </div>
+            <span class="sco-maint-badge">$${m.maintenance}/day</span>
+            <button class="btn xs red sco-sell-btn" onclick="socket.emit('sellScoMachine',{uid:${m.uid}})" title="Sell (40% refund)">Sell</button>
           </div>
-          <span class="sco-maint-badge">$${m.maintenance}/day</span>
-          <button class="btn xs red sco-sell-btn" onclick="socket.emit('sellScoMachine',{uid:${m.uid}})" title="Sell (40% refund)">Sell</button>
-        </div>
 
-        <div class="sco-cust-bar">
-          <span class="sco-cust-emoji"></span>
-          <span class="sco-cust-name"></span>
-          <span class="sco-cust-items"></span>
-        </div>
+          <div class="sco-cust-bar">
+            <span class="sco-cust-emoji"></span>
+            <span class="sco-cust-name"></span>
+            <span class="sco-cust-items"></span>
+          </div>
 
-        <div class="sco-machine-body">
-          <!-- Conveyor -->
-          <div class="sco-conveyor">
-            <div class="sco-belt-label">🛒 Conveyor Belt</div>
-            <div class="sco-belt-area">
-              <div class="sco-belt-line"></div>
-              <div class="sco-items-unscanned" id="sco-unscanned-${m.uid}"></div>
-              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
-              <div class="sco-items-scanned" id="sco-scanned-${m.uid}"></div>
-              <div class="sco-idle-msg" id="sco-idle-${m.uid}">
-                <span class="idle-icon">🛒</span>
-                READY
+          <div class="sco-machine-body">
+            <!-- Conveyor -->
+            <div class="sco-conveyor">
+              <div class="sco-belt-label">🛒 Conveyor Belt</div>
+              <div class="sco-belt-area">
+                <div class="sco-belt-line"></div>
+                <div class="sco-items-unscanned" id="sco-unscanned-${m.uid}"></div>
+                <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+                <div class="sco-items-scanned" id="sco-scanned-${m.uid}"></div>
+                <div class="sco-idle-msg" id="sco-idle-${m.uid}">
+                  <span class="idle-icon">🛒</span>
+                  READY
+                </div>
+              </div>
+            </div>
+
+            <!-- Register -->
+            <div class="sco-register">
+              <div class="sco-total-display">
+                <div class="sco-total-label">Total Due</div>
+                <div class="sco-total-amount" id="sco-total-${m.uid}">$0.00</div>
+                <div class="sco-items-receipt" id="sco-receipt-${m.uid}"></div>
+              </div>
+              <div class="sco-payment-area" id="sco-pay-${m.uid}">
+                <div class="sco-pay-idle">
+                  <span class="sco-pay-idle-icon">💳</span>
+                  Awaiting<br>payment
+                </div>
+                <div class="sco-card-vis" id="sco-card-${m.uid}">
+                  <div class="sco-card-chip"></div>
+                  <div class="sco-card-num">•••• ••••</div>
+                  <div class="sco-card-brand">VISA</div>
+                </div>
+                <div class="sco-swipe-terminal">▼ SWIPE ▼</div>
+                <div class="sco-approved" id="sco-approved-${m.uid}">
+                  <span class="sco-approved-icon">✅</span>
+                  APPROVED
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Register -->
-          <div class="sco-register">
-            <div class="sco-total-display">
-              <div class="sco-total-label">Total Due</div>
-              <div class="sco-total-amount" id="sco-total-${m.uid}">$0.00</div>
-              <div class="sco-items-receipt" id="sco-receipt-${m.uid}"></div>
-            </div>
-            <div class="sco-payment-area" id="sco-pay-${m.uid}">
-              <div class="sco-pay-idle">
-                <span class="sco-pay-idle-icon">💳</span>
-                Awaiting<br>payment
-              </div>
-              <div class="sco-card-vis" id="sco-card-${m.uid}">
-                <div class="sco-card-chip"></div>
-                <div class="sco-card-num">•••• ••••</div>
-                <div class="sco-card-brand">VISA</div>
-              </div>
-              <div class="sco-swipe-terminal">▼ SWIPE ▼</div>
-              <div class="sco-approved" id="sco-approved-${m.uid}">
-                <span class="sco-approved-icon">✅</span>
-                APPROVED
-              </div>
+        <!-- Customer queue lane (right side) -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div class="preg-lane-header">
+            <span class="preg-lane-header-label" style="color:var(--cyan)">◀ customers in line (Self-Checkout)</span>
+            <span class="preg-lane-count-badge" id="sco-lcount-${m.uid}">0 waiting</span>
+          </div>
+          <div class="preg-lane-queue" id="sco-queue-${m.uid}">
+            <div class="preg-lane-empty" id="sco-qempty-${m.uid}">
+              <span class="preg-lane-empty-icon">🤖</span>
+              No queue
             </div>
           </div>
         </div>
@@ -3563,8 +3516,63 @@ function renderScoMachines(s) {
     }
 
     _scoLastActivity[m.uid] = act;
+
+    // Render this SCO machine's lane queue
+    renderScoLaneQueue(m.uid, s);
   });
 }
+
+function renderScoLaneQueue(uid, s) {
+  const queueEl = document.getElementById(`sco-queue-${uid}`);
+  const emptyEl = document.getElementById(`sco-qempty-${uid}`);
+  const countEl = document.getElementById(`sco-lcount-${uid}`);
+  if (!queueEl) return;
+
+  const customers = s.customers || [];
+  const laneId = `sco_${uid}`;
+  const laneQueueIds = (s.laneQueues || {})[laneId] || [];
+  const queue = laneQueueIds
+    .map(id => customers.find(c => c.id === id))
+    .filter(Boolean)
+    .sort((a, b) => a.patience - b.patience);
+
+  if (countEl) {
+    countEl.textContent = queue.length > 0 ? `${queue.length} waiting` : '0 waiting';
+    countEl.className = 'preg-lane-count-badge' + (queue.length > 0 ? ' has-customers' : '');
+  }
+
+  const existingIds = new Set([...queueEl.querySelectorAll('.preg-queue-token')].map(t => +t.dataset.cid));
+  const incomingIds = new Set(queue.map(c => c.id));
+  existingIds.forEach(id => { if (!incomingIds.has(id)) queueEl.querySelector(`.preg-queue-token[data-cid="${id}"]`)?.remove(); });
+
+  if (queue.length === 0) { if (emptyEl) emptyEl.style.display = 'flex'; return; }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  queue.forEach((c, idx) => {
+    const pct = Math.round((c.patience / c.maxPatience) * 100);
+    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+    const isAttended = !!c.attendedBy;
+    const totalItems = c.wants.reduce((t, w) => t + w.qty, 0);
+    let tok = queueEl.querySelector(`.preg-queue-token[data-cid="${c.id}"]`);
+    if (!tok) {
+      tok = document.createElement('div');
+      tok.dataset.cid = c.id;
+      tok.innerHTML = `
+        <div class="preg-queue-token-emoji">${c.emoji}</div>
+        <div class="preg-queue-token-name">${c.name}</div>
+        <div class="preg-queue-token-items">${totalItems} item${totalItems !== 1 ? 's' : ''}</div>
+        <div class="preg-queue-token-pbar"><div class="preg-queue-token-pfill ok" style="width:100%"></div></div>
+      `;
+      const existing = queueEl.querySelectorAll('.preg-queue-token');
+      if (idx < existing.length) queueEl.insertBefore(tok, existing[idx]);
+      else queueEl.appendChild(tok);
+    }
+    tok.className = 'preg-queue-token' + (isAttended ? ' attended' : '') + (c.isVip ? ' vip-tok' : '') + (pct < 25 && !isAttended ? ' urgent-tok' : '');
+    const fill = tok.querySelector('.preg-queue-token-pfill');
+    if (fill) { fill.style.width = pct + '%'; fill.className = 'preg-queue-token-pfill ' + barClass; }
+    tok.style.cursor = 'default';
+    tok.onclick = null; // SCO lane — customers self-checkout, not player-clickable
+  });
 
 // ── AI Worker Registers ────────────────────────────
 const _regLastActivity = {};
@@ -3602,60 +3610,77 @@ function renderAiRegisters(s) {
       card = document.createElement('div');
       card.dataset.uid = w.uid;
       card.className   = 'register-card';
+      card.style.cssText = 'flex-direction:row;align-items:stretch;';
       card.innerHTML   = `
-        <div class="register-card-header">
-          <span class="reg-worker-emoji">${w.emoji}</span>
-          <div style="flex:1;min-width:0">
-            <div class="reg-worker-name">${w.name}</div>
-            <div class="reg-worker-speed">⚡ ×${w.speed} speed</div>
+        <div style="display:flex;flex-direction:column;flex-shrink:0;width:360px;border-right:2px solid var(--border);position:relative;">
+          <div class="register-card-header">
+            <span class="reg-worker-emoji">${w.emoji}</span>
+            <div style="flex:1;min-width:0">
+              <div class="reg-worker-name">${w.name}</div>
+              <div class="reg-worker-speed">⚡ ×${w.speed} speed</div>
+            </div>
+            <span class="reg-lane-badge">Lane ${w.assignedLane}</span>
           </div>
-          <span class="reg-lane-badge">Lane ${w.assignedLane}</span>
-        </div>
 
-        <div class="register-cust-bar">
-          <span class="reg-cust-emoji"></span>
-          <span class="reg-cust-name"></span>
-          <span class="reg-cust-items"></span>
-        </div>
+          <div class="register-cust-bar">
+            <span class="reg-cust-emoji"></span>
+            <span class="reg-cust-name"></span>
+            <span class="reg-cust-items"></span>
+          </div>
 
-        <div class="register-body">
-          <!-- Conveyor -->
-          <div class="reg-conveyor">
-            <div class="reg-belt-label">🛒 Conveyor Belt</div>
-            <div class="reg-belt-area">
-              <div class="reg-belt-line"></div>
-              <div class="reg-items-unscanned" id="reg-unscanned-${w.uid}"></div>
-              <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
-              <div class="reg-items-scanned" id="reg-scanned-${w.uid}"></div>
-              <div class="reg-idle-msg" id="reg-idle-${w.uid}">
-                <span class="idle-icon">🧑‍💼</span>
-                READY
+          <div class="register-body">
+            <!-- Conveyor -->
+            <div class="reg-conveyor">
+              <div class="reg-belt-label">🛒 Conveyor Belt</div>
+              <div class="reg-belt-area">
+                <div class="reg-belt-line"></div>
+                <div class="reg-items-unscanned" id="reg-unscanned-${w.uid}"></div>
+                <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;z-index:3"></div>
+                <div class="reg-items-scanned" id="reg-scanned-${w.uid}"></div>
+                <div class="reg-idle-msg" id="reg-idle-${w.uid}">
+                  <span class="idle-icon">🧑‍💼</span>
+                  READY
+                </div>
+              </div>
+            </div>
+
+            <!-- Register POS -->
+            <div class="reg-register">
+              <div class="reg-total-display">
+                <div class="reg-total-label">Total Due</div>
+                <div class="reg-total-amount" id="reg-total-${w.uid}">$0.00</div>
+                <div class="reg-items-receipt" id="reg-receipt-${w.uid}"></div>
+              </div>
+              <div class="reg-payment-area" id="reg-pay-${w.uid}">
+                <div class="reg-pay-idle">
+                  <span class="reg-pay-idle-icon">💳</span>
+                  Awaiting<br>payment
+                </div>
+                <div class="reg-card-vis" id="reg-card-${w.uid}">
+                  <div class="reg-card-chip"></div>
+                  <div class="reg-card-num">•••• ••••</div>
+                  <div class="reg-card-brand">VISA</div>
+                </div>
+                <div class="reg-swipe-terminal">▼ SWIPE ▼</div>
+                <div class="reg-approved" id="reg-approved-${w.uid}">
+                  <span class="reg-approved-icon">✅</span>
+                  APPROVED
+                </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Register POS -->
-          <div class="reg-register">
-            <div class="reg-total-display">
-              <div class="reg-total-label">Total Due</div>
-              <div class="reg-total-amount" id="reg-total-${w.uid}">$0.00</div>
-              <div class="reg-items-receipt" id="reg-receipt-${w.uid}"></div>
-            </div>
-            <div class="reg-payment-area" id="reg-pay-${w.uid}">
-              <div class="reg-pay-idle">
-                <span class="reg-pay-idle-icon">💳</span>
-                Awaiting<br>payment
-              </div>
-              <div class="reg-card-vis" id="reg-card-${w.uid}">
-                <div class="reg-card-chip"></div>
-                <div class="reg-card-num">•••• ••••</div>
-                <div class="reg-card-brand">VISA</div>
-              </div>
-              <div class="reg-swipe-terminal">▼ SWIPE ▼</div>
-              <div class="reg-approved" id="reg-approved-${w.uid}">
-                <span class="reg-approved-icon">✅</span>
-                APPROVED
-              </div>
+        <!-- Customer queue lane (right side) -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div class="preg-lane-header">
+            <span class="preg-lane-header-label">◀ customers in line (Lane ${w.assignedLane})</span>
+            <span class="preg-lane-count-badge" id="reg-lcount-${w.uid}">0 waiting</span>
+          </div>
+          <div class="preg-lane-queue" id="reg-queue-${w.uid}">
+            <div class="preg-lane-empty" id="reg-qempty-${w.uid}">
+              <span class="preg-lane-empty-icon">🏬</span>
+              No queue
             </div>
           </div>
         </div>
@@ -3816,8 +3841,62 @@ function renderAiRegisters(s) {
     }
 
     _regLastActivity[w.uid] = act;
+
+    // Render this AI worker's lane queue
+    renderAiLaneQueue(w.uid, w.assignedLane, s);
   });
 }
+
+function renderAiLaneQueue(uid, laneId, s) {
+  const queueEl = document.getElementById(`reg-queue-${uid}`);
+  const emptyEl = document.getElementById(`reg-qempty-${uid}`);
+  const countEl = document.getElementById(`reg-lcount-${uid}`);
+  if (!queueEl) return;
+
+  const customers = s.customers || [];
+  const laneQueueIds = (s.laneQueues || {})[laneId] || [];
+  const queue = laneQueueIds
+    .map(id => customers.find(c => c.id === id))
+    .filter(Boolean)
+    .sort((a, b) => a.patience - b.patience);
+
+  if (countEl) {
+    countEl.textContent = queue.length > 0 ? `${queue.length} waiting` : '0 waiting';
+    countEl.className = 'preg-lane-count-badge' + (queue.length > 0 ? ' has-customers' : '');
+  }
+
+  const existingIds = new Set([...queueEl.querySelectorAll('.preg-queue-token')].map(t => +t.dataset.cid));
+  const incomingIds = new Set(queue.map(c => c.id));
+  existingIds.forEach(id => { if (!incomingIds.has(id)) queueEl.querySelector(`.preg-queue-token[data-cid="${id}"]`)?.remove(); });
+
+  if (queue.length === 0) { if (emptyEl) emptyEl.style.display = 'flex'; return; }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  queue.forEach((c, idx) => {
+    const pct = Math.round((c.patience / c.maxPatience) * 100);
+    const barClass = pct > 60 ? 'ok' : pct > 30 ? 'warn' : 'bad';
+    const isAttended = !!c.attendedBy;
+    const totalItems = c.wants.reduce((t, w) => t + w.qty, 0);
+    let tok = queueEl.querySelector(`.preg-queue-token[data-cid="${c.id}"]`);
+    if (!tok) {
+      tok = document.createElement('div');
+      tok.dataset.cid = c.id;
+      tok.innerHTML = `
+        <div class="preg-queue-token-emoji">${c.emoji}</div>
+        <div class="preg-queue-token-name">${c.name}</div>
+        <div class="preg-queue-token-items">${totalItems} item${totalItems !== 1 ? 's' : ''}</div>
+        <div class="preg-queue-token-pbar"><div class="preg-queue-token-pfill ok" style="width:100%"></div></div>
+      `;
+      const existing = queueEl.querySelectorAll('.preg-queue-token');
+      if (idx < existing.length) queueEl.insertBefore(tok, existing[idx]);
+      else queueEl.appendChild(tok);
+    }
+    tok.className = 'preg-queue-token' + (isAttended ? ' attended' : '') + (c.isVip ? ' vip-tok' : '') + (pct < 25 && !isAttended ? ' urgent-tok' : '');
+    const fill = tok.querySelector('.preg-queue-token-pfill');
+    if (fill) { fill.style.width = pct + '%'; fill.className = 'preg-queue-token-pfill ' + barClass; }
+    tok.style.cursor = 'default';
+    tok.onclick = null; // AI lane — not player-clickable
+  });
 
 
 // ── Player Registers ──────────────────────────────
@@ -4183,19 +4262,20 @@ function renderLaneQueue(laneNum, player, s) {
   if (!queueEl) return;
 
   const customers = s.customers || [];
-  // Show all waiting customers (not attended by AI/SCO), sorted: attended-by-this-player first
+  // Use server-assigned lane queue — only customers in THIS lane's queue
   const myPid = player?.id;
-  const queue = customers.filter(c =>
-    !c.attendedBy || c.attendedBy.type === 'player'
-  ).sort((a, b) => {
-    // Current player's customer goes first (at front of line = rightmost = register side)
-    const aIsMe = a.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === a.name;
-    const bIsMe = b.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === b.name;
-    if (aIsMe && !bIsMe) return -1;
-    if (bIsMe && !aIsMe) return 1;
-    // Then sort by patience ascending (most urgent first)
-    return a.patience - b.patience;
-  });
+  const laneQueueIds = (s.laneQueues || {})[laneNum] || [];
+  const queue = laneQueueIds
+    .map(id => customers.find(c => c.id === id))
+    .filter(Boolean)
+    .sort((a, b) => {
+      // Current player's customer goes first (at front = rightmost = register side)
+      const aIsMe = a.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === a.name;
+      const bIsMe = b.attendedBy?.type === 'player' && myPid && s.playerCheckoutActivity?.[myPid]?.customerName === b.name;
+      if (aIsMe && !bIsMe) return -1;
+      if (bIsMe && !aIsMe) return 1;
+      return a.patience - b.patience;
+    });
 
   if (countEl) {
     countEl.textContent = queue.length > 0 ? `${queue.length} waiting` : '0 waiting';
