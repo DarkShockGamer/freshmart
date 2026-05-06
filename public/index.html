@@ -2605,7 +2605,15 @@ input::placeholder { color: var(--muted); }
 
       <div class="tab-pane" id="pane-inventory">
         <span class="section-label">Stock Levels &amp; Pricing</span>
-        <table class="inv-table">
+        <table class="inv-table" style="table-layout:fixed">
+          <colgroup>
+            <col style="width:36px">
+            <col style="width:auto">
+            <col style="width:80px">
+            <col style="width:140px">
+            <col style="width:160px">
+            <col style="width:70px">
+          </colgroup>
           <thead>
             <tr>
               <th></th><th>Product</th>
