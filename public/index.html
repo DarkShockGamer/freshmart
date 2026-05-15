@@ -4563,9 +4563,9 @@ function renderUpgrades(s) {
   const tree = document.getElementById('upg-tree');
   const isShop = s.phase === 'shop';
   const storeSize = s.storeSize || 0;
-  const sizeNames = ['Small Store 🏠', 'Small+ Store 🏚️', 'Medium Store 🏪', 'Medium+ Store 🏬', 'Large Store 🏬', 'Large+ Store 🏢', 'Mega Store 🏢'];
+  const sizeNames = ['Small Store 🏠', 'Small Store+ 🏡', 'Medium Store 🏪', 'Medium Store+ 🏬', 'Large Store 🏢', 'Large Store+ 🏙️', 'Mega Store 🌆'];
   const sizeColors = ['var(--muted)', 'var(--green)', 'var(--green)', 'var(--blue)', 'var(--blue)', 'var(--yellow)', 'var(--yellow)'];
-  const sizeIcons = ['🏠', '🏚️', '🏪', '🏬', '🏬', '🏢', '🏢'];
+  const sizeIcons = ['🏠', '🏡', '🏪', '🏬', '🏢', '🏙️', '🌆'];
   const sizeSlots = ['2', '3', '4', '5', '7', '10', '∞'];
   const nextSizeUpgradeByLevel = ['size_small_plus','size_medium','size_medium_plus','size_large','size_large_plus','size_mega',null];
   const mapRequiredStoreLevel = (legacySizeTier) => (legacySizeTier || 0) * 2;
