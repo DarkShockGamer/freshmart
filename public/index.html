@@ -4563,8 +4563,12 @@ function renderUpgrades(s) {
   const tree = document.getElementById('upg-tree');
   const isShop = s.phase === 'shop';
   const storeSize = s.storeSize || 0;
-  const sizeNames = ['Small Store 🏠', 'Medium Store 🏪', 'Large Store 🏬', 'Mega Store 🏢'];
-  const sizeColors = ['var(--muted)', 'var(--green)', 'var(--blue)', 'var(--yellow)'];
+  const sizeNames = ['Small Store 🏠', 'Small+ Store 🏚️', 'Medium Store 🏪', 'Medium+ Store 🏬', 'Large Store 🏬', 'Large+ Store 🏢', 'Mega Store 🏢'];
+  const sizeColors = ['var(--muted)', 'var(--green)', 'var(--green)', 'var(--blue)', 'var(--blue)', 'var(--yellow)', 'var(--yellow)'];
+  const sizeIcons = ['🏠', '🏚️', '🏪', '🏬', '🏬', '🏢', '🏢'];
+  const sizeSlots = ['2', '3', '4', '5', '7', '10', '∞'];
+  const nextSizeUpgradeByLevel = ['size_small_plus','size_medium','size_medium_plus','size_large','size_large_plus','size_mega',null];
+  const mapRequiredStoreLevel = (legacySizeTier) => (legacySizeTier || 0) * 2;
 
   // group by section, then tier
   const sections = {};
@@ -4583,26 +4587,26 @@ function renderUpgrades(s) {
     border-radius: 14px; padding: 14px 18px; margin-bottom: 16px;
     display: flex; align-items: center; gap: 14px;
   `;
-  const nextSizeUpg = ['size_medium','size_large','size_mega'][storeSize];
+  const nextSizeUpg = nextSizeUpgradeByLevel[storeSize];
   const nextUpgDef = s.upgradeList.find(u => u.id === nextSizeUpg);
   const nextCost = nextUpgDef ? Math.round(nextUpgDef.cost * (s.diffConfig?.upgradeCostMult || 1)) : null;
   banner.innerHTML = `
-    <div style="font-size:36px;flex-shrink:0">${['🏠','🏪','🏬','🏢'][storeSize]}</div>
+    <div style="font-size:36px;flex-shrink:0">${sizeIcons[storeSize]}</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:800;color:${sizeColors[storeSize]};letter-spacing:.5px;text-transform:uppercase">
         Current Size: ${sizeNames[storeSize]}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5">
-        ${storeSize === 0 ? 'You\'re in a small corner store. Upgrade Store Size to unlock more departments.' :
-          storeSize === 1 ? 'Medium store: Clothing, Auto & Outdoors are now available.' :
-          storeSize === 2 ? 'Large store: Electronics, Furniture & Self-Checkout are now open.' :
+        ${storeSize <= 1 ? 'You\'re in a compact format. Upgrade Store Size to unlock more departments and slots.' :
+          storeSize <= 3 ? 'Medium format: Clothing, Auto & Outdoors are now available with improved floor space.' :
+          storeSize <= 5 ? 'Large format: Electronics, Furniture & Self-Checkout are now open with expanded capacity.' :
           '🎉 Mega Store — every department & tier-3 upgrade is unlocked!'}
       </div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
       <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px">SECTION SLOTS</div>
       <div style="font-family:var(--mono);font-size:18px;font-weight:700;color:${sizeColors[storeSize]}">
-        ${['2','4','7','∞'][storeSize]}
+        ${sizeSlots[storeSize]}
       </div>
     </div>
   `;
@@ -4620,7 +4624,7 @@ function renderUpgrades(s) {
 
     // Determine the minimum requiresSize for this branch
     const branchUpgrades = Object.values(tiers).flat();
-    const branchMinSize = Math.min(...branchUpgrades.map(u => u.requiresSize || 0));
+    const branchMinSize = Math.min(...branchUpgrades.map(u => mapRequiredStoreLevel(u.requiresSize)));
     const branchLocked = branchMinSize > storeSize;
 
     const branch = document.createElement('div');
@@ -4663,7 +4667,8 @@ function renderUpgrades(s) {
       upgrades.forEach(u => {
         const owned = s.upgrades.includes(u.id);
         const reqsMet = u.requires.every(r => s.upgrades.includes(r));
-        const sizeMet = (u.requiresSize || 0) <= storeSize;
+        const requiredStoreLevel = mapRequiredStoreLevel(u.requiresSize);
+        const sizeMet = requiredStoreLevel <= storeSize;
         const canAfford = s.money >= u.cost;
         const available = isShop && reqsMet && sizeMet && !owned;
 
@@ -4683,7 +4688,7 @@ function renderUpgrades(s) {
         const reqHtml = !reqsMet
           ? `<div class="upg-req">🔒 Requires: ${missingReqs.join(', ')}</div>` : '';
         const sizeReqHtml = (!sizeMet && reqsMet)
-          ? `<div class="upg-req" style="color:var(--yellow)">🏗️ Needs ${sizeNames[u.requiresSize || 0]}</div>` : '';
+          ? `<div class="upg-req" style="color:var(--yellow)">🏗️ Needs ${sizeNames[requiredStoreLevel]}</div>` : '';
 
         const finalCost = Math.round(u.cost * (s.diffConfig?.upgradeCostMult || 1));
 
