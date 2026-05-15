@@ -383,21 +383,39 @@ const UPGRADES = [
 
   // ══════════════ STORE SIZE BRANCH ══════════════
   {
+    id: 'size_small_plus', name: 'Small Store+', emoji: '🏡', cost: 300, tier: 1, section: 'storesize',
+    desc: 'Renovate your small store footprint. Raises total section slots to 3 and prepares your layout for a medium expansion.',
+    requires: [], unlocks: ['size_medium'],
+    isStoreSize: true, sizeLevel: 0.5,
+  },
+  {
     id: 'size_medium', name: 'Medium Store', emoji: '🏪', cost: 600, tier: 1, section: 'storesize',
-    desc: 'Expand to a medium store. Unlocks Clothing, Auto, and Outdoors departments. Opens 2 new section slots.',
-    requires: [], unlocks: ['size_large'],
+    desc: 'Expand to a medium store. Unlocks Clothing, Auto, and Outdoors departments, and raises total section slots to 4.',
+    requires: ['size_small_plus'], unlocks: ['size_medium_plus'],
     isStoreSize: true, sizeLevel: 1,
   },
   {
-    id: 'size_large', name: 'Large Store', emoji: '🏬', cost: 2000, tier: 2, section: 'storesize',
-    desc: 'Expand to a large store. Unlocks Electronics, Furniture, and Self-Checkout. Opens 3 more section slots.',
-    requires: ['size_medium'], unlocks: ['size_mega'],
+    id: 'size_medium_plus', name: 'Medium Store+', emoji: '🏬', cost: 1200, tier: 2, section: 'storesize',
+    desc: 'Extend aisles and storage in your medium store. Raises total section slots to 5 before the jump to large format.',
+    requires: ['size_medium'], unlocks: ['size_large'],
+    isStoreSize: true, sizeLevel: 1.5,
+  },
+  {
+    id: 'size_large', name: 'Large Store', emoji: '🏢', cost: 2000, tier: 3, section: 'storesize',
+    desc: 'Expand to a large store. Unlocks Electronics, Furniture, and Self-Checkout, and raises total section slots to 7.',
+    requires: ['size_medium_plus'], unlocks: ['size_large_plus'],
     isStoreSize: true, sizeLevel: 2,
   },
   {
-    id: 'size_mega', name: 'Mega Store', emoji: '🏢', cost: 5500, tier: 3, section: 'storesize',
+    id: 'size_large_plus', name: 'Large Store+', emoji: '🏙️', cost: 3600, tier: 4, section: 'storesize',
+    desc: 'Widen your large floor plan. Raises total section slots to 10 and boosts flow before the final mega expansion.',
+    requires: ['size_large'], unlocks: ['size_mega'],
+    isStoreSize: true, sizeLevel: 2.5,
+  },
+  {
+    id: 'size_mega', name: 'Mega Store', emoji: '🌆', cost: 5500, tier: 5, section: 'storesize',
     desc: 'Become a Mega Store. All departments and tier-3 upgrades unlocked. Maximum customer capacity.',
-    requires: ['size_large'], unlocks: [],
+    requires: ['size_large_plus'], unlocks: [],
     isStoreSize: true, sizeLevel: 3,
   },
 ];
@@ -645,10 +663,23 @@ function getCheckoutLanes(upgs) {
 }
 
 function getStoreSize(upgs) {
-  if (upgs.includes('size_mega'))   return 3;
-  if (upgs.includes('size_large'))  return 2;
-  if (upgs.includes('size_medium')) return 1;
+  if (upgs.includes('size_mega'))        return 6;
+  if (upgs.includes('size_large_plus'))  return 5;
+  if (upgs.includes('size_large'))       return 4;
+  if (upgs.includes('size_medium_plus')) return 3;
+  if (upgs.includes('size_medium'))      return 2;
+  if (upgs.includes('size_small_plus'))  return 1;
   return 0;
+}
+
+function mapRequiredStoreLevel(legacySizeTier) {
+  if (!legacySizeTier) return 0;
+  return legacySizeTier * 2;
+}
+
+function requiredStoreName(legacySizeTier) {
+  const names = { 1: 'Medium', 2: 'Large', 3: 'Mega' };
+  return names[legacySizeTier] || 'bigger';
 }
 
 function emit(room) {
@@ -1872,9 +1903,9 @@ io.on('connection', (socket) => {
     // Check store size requirement
     if (upg.requiresSize) {
       const currentSize = getStoreSize(room.upgrades);
-      if (currentSize < upg.requiresSize) {
-        const sizeNames = ['Small', 'Medium', 'Large', 'Mega'];
-        socket.emit('msg', { type:'error', text:`Requires a ${sizeNames[upg.requiresSize]} Store — expand first!` }); return;
+      const requiredSizeLevel = mapRequiredStoreLevel(upg.requiresSize);
+      if (currentSize < requiredSizeLevel) {
+        socket.emit('msg', { type:'error', text:`Requires a ${requiredStoreName(upg.requiresSize)} Store — expand first!` }); return;
       }
     }
     const diff = room.diff || DIFFICULTY_CONFIGS.normal;
